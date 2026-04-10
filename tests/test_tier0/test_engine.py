@@ -226,8 +226,8 @@ class TestTier0EngineVTIntegration:
         assert result.findings[0].needs_human_review is True
         assert result.findings[0].finding_id == "VT-NOTFOUND-001"
 
-    def test_vt_returns_none_no_findings(self):
-        """When VT client returns None (error), no findings from VT."""
+    def test_vt_returns_none_no_risk_findings(self):
+        """When VT client returns None (error), we get a not-found info finding."""
         engine = self._make_engine_with_mock_vt()
         engine.vt_client.lookup_hash.return_value = None
 
@@ -236,7 +236,10 @@ class TestTier0EngineVTIntegration:
 
         assert result.vt_result is None
         assert result.short_circuit is False
-        assert result.findings == []
+        # Should have a not-found INFO finding (no risk contribution)
+        assert len(result.findings) == 1
+        assert result.findings[0].finding_id == "VT-NOTFOUND-001"
+        assert result.findings[0].severity == Severity.INFO
 
     def test_findings_have_mitre_ids(self):
         """Malicious findings should include MITRE ATT&CK IDs."""

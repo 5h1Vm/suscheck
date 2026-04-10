@@ -78,16 +78,19 @@ class Tier0Engine:
         self.hasher = HashEngine(max_file_size=max_file_size)
         self.vt_client = VirusTotalClient(api_key=vt_api_key)
 
-    def check_file(self, file_path: str) -> Tier0Result:
+    def check_file(self, file_path: str, upload_vt: bool = False) -> Tier0Result:
         """Run Tier 0 checks on a file.
 
         1. Compute hashes
         2. Query VirusTotal (if available)
-        3. Generate findings
-        4. Determine short-circuit
+        3. If hash not found and upload_vt=True, upload file for full AV scan
+        4. Generate findings
+        5. Determine short-circuit
 
         Args:
             file_path: Path to file to check.
+            upload_vt: If True, upload file to VT when hash is unknown.
+                       WARNING: uploaded files become PUBLICLY VISIBLE on VT.
 
         Returns:
             Tier0Result with hash data, VT results, findings, and
@@ -114,10 +117,22 @@ class Tier0Engine:
                 result.hash_result.vt_lookup_hash
             )
 
-            if result.vt_result:
+            if result.vt_result and result.vt_result.found:
                 self._process_vt_result(result)
+            elif upload_vt:
+                # Hash not found — upload file for full scan
+                logger.info(
+                    "Hash not in VT database. Uploading file for full scan "
+                    "(--upload-vt enabled)..."
+                )
+                result.vt_result = self.vt_client.upload_file(file_path)
+                if result.vt_result:
+                    self._process_vt_result(result)
+                else:
+                    logger.info("VT upload returned no result")
+                    self._add_not_found_finding(result)
             else:
-                logger.info("VirusTotal returned no result (hash not in database)")
+                self._add_not_found_finding(result)
         else:
             if not self.vt_client.available:
                 logger.info("VirusTotal lookup skipped: no API key configured")
@@ -150,7 +165,29 @@ class Tier0Engine:
         result.scan_duration = time.time() - start_time
         return result
 
-    # ── Internal processing ───────────────────────────────────────
+    def _add_not_found_finding(self, result: Tier0Result) -> None:
+        """Add a 'hash not found' informational finding."""
+        result.findings.append(
+            Finding(
+                module="tier0",
+                finding_id="VT-NOTFOUND-001",
+                title="Hash not found in VirusTotal",
+                description=(
+                    "This file's hash is not in the VirusTotal database. "
+                    "It may be a first-seen or uncommon artifact. "
+                    "Use --upload-vt to upload the file for a full AV scan."
+                ),
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=1.0,
+                file_path=result.hash_result.file_path if result.hash_result else None,
+                needs_human_review=True,
+                review_reason="File hash not found in VirusTotal — first-seen artifact",
+                evidence={
+                    "sha256": result.hash_result.sha256 if result.hash_result else "",
+                },
+            )
+        )
 
     def _process_vt_result(self, result: Tier0Result) -> None:
         """Process VT result: generate findings, set short-circuit, set PRI adjustment."""
@@ -159,27 +196,7 @@ class Tier0Engine:
             return
 
         if not vt.found:
-            # Hash not in VT database — neutral signal
-            result.findings.append(
-                Finding(
-                    module="tier0",
-                    finding_id="VT-NOTFOUND-001",
-                    title="Hash not found in VirusTotal",
-                    description=(
-                        "This file's hash is not in the VirusTotal database. "
-                        "It may be a first-seen or uncommon artifact."
-                    ),
-                    severity=Severity.INFO,
-                    finding_type=FindingType.REVIEW_NEEDED,
-                    confidence=1.0,
-                    file_path=result.hash_result.file_path if result.hash_result else None,
-                    needs_human_review=True,
-                    review_reason="File hash not found in VirusTotal — first-seen artifact",
-                    evidence={
-                        "sha256": result.hash_result.sha256 if result.hash_result else "",
-                    },
-                )
-            )
+            self._add_not_found_finding(result)
             return
 
         detections = vt.detection_count

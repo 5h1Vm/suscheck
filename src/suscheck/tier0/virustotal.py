@@ -178,6 +178,148 @@ class VirusTotalClient:
 
         return self._parse_domain_response(domain, data)
 
+    def upload_file(
+        self, file_path: str, poll_timeout: int = 120
+    ) -> Optional[VirusTotalResult]:
+        """Upload a file to VirusTotal for scanning.
+
+        ⚠️  WARNING: Uploaded files become PUBLICLY VISIBLE on VirusTotal.
+        This should ONLY be used with explicit user opt-in (--upload-vt flag).
+
+        Args:
+            file_path: Path to the file to upload.
+            poll_timeout: Max seconds to wait for scan results (default 120).
+
+        Returns:
+            VirusTotalResult with scan results, or None on error.
+        """
+        if not self.available:
+            logger.info("VirusTotal upload skipped: no API key configured")
+            return None
+
+        # VT free tier: files up to 32 MB via /files endpoint
+        # Files 32-650 MB use /files/upload_url (get a special upload URL first)
+        import os as _os
+        file_size = _os.path.getsize(file_path)
+        max_direct = 32 * 1024 * 1024  # 32 MB
+
+        if file_size > max_direct:
+            logger.warning(
+                f"File too large for VT direct upload ({file_size:,} bytes, "
+                f"max {max_direct:,}). Large file upload not yet supported."
+            )
+            return None
+
+        try:
+            logger.info(f"Uploading {file_path} to VirusTotal for scanning...")
+
+            with open(file_path, "rb") as f:
+                files = {"file": (_os.path.basename(file_path), f)}
+                response = self._session.post(
+                    f"{VT_API_BASE}/files",
+                    files=files,
+                    timeout=60,  # uploads can be slow
+                )
+
+            # Rate limited
+            if response.status_code == 429:
+                logger.warning("VirusTotal rate limit hit during upload")
+                return None
+
+            if response.status_code in (401, 403):
+                logger.error("VirusTotal API key is invalid or expired")
+                return None
+
+            response.raise_for_status()
+            upload_data = response.json().get("data", {})
+            analysis_id = upload_data.get("id")
+
+            if not analysis_id:
+                logger.warning("VirusTotal upload succeeded but no analysis ID returned")
+                return None
+
+            logger.info(f"File uploaded. Analysis ID: {analysis_id}. Polling for results...")
+
+            # Poll for analysis completion
+            return self._poll_analysis(analysis_id, file_path, poll_timeout)
+
+        except requests.exceptions.Timeout:
+            logger.warning("VirusTotal upload timed out")
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.warning("VirusTotal is unreachable (no network?)")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"VirusTotal upload failed: {e}")
+            return None
+        except OSError as e:
+            logger.warning(f"Cannot read file for upload: {e}")
+            return None
+
+    def _poll_analysis(
+        self, analysis_id: str, file_path: str, timeout: int
+    ) -> Optional[VirusTotalResult]:
+        """Poll VT for analysis completion.
+
+        Args:
+            analysis_id: VT analysis ID from upload.
+            file_path: Original file path (for result labeling).
+            timeout: Max seconds to wait.
+
+        Returns:
+            VirusTotalResult when analysis is complete, or None on timeout.
+        """
+        url = f"{VT_API_BASE}/analyses/{analysis_id}"
+        start_time = time.time()
+        poll_interval = 10  # seconds between polls
+
+        while (time.time() - start_time) < timeout:
+            data = self._make_request(url)
+            if data is None:
+                time.sleep(poll_interval)
+                continue
+
+            attrs = data.get("attributes", {})
+            status = attrs.get("status")
+
+            if status == "completed":
+                # Get the file hash from the analysis results
+                meta = data.get("meta", {})
+                file_info = meta.get("file_info", {})
+                sha256 = file_info.get("sha256", "")
+
+                if sha256:
+                    # Fetch the full file report using the hash
+                    return self.lookup_hash(sha256)
+                else:
+                    # Parse directly from analysis results
+                    stats = attrs.get("stats", {})
+                    malicious_count = stats.get("malicious", 0)
+                    suspicious_count = stats.get("suspicious", 0)
+                    total_engines = sum(stats.values()) if stats else 0
+                    detection_count = malicious_count + suspicious_count
+
+                    return VirusTotalResult(
+                        hash_sha256=analysis_id,
+                        detection_count=detection_count,
+                        total_engines=total_engines,
+                        malicious=detection_count > 0,
+                        found=True,
+                    )
+
+            elif status == "queued" or status == "in-progress":
+                elapsed = int(time.time() - start_time)
+                logger.info(
+                    f"VT analysis {status}... ({elapsed}s / {timeout}s timeout)"
+                )
+                time.sleep(poll_interval)
+            else:
+                logger.warning(f"Unexpected VT analysis status: {status}")
+                time.sleep(poll_interval)
+
+        logger.warning(f"VT analysis timed out after {timeout}s")
+        return None
+
     # ── Internal helpers ──────────────────────────────────────────
 
     def _make_request(self, url: str) -> Optional[dict]:
