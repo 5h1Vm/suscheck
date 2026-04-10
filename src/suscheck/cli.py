@@ -3,16 +3,19 @@
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 from suscheck import __version__
+from suscheck.core.auto_detector import AutoDetector
 
 app = typer.Typer(
     name="suscheck",
-    help="Pre-execution security scanning platform. Scan before you trust.",
+    help="sus check — Pre-execution security scanning platform. Scan before you trust.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 console = Console()
+detector = AutoDetector()
 
 
 @app.command()
@@ -24,42 +27,64 @@ def scan(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Scan any artifact for security issues."""
-    console.print(f"\n[bold blue]suscheck[/bold blue] v{__version__}")
-    console.print(f"Scanning: [yellow]{target}[/yellow]\n")
-    console.print("[dim]Scanner modules not yet implemented. Coming in Increment 1+.[/dim]")
+    console.print(f"\n[bold blue]sus check[/bold blue] v{__version__}")
+    console.print(f"Target: [yellow]{target}[/yellow]\n")
+
+    result = detector.detect(target)
+
+    table = Table(title="Detection Result", border_style="blue")
+    table.add_column("Property", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Artifact Type", f"[cyan]{result.artifact_type.value}[/cyan]")
+    table.add_row("Language/Format", f"[green]{result.language.value}[/green]")
+    table.add_row("Detection Method", result.detection_method)
+    table.add_row("Confidence", f"{result.confidence:.0%}")
+    table.add_row("File Path", str(result.file_path))
+
+    if result.magic_description:
+        table.add_row("Magic Description", result.magic_description)
+
+    if result.is_polyglot:
+        langs = ", ".join(l.value for l in result.secondary_languages)
+        table.add_row("[yellow]⚠️ Polyglot[/yellow]", f"[yellow]Also detected as: {langs}[/yellow]")
+
+    if result.type_mismatch:
+        table.add_row("[red]🚨 Mismatch[/red]", f"[red]{result.mismatch_detail}[/red]")
+
+    console.print(table)
+    console.print("\n[dim]Scanning modules coming in Increment 2+.[/dim]")
 
 
 @app.command()
-def explain(
-    file: str = typer.Argument(help="File to explain"),
-):
+def explain(file: str = typer.Argument(help="File to explain")):
     """Explain what a file does in plain English. AI-powered behavioral analysis."""
-    console.print(f"\n[bold blue]suscheck explain[/bold blue]")
+    console.print(f"\n[bold blue]sus check explain[/bold blue]")
     console.print(f"Target: [yellow]{file}[/yellow]")
-    console.print("[dim]Explain mode not yet implemented. Coming in Increment 17.[/dim]")
+    console.print("[dim]Coming in Increment 17.[/dim]")
 
 
 @app.command()
 def trust(
     package: str = typer.Argument(help="Package name to assess"),
-    ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Package ecosystem: pypi, npm"),
+    ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
 ):
     """Quick supply chain trust assessment for a package."""
-    console.print(f"\n[bold blue]suscheck trust[/bold blue]")
+    console.print(f"\n[bold blue]sus check trust[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] ({ecosystem})")
-    console.print("[dim]Trust assessment not yet implemented. Coming in Increment 9.[/dim]")
+    console.print("[dim]Coming in Increment 9.[/dim]")
 
 
 @app.command()
 def install(
     ecosystem: str = typer.Argument(help="Package manager: pip, npm"),
-    package: str = typer.Argument(help="Package name to scan and install"),
+    package: str = typer.Argument(help="Package to scan and install"),
     force: bool = typer.Option(False, "--force", help="Install even if scan finds issues"),
 ):
     """Scan a package, then install it if safe."""
-    console.print(f"\n[bold blue]suscheck install[/bold blue]")
+    console.print(f"\n[bold blue]sus check install[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] via {ecosystem}")
-    console.print("[dim]Wrapper mode not yet implemented. Coming in Increment 15.[/dim]")
+    console.print("[dim]Coming in Increment 15.[/dim]")
 
 
 @app.command()
@@ -69,9 +94,9 @@ def clone(
     force: bool = typer.Option(False, "--force", help="Clone even if scan finds issues"),
 ):
     """Scan a repository, then clone it if safe."""
-    console.print(f"\n[bold blue]suscheck clone[/bold blue]")
+    console.print(f"\n[bold blue]sus check clone[/bold blue]")
     console.print(f"Repository: [yellow]{url}[/yellow]")
-    console.print("[dim]Wrapper mode not yet implemented. Coming in Increment 15.[/dim]")
+    console.print("[dim]Coming in Increment 15.[/dim]")
 
 
 @app.command()
@@ -80,20 +105,20 @@ def connect(
     force: bool = typer.Option(False, "--force", help="Connect even if scan finds issues"),
 ):
     """Scan an MCP server, then provide connection config if safe."""
-    console.print(f"\n[bold blue]suscheck connect[/bold blue]")
+    console.print(f"\n[bold blue]sus check connect[/bold blue]")
     console.print(f"MCP Server: [yellow]{server}[/yellow]")
-    console.print("[dim]Wrapper mode not yet implemented. Coming in Increment 15.[/dim]")
+    console.print("[dim]Coming in Increment 15.[/dim]")
 
 
 @app.command()
 def version():
-    """Show suscheck version and system info."""
+    """Show sus check version and system info."""
     import shutil
     import sys
 
     console.print(
         Panel(
-            f"[bold blue]suscheck[/bold blue] v{__version__}\n"
+            f"[bold blue]sus check[/bold blue] v{__version__}\n"
             f"Python {sys.version.split()[0]}\n"
             f"\n[bold]External Tools:[/bold]\n"
             f"  gitleaks:  {'✅ found' if shutil.which('gitleaks') else '❌ not found'}\n"
@@ -101,11 +126,7 @@ def version():
             f"  bandit:    {'✅ found' if shutil.which('bandit') else '❌ not found'}\n"
             f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
             f"  kics:      {'✅ found' if shutil.which('kics') else '❌ not found'}",
-            title="System Info",
+            title="sus check — System Info",
             border_style="blue",
         )
     )
-
-
-if __name__ == "__main__":
-    app()
