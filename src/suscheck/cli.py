@@ -1,5 +1,9 @@
 """suscheck CLI — the main entry point."""
 
+import logging
+import os
+import time
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -7,6 +11,15 @@ from rich.table import Table
 
 from suscheck import __version__
 from suscheck.core.auto_detector import AutoDetector
+from suscheck.core.finding import Finding, ScanSummary, Severity, Verdict
+from suscheck.output.terminal import (
+    render_findings,
+    render_scan_footer,
+    render_scan_header,
+    render_verdict,
+    render_vt_result,
+)
+from suscheck.tier0 import Tier0Engine
 
 app = typer.Typer(
     name="suscheck",
@@ -27,33 +40,205 @@ def scan(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Scan any artifact for security issues."""
-    console.print(f"\n[bold blue]sus check[/bold blue] v{__version__}")
-    console.print(f"Target: [yellow]{target}[/yellow]\n")
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
+    else:
+        logging.basicConfig(level=logging.WARNING)
 
-    result = detector.detect(target)
+    scan_start = time.time()
+
+    # ── Header ────────────────────────────────────────────────
+    render_scan_header(target, "detecting...", __version__)
+
+    # ── Step 1: Auto-detect artifact type ─────────────────────
+    detection = detector.detect(target)
 
     table = Table(title="Detection Result", border_style="blue")
     table.add_column("Property", style="bold")
     table.add_column("Value")
 
-    table.add_row("Artifact Type", f"[cyan]{result.artifact_type.value}[/cyan]")
-    table.add_row("Language/Format", f"[green]{result.language.value}[/green]")
-    table.add_row("Detection Method", result.detection_method)
-    table.add_row("Confidence", f"{result.confidence:.0%}")
-    table.add_row("File Path", str(result.file_path))
+    table.add_row("Artifact Type", f"[cyan]{detection.artifact_type.value}[/cyan]")
+    table.add_row("Language/Format", f"[green]{detection.language.value}[/green]")
+    table.add_row("Detection Method", detection.detection_method)
+    table.add_row("Confidence", f"{detection.confidence:.0%}")
+    table.add_row("File Path", str(detection.file_path))
 
-    if result.magic_description:
-        table.add_row("Magic Description", result.magic_description)
+    if detection.magic_description:
+        table.add_row("Magic Description", detection.magic_description)
 
-    if result.is_polyglot:
-        langs = ", ".join(l.value for l in result.secondary_languages)
-        table.add_row("[yellow]⚠️ Polyglot[/yellow]", f"[yellow]Also detected as: {langs}[/yellow]")
+    if detection.is_polyglot:
+        langs = ", ".join(l.value for l in detection.secondary_languages)
+        table.add_row(
+            "[yellow]⚠️ Polyglot[/yellow]",
+            f"[yellow]Also detected as: {langs}[/yellow]",
+        )
 
-    if result.type_mismatch:
-        table.add_row("[red]🚨 Mismatch[/red]", f"[red]{result.mismatch_detail}[/red]")
+    if detection.type_mismatch:
+        table.add_row("[red]🚨 Mismatch[/red]", f"[red]{detection.mismatch_detail}[/red]")
 
     console.print(table)
-    console.print("\n[dim]Scanning modules coming in Increment 2+.[/dim]")
+
+    # ── Step 2: Tier 0 — Hash & Reputation ────────────────────
+    console.print("\n[bold]Tier 0: Hash & Reputation[/bold]")
+
+    # Check if target is a file (Tier 0 only works on files)
+    file_path = detection.file_path
+    if file_path and os.path.isfile(str(file_path)):
+        tier0 = Tier0Engine()
+        tier0_result = tier0.check_file(str(file_path))
+
+        # Show hash results
+        if tier0_result.hash_result:
+            hash_table = Table(border_style="dim", show_header=False, padding=(0, 1))
+            hash_table.add_column("Hash", style="dim bold", width=8)
+            hash_table.add_column("Value", style="dim")
+            hash_table.add_row("SHA-256", tier0_result.hash_result.sha256)
+            hash_table.add_row("MD5", tier0_result.hash_result.md5)
+            hash_table.add_row("SHA-1", tier0_result.hash_result.sha1)
+            hash_table.add_row(
+                "Size",
+                f"{tier0_result.hash_result.file_size:,} bytes",
+            )
+            console.print(hash_table)
+
+        # Show VT results
+        render_vt_result(tier0_result.vt_dict)
+
+        # Show findings from Tier 0
+        if tier0_result.findings:
+            render_findings(tier0_result.findings)
+
+        # Handle short-circuit
+        if tier0_result.short_circuit:
+            console.print(
+                Panel(
+                    "[bold red]⚡ SHORT-CIRCUIT: Known malicious file detected.\n"
+                    "Scan terminated at Tier 0. No further analysis needed.[/bold red]",
+                    border_style="red",
+                    title="⚡ Short-Circuit",
+                )
+            )
+
+            # Build summary for short-circuit verdict
+            summary = _build_summary(
+                target=target,
+                artifact_type=detection.artifact_type.value,
+                findings=tier0_result.findings,
+                pri_score=min(100, 71 + tier0_result.pri_adjustment),
+                modules_ran=["tier0"],
+                scan_duration=time.time() - scan_start,
+                vt_result=tier0_result.vt_dict,
+            )
+            render_verdict(summary)
+            render_scan_footer(summary)
+            return
+
+        # Show Tier 0 timing
+        console.print(
+            f"[dim]Tier 0 completed in {tier0_result.scan_duration:.2f}s[/dim]"
+        )
+
+        if tier0_result.errors:
+            for error in tier0_result.errors:
+                console.print(f"[yellow]⚠️ {error}[/yellow]")
+
+        # Build partial summary (more modules will add to this later)
+        all_findings = tier0_result.findings
+        vt_dict = tier0_result.vt_dict
+        modules_ran = ["tier0"]
+    else:
+        console.print("[dim]Tier 0 skipped: target is not a local file[/dim]")
+        all_findings = []
+        vt_dict = None
+        modules_ran = []
+
+    # ── Remaining modules (Tier 1, Tier 2) — stubs ────────────
+    console.print("\n[dim]Tier 1 (Static Analysis) and Tier 2 (AI Triage) "
+                  "coming in Increments 4+.[/dim]")
+
+    # ── Final verdict ─────────────────────────────────────────
+    scan_duration = time.time() - scan_start
+
+    # Compute PRI score from Tier 0 findings only (for now)
+    pri_score = _compute_preliminary_pri(all_findings)
+
+    summary = _build_summary(
+        target=target,
+        artifact_type=detection.artifact_type.value,
+        findings=all_findings,
+        pri_score=pri_score,
+        modules_ran=modules_ran,
+        modules_skipped=["supply_chain", "repo", "mcp", "code", "config", "ai_triage"],
+        scan_duration=scan_duration,
+        vt_result=vt_dict,
+    )
+    render_verdict(summary)
+    render_scan_footer(summary)
+
+
+def _compute_preliminary_pri(findings: list[Finding]) -> int:
+    """Compute a preliminary PRI score from findings.
+
+    This is a simplified version until the full Risk Aggregator
+    is implemented. Uses base severity points × confidence.
+    """
+    severity_points = {
+        Severity.CRITICAL: 25,
+        Severity.HIGH: 15,
+        Severity.MEDIUM: 8,
+        Severity.LOW: 3,
+        Severity.INFO: 1,
+    }
+
+    score = 0.0
+    for f in findings:
+        if f.ai_false_positive:
+            continue
+        base = severity_points.get(f.severity, 0)
+        score += base * f.confidence
+
+    return min(int(score), 100)
+
+
+def _build_summary(
+    target: str,
+    artifact_type: str,
+    findings: list[Finding],
+    pri_score: int,
+    modules_ran: list[str],
+    modules_skipped: list[str] | None = None,
+    scan_duration: float = 0.0,
+    vt_result: dict | None = None,
+) -> ScanSummary:
+    """Build a ScanSummary from current scan state."""
+    # Determine verdict from PRI score
+    if pri_score <= 15:
+        verdict = Verdict.CLEAR
+    elif pri_score <= 40:
+        verdict = Verdict.CAUTION
+    elif pri_score <= 70:
+        verdict = Verdict.HOLD
+    else:
+        verdict = Verdict.ABORT
+
+    return ScanSummary(
+        target=target,
+        artifact_type=artifact_type,
+        pri_score=pri_score,
+        verdict=verdict,
+        findings=findings,
+        total_findings=len(findings),
+        critical_count=sum(1 for f in findings if f.severity == Severity.CRITICAL),
+        high_count=sum(1 for f in findings if f.severity == Severity.HIGH),
+        medium_count=sum(1 for f in findings if f.severity == Severity.MEDIUM),
+        low_count=sum(1 for f in findings if f.severity == Severity.LOW),
+        info_count=sum(1 for f in findings if f.severity == Severity.INFO),
+        review_count=sum(1 for f in findings if f.needs_human_review),
+        scan_duration=scan_duration,
+        modules_ran=modules_ran,
+        modules_skipped=modules_skipped or [],
+        vt_result=vt_result,
+    )
 
 
 @app.command()
