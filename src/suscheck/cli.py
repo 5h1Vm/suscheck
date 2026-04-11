@@ -14,6 +14,7 @@ from rich.table import Table
 from suscheck import __version__
 from suscheck.core.auto_detector import AutoDetector
 from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
+from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code_scanner import CodeScanner
 from suscheck.output.terminal import (
     render_findings,
@@ -189,16 +190,33 @@ def scan(
             )
 
             # Build summary for short-circuit verdict
+            aggregator = RiskAggregator(detection.artifact_type.value)
+            pri_result = aggregator.calculate(tier0_result.findings, tier0_result.vt_dict)
+            
+            # Since it's a short circuit on malicious hash, we force score to 100
+            final_score = max(prior_score := pri_result.score, 100)
+            
+            # if we forcibly bumped the score to 100, add to the breakdown to explain why
+            if prior_score < 100:
+                pri_result.breakdown.insert(-1, "  [red]⚡ Tier 0 Short-Circuit[/red] (Known Malicious Hash) → bumped score to [bold]100/100[/bold]")
+                pri_result.breakdown[-1] = "  [bold]Total Score: 100/100[/bold]"
+
             summary = _build_summary(
                 target=target,
                 artifact_type=detection.artifact_type.value,
                 findings=tier0_result.findings,
-                pri_score=min(100, 71 + tier0_result.pri_adjustment),
+                pri_score=final_score,
                 modules_ran=["tier0"],
                 scan_duration=time.time() - scan_start,
                 vt_result=tier0_result.vt_dict,
             )
-            _render_score_explanation(tier0_result.findings, summary.pri_score)
+            
+            console.print(Panel(
+                "\n".join(pri_result.breakdown),
+                title="Score Explanation",
+                border_style="dim",
+                padding=(0, 2),
+            ))
             render_verdict(summary)
             render_scan_footer(summary)
             return
@@ -320,111 +338,32 @@ def scan(
     # ── Final verdict ─────────────────────────────────────────
     scan_duration = time.time() - scan_start
 
-    # Compute PRI score from all findings
-    pri_score = _compute_preliminary_pri(all_findings)
+    # Compute proper PRI score from all findings
+    aggregator = RiskAggregator(detection.artifact_type.value)
+    pri_result = aggregator.calculate(all_findings, vt_dict)
 
     summary = _build_summary(
         target=target,
         artifact_type=detection.artifact_type.value,
         findings=all_findings,
-        pri_score=pri_score,
+        pri_score=pri_result.score,
         modules_ran=modules_ran,
         modules_skipped=["supply_chain", "repo", "mcp", "ai_triage"],
         scan_duration=scan_duration,
         vt_result=vt_dict,
     )
-    _render_score_explanation(all_findings, summary.pri_score)
-    render_verdict(summary)
-    render_scan_footer(summary)
-
-
-# Finding IDs that are purely informational / neutral.
-# These should NOT contribute to the PRI score.
-_NEUTRAL_FINDING_IDS = {
-    "VT-CLEAN-001",      # VT says clean → already gets -5 PRI via pri_adjustment
-    "VT-NOTFOUND-001",   # VT has no data → not a risk signal
-}
-
-
-def _compute_preliminary_pri(findings: list[Finding]) -> int:
-    """Compute a preliminary PRI score from findings.
-
-    This is a simplified version until the full Risk Aggregator
-    is implemented. Uses base severity points × confidence.
-
-    Neutral/informational findings (e.g., 'hash not found in VT')
-    do NOT contribute to the score.
-    """
-    severity_points = {
-        Severity.CRITICAL: 25,
-        Severity.HIGH: 15,
-        Severity.MEDIUM: 8,
-        Severity.LOW: 3,
-        Severity.INFO: 0,  # INFO findings don't contribute to PRI
-    }
-
-    score = 0.0
-    for f in findings:
-        if f.ai_false_positive:
-            continue
-        if f.finding_id in _NEUTRAL_FINDING_IDS:
-            continue
-        base = severity_points.get(f.severity, 0)
-        score += base * f.confidence
-
-    return min(int(score), 100)
-
-
-def _render_score_explanation(findings: list[Finding], pri_score: int) -> None:
-    """Render a human-readable explanation of the PRI score."""
-    severity_points = {
-        Severity.CRITICAL: 25,
-        Severity.HIGH: 15,
-        Severity.MEDIUM: 8,
-        Severity.LOW: 3,
-        Severity.INFO: 0,
-    }
-
-    # Skip if no findings or score is 0
-    contributing = [
-        f for f in findings
-        if f.finding_id not in _NEUTRAL_FINDING_IDS
-        and not f.ai_false_positive
-        and severity_points.get(f.severity, 0) > 0
-    ]
-    informational = [
-        f for f in findings
-        if f.finding_id in _NEUTRAL_FINDING_IDS or f.severity == Severity.INFO
-    ]
-
-    lines = []
-
-    if contributing:
-        lines.append("[bold]Score Breakdown:[/bold]")
-        for f in contributing:
-            base = severity_points.get(f.severity, 0)
-            points = base * f.confidence
-            lines.append(
-                f"  [dim]•[/dim] {f.title} → "
-                f"{base} pts × {f.confidence:.0%} confidence = "
-                f"[bold]{points:.0f}[/bold] pts"
-            )
-        lines.append(f"  [bold]Total: {pri_score}/100[/bold]")
-    else:
-        lines.append(f"[bold]Score: {pri_score}/100[/bold] — no risk-contributing findings")
-
-    if informational:
-        lines.append("")
-        lines.append("[dim]Informational (not scored):[/dim]")
-        for f in informational:
-            lines.append(f"  [dim]• {f.title}[/dim]")
-
+    
+    # Render the detailed breakdown from RiskAggregator
     console.print(Panel(
-        "\n".join(lines),
+        "\n".join(pri_result.breakdown),
         title="Score Explanation",
         border_style="dim",
         padding=(0, 2),
     ))
+    
+    render_verdict(summary)
+    render_scan_footer(summary)
+
 
 
 def _build_summary(
