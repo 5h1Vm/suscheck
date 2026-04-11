@@ -33,6 +33,24 @@ class TestCodeScanner:
         assert result.skipped_reason == "file_not_found"
         assert len(result.findings) == 0
 
+    def test_recursive_decoder_integration(self):
+        # We need a payload that is doubly encoded: base64 containing a hex string containing a URL
+        # "http://c2-evil.com/payload" -> hex -> base64
+        # Hex: 687474703a2f2f63322d6576696c2e636f6d2f7061796c6f6164
+        # Base64: Njg3NDc0NzAzYTJmMmY2MzMyMmQ2NTc2Njk2YzJlNjM2ZjZkMmY3MDYxNzk2YzZmNjE2NA==
+        content = 'payload = "Njg3NDc0NzAzYTJmMmY2MzMyMmQ2NTc2Njk2YzJlNjM2ZjZkMmY3MDYxNzk2YzZmNjE2NA=="'
+        
+        scanner = CodeScanner()
+        result = scanner.scan_content(content, "test_recursive.py")
+        
+        # Should flag the original base64
+        assert any(f.finding_type.name == "ENCODED_PAYLOAD" for f in result.findings)
+        
+        # Most importantly, the network detector MUST find the deeply nested URL!
+        network_findings = [f for f in result.findings if f.finding_type.name == "NETWORK_INDICATOR"]
+        assert len(network_findings) > 0
+        assert any("c2-evil.com" in f.title for f in network_findings)
+
     def test_scan_empty_file(self, tmp_path):
         f = tmp_path / "empty.py"
         f.write_text("")
@@ -244,8 +262,9 @@ class TestCredentials:
         assert len(findings) == 0
 
     def test_stripe_key(self):
-        # Create key dynamically so GitHub push protection doesn't block the commit
-        key = "sk_" + "live_" + "XXXXXXXXXXXXXXXXXXXXXXXX"
+        # Create key dynamically so GitHub push protection doesn't block the commit.
+        # Avoid using 'XXX' as it triggers the placeholder logic!
+        key = "sk_" + "live_" + "ABCDEFABCDEFABCDEF123456"
         content = f'stripe_key = "{key}"'
         findings = detect_credentials(content, "test.py")
         assert any("Stripe" in f.title for f in findings)

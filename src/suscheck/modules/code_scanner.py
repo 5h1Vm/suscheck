@@ -17,6 +17,7 @@ from .detectors.dangerous_functions import detect_dangerous_functions
 from .detectors.encoded_strings import detect_encoded_strings
 from .detectors.entropy import detect_high_entropy
 from .detectors.network_indicators import detect_network_indicators
+from .recursive_decoder import RecursiveDecoderEngine
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,15 @@ class CodeScanner:
             CodeScanResult with all findings.
         """
         result = CodeScanResult()
+
+        # Unpack deeply obfuscated payloads via Recursive Decoder
+        decoder = RecursiveDecoderEngine()
+        deep_layers = decoder.extract_deep_payloads(content, file_path)
+        
+        # Append cleartext layers safely to the end of the content buffer
+        # This allows regex detectors to seamlessly flag deep IOCs
+        if deep_layers:
+            content += deep_layers
 
         # Run each detector and collect findings
         detectors = [
