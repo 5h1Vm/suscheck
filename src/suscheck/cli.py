@@ -16,6 +16,7 @@ from suscheck.core.auto_detector import AutoDetector
 from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code_scanner import CodeScanner
+from suscheck.modules.config_scanner import ConfigScanner
 from suscheck.output.terminal import (
     render_findings,
     render_scan_footer,
@@ -243,16 +244,28 @@ def scan(
     if file_path and os.path.isfile(str(file_path)):
         console.print("\n[bold]Tier 1: Static Analysis[/bold]")
         try:
-            scanner = CodeScanner()
-            code_result = scanner.scan_file(str(file_path), language=detection.language.value)
-            all_findings.extend(code_result.findings)
-            modules_ran.append("code")
+            config_scanner = ConfigScanner()
+            if config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+                scanner = config_scanner
+                code_result = scanner.scan(str(file_path))
+                modules_ran.append("config")
+            else:
+                scanner = CodeScanner()
+                code_result = scanner.scan_file(str(file_path), language=detection.language.value)
+                modules_ran.append("code")
 
-            if code_result.skipped_reason:
-                if code_result.skipped_reason == "binary_file":
-                    console.print("  [dim]Skipped Code Scanner: Binary file[/dim]")
-                elif code_result.skipped_reason == "file_too_large":
-                    console.print("  [dim]Skipped Code Scanner: File too large (>5MB)[/dim]")
+            all_findings.extend(code_result.findings)
+
+            skipped = getattr(code_result, "skipped_reason", None)
+            if skipped:
+                if skipped == "binary_file":
+                    console.print(f"  [dim]Skipped Scanner: Binary file[/dim]")
+                elif skipped == "file_too_large":
+                    console.print(f"  [dim]Skipped Scanner: File too large (>5MB)[/dim]")
+            
+            err = getattr(code_result, "error", None)
+            if err:
+                console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
             
             # --- Dynamic Threat Intelligence Enrichment ---
             if code_result.findings:
