@@ -238,7 +238,7 @@ def detect_encoded_strings(
                 matches.append(EncodedMatch(
                     encoding_type="base64",
                     encoded_value=value[:80],
-                    decoded_value=decoded[:200],
+                    decoded_value=decoded,
                     line_number=line_num,
                     suspicious=bool(SUSPICIOUS_DECODED.search(decoded)),
                     full_line=stripped[:200],
@@ -252,7 +252,7 @@ def detect_encoded_strings(
                 matches.append(EncodedMatch(
                     encoding_type="hex_escape",
                     encoded_value=value[:80],
-                    decoded_value=decoded[:200],
+                    decoded_value=decoded,
                     line_number=line_num,
                     suspicious=bool(SUSPICIOUS_DECODED.search(decoded)),
                     full_line=stripped[:200],
@@ -274,7 +274,7 @@ def detect_encoded_strings(
                 matches.append(EncodedMatch(
                     encoding_type="hex_string",
                     encoded_value=value[:80],
-                    decoded_value=decoded[:200],
+                    decoded_value=decoded,
                     line_number=line_num,
                     suspicious=bool(SUSPICIOUS_DECODED.search(decoded)),
                     full_line=stripped[:200],
@@ -288,7 +288,7 @@ def detect_encoded_strings(
                 matches.append(EncodedMatch(
                     encoding_type="url_encoding",
                     encoded_value=value[:80],
-                    decoded_value=decoded[:200],
+                    decoded_value=decoded,
                     line_number=line_num,
                     suspicious=bool(SUSPICIOUS_DECODED.search(decoded)),
                     full_line=stripped[:200],
@@ -302,7 +302,7 @@ def detect_encoded_strings(
                 matches.append(EncodedMatch(
                     encoding_type="unicode_escape",
                     encoded_value=value[:80],
-                    decoded_value=decoded[:200],
+                    decoded_value=decoded,
                     line_number=line_num,
                     suspicious=bool(SUSPICIOUS_DECODED.search(decoded)),
                     full_line=stripped[:200],
@@ -319,7 +319,7 @@ def detect_encoded_strings(
                     matches.append(EncodedMatch(
                         encoding_type="rot13",
                         encoded_value=qval[:80],
-                        decoded_value=decoded[:200],
+                        decoded_value=decoded,
                         line_number=line_num,
                         suspicious=True,
                         full_line=stripped[:200],
@@ -378,6 +378,7 @@ def detect_encoded_strings(
                 "encoding": match.encoding_type,
                 "encoded": match.encoded_value,
                 "decoded": match.decoded_value[:200],
+                "full_decoded": match.decoded_value,
                 "suspicious": match.suspicious,
             },
         ))
