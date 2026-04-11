@@ -1,0 +1,102 @@
+{
+  "T1027": {
+    "name": "Obfuscated Files or Information",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may attempt to make payloads difficult to discover or analyze by encrypting, encoding, or otherwise obfuscating its contents."
+  },
+  "T1027.009": {
+    "name": "Embedded Payloads",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may embed payloads within other files to conceal malicious content."
+  },
+  "T1036.008": {
+    "name": "Masquerading: Match Legitimate Resource",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may match the name or extension of a legitimate file to make their artifacts appear benign."
+  },
+  "T1059": {
+    "name": "Command and Scripting Interpreter",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse command and script interpreters to execute commands."
+  },
+  "T1059.001": {
+    "name": "PowerShell",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse PowerShell to perform actions and execute commands."
+  },
+  "T1059.003": {
+    "name": "Windows Command Shell",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse cmd.exe to execute commands."
+  },
+  "T1059.004": {
+    "name": "Unix Shell",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse Unix shell commands and scripts for execution."
+  },
+  "T1059.006": {
+    "name": "Python",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse Python for execution."
+  },
+  "T1059.007": {
+    "name": "JavaScript",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse JavaScript for execution."
+  },
+  "T1071": {
+    "name": "Application Layer Protocol",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using OSI application layer protocols."
+  },
+  "T1071.001": {
+    "name": "Web Protocols",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using application layer protocols associated with web traffic."
+  },
+  "T1102": {
+    "name": "Web Service",
+    "tactic": "Command and Control",
+    "description": "Adversaries may use an existing, legitimate external Web service as a means for relaying C2 data."
+  },
+  "T1140": {
+    "name": "Deobfuscate/Decode Files or Information",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may use obfuscated files or information to hide artifacts of an intrusion."
+  },
+  "T1552.001": {
+    "name": "Credentials In Files",
+    "tactic": "Credential Access",
+    "description": "Adversaries may search local file systems for files containing insecurely stored credentials."
+  },
+  "T1053.003": {
+    "name": "Cron",
+    "tactic": "Persistence",
+    "description": "Adversaries may abuse cron utilities to establish scheduled tasks for persistence."
+  },
+  "T1547.001": {
+    "name": "Registry Run Keys / Startup Folder",
+    "tactic": "Persistence",
+    "description": "Adversaries may achieve persistence by adding a program to a startup folder or run key."
+  },
+  "T1567.002": {
+    "name": "Exfiltration to Cloud Storage",
+    "tactic": "Exfiltration",
+    "description": "Adversaries may exfiltrate data to a cloud storage service."
+  },
+  "T1571": {
+    "name": "Non-Standard Port",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using non-standard ports."
+  },
+  "T1572": {
+    "name": "Protocol Tunneling",
+    "tactic": "Command and Control",
+    "description": "Adversaries may tunnel network communications to avoid detection."
+  },
+  "T1562.001": {
+    "name": "Disable or Modify Tools",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may disable or modify security tools (AMSI, antivirus) to avoid detection."
+  }
+}

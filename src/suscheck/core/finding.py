@@ -15,8 +15,10 @@ class Severity(Enum):
 
 class FindingType(Enum):
     C2_COMMUNICATION = "c2_communication"
+    C2_INDICATOR = "c2_indicator"
     ENCODED_PAYLOAD = "encoded_payload"
     SECRET_EXPOSURE = "secret_exposure"
+    SECRET = "secret"
     REVERSE_SHELL = "reverse_shell"
     OBFUSCATION = "obfuscation"
     VULNERABILITY = "vulnerability"
@@ -31,6 +33,9 @@ class FindingType(Enum):
     PROMPT_INJECTION = "prompt_injection"
     CONFIG_RISK = "config_risk"
     DANGEROUS_FUNCTION = "dangerous_function"
+    SUSPICIOUS_BEHAVIOR = "suspicious_behavior"
+    NETWORK_INDICATOR = "network_indicator"
+    EVASION = "evasion"
     DATA_EXFILTRATION = "data_exfiltration"
     PERSISTENCE = "persistence"
     DEFENSE_EVASION = "defense_evasion"
