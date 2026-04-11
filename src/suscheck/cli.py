@@ -17,6 +17,7 @@ from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, V
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code_scanner import CodeScanner
 from suscheck.modules.config_scanner import ConfigScanner
+from suscheck.modules.repo_scanner import RepoScanner
 from suscheck.output.terminal import (
     render_findings,
     render_scan_footer,
@@ -245,7 +246,13 @@ def scan(
         console.print("\n[bold]Tier 1: Static Analysis[/bold]")
         try:
             config_scanner = ConfigScanner()
-            if config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+            repo_scanner = RepoScanner()
+            
+            if repo_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+                scanner = repo_scanner
+                code_result = scanner.scan(str(file_path))
+                modules_ran.append("repo")
+            elif config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
                 scanner = config_scanner
                 code_result = scanner.scan(str(file_path))
                 modules_ran.append("config")
@@ -361,7 +368,7 @@ def scan(
         findings=all_findings,
         pri_score=pri_result.score,
         modules_ran=modules_ran,
-        modules_skipped=["supply_chain", "repo", "mcp", "ai_triage"],
+        modules_skipped=["supply_chain", "mcp", "ai_triage"],
         scan_duration=scan_duration,
         vt_result=vt_dict,
     )
