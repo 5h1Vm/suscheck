@@ -21,6 +21,7 @@ dependencies = [
     "pyyaml>=6.0",
     "python-magic>=0.4.27",
     "python-dotenv>=1.0.0",
+    "Levenshtein>=0.23.0",
 ]
 
 [project.optional-dependencies]

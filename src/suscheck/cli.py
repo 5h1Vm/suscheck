@@ -436,7 +436,28 @@ def trust(
     """Quick supply chain trust assessment for a package."""
     console.print(f"\n[bold blue]sus check trust[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] ({ecosystem})")
-    console.print("[dim]Coming in Increment 9.[/dim]")
+    
+    from suscheck.modules.supply_chain.trust_engine import TrustEngine
+    engine = TrustEngine()
+    
+    full_target = f"{ecosystem}:{package}"
+    
+    with console.status(f"Querying {ecosystem} and deps.dev for {package}...", spinner="dots"):
+        res = engine.scan(full_target)
+        
+    if res.error:
+        console.print(f"\n[red]Trust scan failed:[/red] {res.error}")
+        raise typer.Exit(1)
+        
+    console.print(f"\n[bold]Trust Score:[/bold] {res.trust_score:.1f}/10")
+    if res.trust_score >= 8:
+        console.print("✅ Package Trust Level: [green]HIGH[/green]")
+    elif res.trust_score >= 5:
+        console.print("⚠️ Package Trust Level: [yellow]MEDIUM (Review needed)[/yellow]")
+    else:
+        console.print("🚨 Package Trust Level: [red]LOW (High Risk)[/red]")
+        
+    render_findings(res.findings)
 
 
 @app.command()
