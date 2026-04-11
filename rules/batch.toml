@@ -1,0 +1,89 @@
+[[rules]]
+id = "FUNC-BAT-POWERSHELL"
+name = "Batch → PowerShell execution"
+regex = '(?i)powershell(?:\.exe)?\s+.{0,200}-[eE](?:nc)?'
+severity = "high"
+confidence = 0.80
+finding_type = "suspicious_behavior"
+description = "Batch file launching PowerShell with encoded command. Classic dropper pattern."
+mitre_ids = ["T1059.003", "T1059.001"]
+
+[[rules]]
+id = "FUNC-BAT-REG"
+name = "Registry modification"
+regex = '(?i)\breg\s+(?:add|delete)\b'
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "Registry modification via reg.exe. Can be used for persistence or defense evasion."
+mitre_ids = ["T1112"]
+
+[[rules]]
+id = "FUNC-BAT-SC"
+name = "Service manipulation"
+regex = '(?i)\bsc\s+(?:create|config|start|stop|delete)\b'
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "Windows service manipulation. Can be used for persistence or privilege escalation."
+mitre_ids = ["T1543.003"]
+
+[[rules]]
+id = "FUNC-BAT-SCHTASKS"
+name = "Scheduled task creation"
+regex = '(?i)\bschtasks\s+/create\b'
+severity = "medium"
+confidence = 0.55
+finding_type = "suspicious_behavior"
+description = "Scheduled task creation. Often used for persistence."
+mitre_ids = ["T1053.005"]
+
+[[rules]]
+id = "FUNC-BAT-WEVTUTIL"
+name = "Event log clearing"
+regex = '(?i)\bwevtutil\s+(?:cl|clear-log)\b'
+severity = "high"
+confidence = 0.70
+finding_type = "suspicious_behavior"
+description = "Windows Event Log clearing. Defense evasion technique to hide tracks."
+mitre_ids = ["T1070.001"]
+
+[[rules]]
+id = "FUNC-BAT-NETSH"
+name = "Firewall rule modification"
+regex = '(?i)\bnetsh\s+(?:advfirewall|firewall)\b'
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "Firewall rule modification via netsh. Can be used to open backdoor ports."
+mitre_ids = ["T1562.004"]
+
+[[rules]]
+id = "FUNC-BAT-NET-STOP"
+name = "Service stop command"
+regex = '(?i)\bnet\s+stop\s+\w+'
+severity = "low"
+confidence = 0.35
+finding_type = "suspicious_behavior"
+description = "Stopping a Windows service. Could be disabling security tools."
+mitre_ids = ["T1489"]
+
+[[rules]]
+id = "FUNC-BAT-CACLS"
+name = "ACL/permission modification"
+regex = '(?i)\b(?:cacls|icacls|takeown)\b'
+severity = "medium"
+confidence = 0.45
+finding_type = "suspicious_behavior"
+description = "File permission/ACL modification. Can be used for privilege escalation."
+mitre_ids = ["T1222.001"]
+
+[[rules]]
+id = "FUNC-BAT-UAC-BYPASS"
+name = "UAC elevation request"
+regex = '(?i)(?:ShellExecute.*runas|runas\s+/user)'
+severity = "medium"
+confidence = 0.60
+finding_type = "suspicious_behavior"
+description = "UAC elevation attempt. Requesting admin privileges."
+mitre_ids = ["T1548.002"]

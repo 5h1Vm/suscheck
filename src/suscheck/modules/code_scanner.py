@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from suscheck.core.finding import Finding
 
 from .detectors.credentials import detect_credentials
-from .detectors.dangerous_functions import detect_dangerous_functions
+from .detectors.plugin_loader import detect_plugins
 from .detectors.encoded_strings import detect_encoded_strings
 from .detectors.entropy import detect_high_entropy
 from .detectors.network_indicators import detect_network_indicators
@@ -170,7 +170,7 @@ class CodeScanner:
             ("network_indicators", lambda: detect_network_indicators(content, file_path)),
             ("entropy", lambda: detect_high_entropy(content, file_path)),
             ("credentials", lambda: detect_credentials(content, file_path)),
-            ("dangerous_functions", lambda: detect_dangerous_functions(content, file_path, language)),
+            ("plugin_loader", lambda: detect_plugins(content, file_path, language)),
         ]
 
         for detector_name, detector_fn in detectors:

@@ -1,0 +1,59 @@
+[[rules]]
+id = "FUNC-PY-IMPORT"
+name = "Dynamic __import__"
+regex = '__import__\s*\('
+severity = "medium"
+confidence = 0.55
+finding_type = "suspicious_behavior"
+description = "__import__() dynamically imports modules. Often used to obfuscate malicious imports."
+mitre_ids = ["T1059.006"]
+
+[[rules]]
+id = "FUNC-PY-SUBPROCESS"
+name = "subprocess usage"
+regex = 'subprocess\s*\.\s*(?:call|run|Popen|check_output|check_call)\s*\('
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "subprocess executes OS commands. Check if the command is from user input or hardcoded."
+mitre_ids = ["T1059.006"]
+
+[[rules]]
+id = "FUNC-PY-OS-SYSTEM"
+name = "os.system() call"
+regex = 'os\s*\.\s*system\s*\('
+severity = "high"
+confidence = 0.65
+finding_type = "suspicious_behavior"
+description = "os.system() executes shell commands. Dangerous if input is not sanitized."
+mitre_ids = ["T1059.006"]
+
+[[rules]]
+id = "FUNC-PY-PICKLE"
+name = "pickle.loads() — deserialization"
+regex = 'pickle\s*\.\s*(?:loads?|Unpickler)\s*\('
+severity = "high"
+confidence = 0.70
+finding_type = "suspicious_behavior"
+description = "pickle deserialization can execute arbitrary code. A common Python exploitation vector."
+mitre_ids = ["T1059.006", "T1203"]
+
+[[rules]]
+id = "FUNC-PY-COMPILE"
+name = "compile() with exec"
+regex = '''compile\s*\([^)]*["']exec["']'''
+severity = "high"
+confidence = 0.70
+finding_type = "suspicious_behavior"
+description = "compile() with 'exec' mode can compile and execute arbitrary code."
+mitre_ids = ["T1059.006"]
+
+[[rules]]
+id = "FUNC-PY-SOCKET"
+name = "Raw socket creation"
+regex = 'socket\s*\.\s*socket\s*\('
+severity = "medium"
+confidence = 0.40
+finding_type = "suspicious_behavior"
+description = "Raw socket creation. Could be used for reverse shells or network communication."
+mitre_ids = ["T1071"]

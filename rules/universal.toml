@@ -1,0 +1,29 @@
+[[rules]]
+id = "FUNC-EVAL"
+name = "eval() call"
+regex = '(?i)\beval\s*\('
+severity = "high"
+confidence = 0.70
+finding_type = "suspicious_behavior"
+description = "eval() executes arbitrary code. Commonly used in malware to run decoded/downloaded payloads."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-EXEC"
+name = "exec() call"
+regex = '(?i)\bexec\s*\('
+severity = "high"
+confidence = 0.65
+finding_type = "suspicious_behavior"
+description = "exec() executes arbitrary code. Often used to run obfuscated malicious payloads."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-SYSTEM"
+name = "system() call"
+regex = '(?i)\bsystem\s*\('
+severity = "high"
+confidence = 0.65
+finding_type = "suspicious_behavior"
+description = "system() executes OS commands. Can be used for command injection, reverse shells, or data exfiltration."
+mitre_ids = ["T1059", "T1106"]

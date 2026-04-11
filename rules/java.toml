@@ -1,0 +1,29 @@
+[[rules]]
+id = "FUNC-JAVA-RUNTIME-EXEC"
+name = "Java Runtime.exec()"
+regex = 'Runtime\s*\.\s*(?:getRuntime\s*\(\s*\)\s*\.\s*)?exec\s*\('
+severity = "high"
+confidence = 0.65
+finding_type = "suspicious_behavior"
+description = "Java Runtime.exec() executes OS commands. Check for command injection."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-JAVA-PROCESSBUILDER"
+name = "Java ProcessBuilder"
+regex = 'ProcessBuilder\s*\('
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "Java ProcessBuilder creates OS processes. Check what commands are being executed."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-JAVA-DESERIALIZATION"
+name = "Java deserialization"
+regex = '(?:ObjectInputStream|readObject|XMLDecoder)\s*\('
+severity = "high"
+confidence = 0.65
+finding_type = "suspicious_behavior"
+description = "Java deserialization detected. Can lead to Remote Code Execution (RCE)."
+mitre_ids = ["T1059", "T1203"]

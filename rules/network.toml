@@ -1,0 +1,45 @@
+# Network Indicators Configuration
+# Hardcoded IP addresses, domains, and ports.
+
+[network]
+
+# IPs to always ignore (not interesting)
+ignored_ips = [
+    "0.0.0.0", "127.0.0.1", "255.255.255.255", 
+    "127.0.0.0", "0.0.0.1"
+]
+
+# Private/link-local ranges that are usually benign
+private_prefixes = [
+    "10.", "172.16.", "172.17.", "172.18.", "172.19.",
+    "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
+    "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
+    "172.30.", "172.31.", "192.168.", "169.254."
+]
+
+# Paste Sites used for data exfil or payload hosting
+paste_sites = [
+    "pastebin.com", "hastebin.com", "paste.ee", "dpaste.org",
+    "ix.io", "sprunge.us", "termbin.com", "0x0.st",
+    "transfer.sh", "file.io"
+]
+
+# Dynamic DNS providers used for tunneling/C2
+dynamic_dns = [
+    "ngrok.io", "ngrok-free.app", "serveo.net", "localtunnel.me",
+    "portmap.io", "pagekite.me", "localhost.run", "loca.lt",
+    "trycloudflare.com"
+]
+
+# C2 Infrastructure references
+c2_infrastructure = [
+    "discord.com/api/webhooks", 
+    "discordapp.com/api/webhooks",
+    "api.telegram.org/bot",
+    "*.onion"
+]
+
+# Suspicious Ports (commonly malware/C2)
+suspicious_ports = [
+    4444, 5555, 1337, 6666, 6667, 6668, 6669, 8888, 9999, 31337, 12345
+]

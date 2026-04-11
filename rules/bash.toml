@@ -1,0 +1,39 @@
+[[rules]]
+id = "FUNC-SH-CURL-PIPE"
+name = "curl | bash (download and execute)"
+regex = '(?i)curl\s+[^|]*\|\s*(?:ba)?sh'
+severity = "critical"
+confidence = 0.85
+finding_type = "suspicious_behavior"
+description = "Download and execute pattern. Fetches remote code and runs it directly."
+mitre_ids = ["T1059.004", "T1105"]
+
+[[rules]]
+id = "FUNC-SH-WGET-PIPE"
+name = "wget | sh (download and execute)"
+regex = '(?i)wget\s+[^|]*\|\s*(?:ba)?sh'
+severity = "critical"
+confidence = 0.85
+finding_type = "suspicious_behavior"
+description = "Download and execute pattern via wget. Fetches remote code and runs it directly."
+mitre_ids = ["T1059.004", "T1105"]
+
+[[rules]]
+id = "FUNC-SH-REVERSE-SHELL"
+name = "Reverse shell (nc/ncat)"
+regex = '(?i)(?:nc|ncat|netcat)\s+.{0,200}-e\s+/bin/(?:ba)?sh'
+severity = "critical"
+confidence = 0.95
+finding_type = "c2_indicator"
+description = "Netcat reverse shell detected. Opens a remote command shell."
+mitre_ids = ["T1059.004", "T1071.001"]
+
+[[rules]]
+id = "FUNC-SH-CRON-PERSIST"
+name = "Cron persistence"
+regex = '(?i)(?:crontab|/etc/cron)'
+severity = "medium"
+confidence = 0.50
+finding_type = "suspicious_behavior"
+description = "Cron job manipulation detected. Can be used for persistence."
+mitre_ids = ["T1053.003"]

@@ -15,6 +15,33 @@ from suscheck.core.finding import Finding, FindingType, Severity
 
 logger = logging.getLogger(__name__)
 
+import sys
+from pathlib import Path
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+# ── Dynamic Config Loading ─────────────────────────────────────────
+
+def _load_network_config() -> dict:
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    rules_path = project_root / "rules" / "network.toml"
+    if not rules_path.exists():
+        rules_path = Path("rules/network.toml")
+
+    if rules_path.exists():
+        try:
+            with open(rules_path, "rb") as f:
+                data = tomllib.load(f)
+                return data.get("network", {})
+        except Exception as e:
+            logger.error(f"Failed to load network.toml: {e}")
+    return {}
+
+_NETWORK_CONFIG = _load_network_config()
+
 # ── IPv4 regex ─────────────────────────────────────────────────────
 # Matches 0-255.0-255.0-255.0-255 with word boundaries
 IPV4_PATTERN = re.compile(
@@ -23,16 +50,16 @@ IPV4_PATTERN = re.compile(
 )
 
 # IPs to always ignore (not interesting)
-IGNORED_IPS = {
-    "0.0.0.0", "127.0.0.1", "255.255.255.255",
-    "127.0.0.0", "0.0.0.1",
-}
+IGNORED_IPS = set(_NETWORK_CONFIG.get("ignored_ips", [
+    "0.0.0.0", "127.0.0.1", "255.255.255.255", "127.0.0.0", "0.0.0.1"
+]))
 
 # Private/link-local ranges that are usually benign
-PRIVATE_PREFIXES = ("10.", "172.16.", "172.17.", "172.18.", "172.19.",
-                    "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
-                    "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
-                    "172.30.", "172.31.", "192.168.", "169.254.")
+PRIVATE_PREFIXES = tuple(_NETWORK_CONFIG.get("private_prefixes", [
+    "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", 
+    "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", 
+    "172.29.", "172.30.", "172.31.", "192.168.", "169.254."
+]))
 
 # ── URL regex ──────────────────────────────────────────────────────
 URL_PATTERN = re.compile(
@@ -41,7 +68,6 @@ URL_PATTERN = re.compile(
 )
 
 # ── Domain regex (bare domains) ────────────────────────────────────
-# Simple domain extraction — not perfect but catches most
 DOMAIN_PATTERN = re.compile(
     r'\b([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.'
     r'(?:com|net|org|io|xyz|tk|ml|ga|cf|gq|top|pw|cc|sh|me|info|'
@@ -50,40 +76,17 @@ DOMAIN_PATTERN = re.compile(
 )
 
 # ── Known-bad / suspicious destinations ────────────────────────────
-PASTE_SITES = {
-    "pastebin.com", "hastebin.com", "paste.ee", "dpaste.org",
-    "ix.io", "sprunge.us", "termbin.com", "0x0.st",
-    "transfer.sh", "file.io",
-}
-
-DYNAMIC_DNS = {
-    "ngrok.io", "ngrok-free.app", "serveo.net", "localtunnel.me",
-    "portmap.io", "pagekite.me", "localhost.run", "loca.lt",
-    "trycloudflare.com",
-}
-
-C2_INFRASTRUCTURE = {
-    # Discord/Telegram webhooks commonly used for C2
-    "discord.com/api/webhooks", "discordapp.com/api/webhooks",
-    "api.telegram.org/bot",
-    # Known C2 frameworks
-    "*.onion",
-}
+PASTE_SITES = set(_NETWORK_CONFIG.get("paste_sites", []))
+DYNAMIC_DNS = set(_NETWORK_CONFIG.get("dynamic_dns", []))
+C2_INFRASTRUCTURE = set(_NETWORK_CONFIG.get("c2_infrastructure", []))
 
 SUSPICIOUS_DOMAINS = PASTE_SITES | DYNAMIC_DNS
 
 # ── Suspicious ports ───────────────────────────────────────────────
 # Common reverse shell / C2 ports
-SUSPICIOUS_PORTS = {
-    4444,   # Metasploit default
-    5555,   # Android ADB / common malware
-    1337,   # Leet port
-    6666, 6667, 6668, 6669,  # IRC (often C2)
-    8888,   # Common alt HTTP
-    9999,   # Common backdoor
-    31337,  # Eleet
-    12345,  # Common backdoor
-}
+SUSPICIOUS_PORTS = set(_NETWORK_CONFIG.get("suspicious_ports", [
+    4444, 5555, 1337, 6666, 6667, 6668, 6669, 8888, 9999, 31337, 12345
+]))
 
 # Port extraction from URLs and connect() calls
 PORT_PATTERN = re.compile(r':(\d{1,5})\b')
