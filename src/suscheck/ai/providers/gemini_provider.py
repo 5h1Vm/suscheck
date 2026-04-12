@@ -72,3 +72,45 @@ class GeminiProvider(AIProvider):
         if not text.strip():
             raise ValueError(f"Empty Gemini content: {data!r}")
         return parse_json_response(text)
+
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        if not self.is_configured():
+            raise RuntimeError("Gemini missing API key or model")
+
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self._model}:generateContent"
+        )
+        body: dict[str, Any] = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": user_prompt}],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.4, # Slightly higher for creative explanation
+            },
+        }
+        r = post_json_with_retry(
+            url,
+            headers={"Content-Type": "application/json"},
+            json_body=body,
+            timeout_sec=float(timeout_sec),
+            params={"key": self._api_key},
+        )
+        if not r.ok:
+            r.raise_for_status()
+        
+        data = r.json()
+        try:
+            return data["candidates"][0]["content"]["parts"][0].get("text", "").strip()
+        except (KeyError, IndexError, TypeError) as e:
+            raise ValueError(f"Unexpected Gemini response structure: {data!r}") from e

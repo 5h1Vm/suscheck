@@ -117,13 +117,22 @@ class MCPScanner(ScannerModule):
     def can_handle(self, artifact_type: str, file_path: str = "") -> bool:
         if not file_path:
             return False
+            
         p = Path(file_path)
-        if not p.is_file():
-            return False
         if artifact_type.lower() == "mcp_server":
             return True
-        if p.suffix.lower() == ".json" and _looks_like_mcp_json_file(p):
-            return True
+            
+        if p.is_dir():
+            # Check for MCP config in directory
+            for name in _MCP_CONFIG_NAMES:
+                if (p / name).exists():
+                    return True
+            return False
+            
+        if p.is_file() and p.suffix.lower() == ".json":
+            if _looks_like_mcp_json_file(p):
+                return True
+                
         return False
 
     def scan(self, target: str, config: dict | None = None) -> ModuleResult:

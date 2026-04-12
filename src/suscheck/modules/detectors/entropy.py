@@ -28,8 +28,8 @@ MAX_TOKEN_LENGTH = 500
 # Random base64 is ~5.5-6.0 bits/char
 # Random hex is ~3.5-4.0 bits/char (only 16 chars)
 # API keys are typically 5.0-6.0 bits/char
-ENTROPY_THRESHOLD_HIGH = 5.0   # Likely secret/key
-ENTROPY_THRESHOLD_MEDIUM = 4.5  # Possibly suspicious
+ENTROPY_THRESHOLD_HIGH = 5.8   # High confidence secret/key
+ENTROPY_THRESHOLD_MEDIUM = 5.2  # Likely suspicious
 
 # Patterns to extract quotable strings (stuff in quotes or assignments)
 STRING_PATTERN = re.compile(

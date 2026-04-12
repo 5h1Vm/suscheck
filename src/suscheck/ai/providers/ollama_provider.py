@@ -60,6 +60,40 @@ class OllamaProvider(AIProvider):
             raise ValueError(f"Unexpected Ollama response: {data!r}")
         return parse_json_response(text)
 
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        if not self._model:
+            raise RuntimeError("Ollama model not set (SUSCHECK_AI_MODEL)")
+
+        url = f"{self._host}/api/chat"
+        body = {
+            "model": self._model,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "options": {
+                "temperature": 0.4,
+            }
+        }
+        r = post_json_with_retry(
+            url,
+            headers={"Content-Type": "application/json"},
+            json_body=body,
+            timeout_sec=float(timeout_sec),
+        )
+        if not r.ok:
+            r.raise_for_status()
+        
+        data = r.json()
+        return data.get("message", {}).get("content", "").strip()
+
 
 def ollama_host() -> str:
     return os.environ.get("SUSCHECK_OLLAMA_HOST", "http://localhost:11434").strip()

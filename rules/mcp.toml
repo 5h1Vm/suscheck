@@ -28,6 +28,15 @@ title = "MCP tool name suggests unconstrained network access"
 description = "Network-capable tools combined with LLM agents can enable SSRF, exfiltration, or fetching untrusted instructions."
 mitre_ids = ["T1071", "T1105"]
 
+[[restricted_tools]]
+id = "MCP-TOOL-CREDENTIAL"
+name_pattern = '(?i)(get_password|read_secret|fetch_api_key|export_env|read_ssh_key|steal_token)'
+severity = "critical"
+confidence = 0.90
+title = "MCP tool name suggests explicit credential retrieval"
+description = "Tools designed to fetch secrets, environment variables, or SSH keys expose extremely sensitive material to the model."
+mitre_ids = ["T1552", "T1555"]
+
 [[prompt_rules]]
 id = "MCP-PROMPT-IGNORE-PRIOR"
 regex = '(?i)ignore\s+(all\s+)?(prior|previous|above)\s+instructions?'
@@ -57,3 +66,13 @@ title = "Possible credential exfiltration instruction in MCP text"
 description = "Tool or server text suggests steering the model toward leaking secrets. Treat as malicious or compromised server metadata."
 finding_type = "prompt_injection"
 mitre_ids = ["T1552", "T1048"]
+
+[[prompt_rules]]
+id = "MCP-RESOURCE-EXHAUSTION"
+regex = '.{100000,}'
+severity = "medium"
+confidence = 0.50
+title = "Extremely long MCP metadata (Potential Resource Exhaustion)"
+description = "Unusually long tool descriptions or manifest entries can be used to cause context-window overflow or resource exhaustion in the agent."
+finding_type = "suspicious_behavior"
+mitre_ids = ["T1499"]

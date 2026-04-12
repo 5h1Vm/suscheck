@@ -66,3 +66,43 @@ class AnthropicProvider(AIProvider):
         if not text.strip():
             raise ValueError(f"Unexpected Anthropic response: {data!r}")
         return parse_json_response(text)
+
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        if not self.is_configured():
+            raise RuntimeError("Anthropic missing API key or model")
+
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": self._model,
+            "max_tokens": 4096,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "temperature": 0.4,
+        }
+        r = post_json_with_retry(
+            url,
+            headers=headers,
+            json_body=body,
+            timeout_sec=float(timeout_sec),
+        )
+        if not r.ok:
+            r.raise_for_status()
+        
+        data = r.json()
+        blocks = data.get("content") or []
+        text = ""
+        for b in blocks:
+            if isinstance(b, dict) and b.get("type") == "text":
+                text += b.get("text", "")
+        return text.strip()

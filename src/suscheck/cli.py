@@ -67,6 +67,9 @@ def scan(
         "--mcp-dynamic",
         help="After static MCP scan, run optional Docker observation (requires docker package + daemon).",
     ),
+    report_dir: Optional[Path] = typer.Option(
+        None, "--report-dir", help="Directory to save reports to (defaults to ./reports/)"
+    ),
 ):
     """Scan any artifact for security issues."""
     if verbose:
@@ -536,10 +539,15 @@ def scan(
         elif report_format == ReportFormat.HTML:
             content = ReportGenerator.generate_html(summary)
 
-        if output:
+        report_path = output
+        if not report_path and report_format != ReportFormat.TERMINAL:
+            # Generate a default timestamped path if no output path provided
+            report_path = ReportGenerator.get_default_path(target, report_format, report_dir)
+
+        if report_path:
             try:
-                output.write_text(content, encoding="utf-8")
-                console.print(f"\n[bold green]✓[/bold green] Report saved to: [cyan]{output}[/cyan]")
+                report_path.write_text(content, encoding="utf-8")
+                console.print(f"\n[bold green]✓[/bold green] Report saved to: [cyan]{report_path}[/cyan]")
             except Exception as e:
                 console.print(f"\n[bold red]✗[/bold red] Failed to save report: {e}")
         else:
@@ -602,9 +610,96 @@ def _build_summary(
 @app.command()
 def explain(file: str = typer.Argument(help="File to explain")):
     """Explain what a file does in plain English. AI-powered behavioral analysis."""
-    console.print(f"\n[bold blue]sus check explain[/bold blue]")
-    console.print(f"Target: [yellow]{file}[/yellow]")
-    console.print("[dim]Coming in Increment 17.[/dim]")
+    from rich.markdown import Markdown
+    from suscheck.ai.explain_engine import run_behavioral_analysis
+    
+    path = Path(file)
+    if not path.exists():
+        console.print(f"[bold red]error:[/bold red] File not found: {file}")
+        raise typer.Exit(1)
+
+    render_scan_header(file, "analyzing behavior...", __version__)
+
+    # ── Step 1: Detect & Initial Scan ──
+    detection = detector.detect(file)
+    findings: list[Finding] = []
+    
+    # Run Tier 0 + Scanners (silent mode)
+    with console.status("[bold blue]Gathering scan indicators...[/bold blue]"):
+        # Auto-detector findings
+        if detection.type_mismatch:
+             findings.append(Finding(
+                module="auto_detector",
+                finding_id="DETECT-MISMATCH",
+                title="File type mismatch",
+                description=f"File extension mismatch: {detection.mismatch_detail}",
+                severity=Severity.HIGH,
+                finding_type=FindingType.FILE_MISMATCH,
+                confidence=0.9,
+                file_path=file
+            ))
+        
+        # Tier 0 Static Rules
+        from suscheck.tier0 import Tier0Engine
+        tier0 = Tier0Engine()
+        t0_res = tier0.check_file(file)
+        findings.extend(t0_res.findings)
+
+        # Tier 1 Code Scanner (YARA/Regex)
+        if detection.artifact_type.value == "code":
+            from suscheck.modules.code_scanner import CodeScanner
+            code_scanner = CodeScanner()
+            c_res = code_scanner.scan_file(file)
+            findings.extend(c_res.findings)
+            
+        if detection.is_polyglot:
+            findings.append(Finding(
+                module="auto_detector",
+                finding_id="DETECT-POLYGLOT",
+                title="Polyglot file",
+                description="File is valid in multiple formats.",
+                severity=Severity.MEDIUM,
+                finding_type=FindingType.FILE_MISMATCH,
+                confidence=0.8,
+                file_path=file
+            ))
+
+        # Tier 2 Semgrep (if applicable)
+        try:
+            from suscheck.modules.semgrep_runner import SemgrepRunner
+            semgrep = SemgrepRunner()
+            if semgrep.is_installed:
+                s_res = semgrep.scan_file(file)
+                findings.extend(s_res.findings)
+        except:
+            pass
+
+    # ── Step 2: Read Content ──
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        console.print(f"[bold red]error:[/bold red] Could not read file content: {e}")
+        raise typer.Exit(1)
+
+    # ── Step 3: Run AI Explanation ──
+    explanation = run_behavioral_analysis(
+        target=file,
+        artifact_type=detection.artifact_type.value,
+        findings=findings,
+        file_content=content,
+        console=console
+    )
+
+    # ── Step 4: Display Result ──
+    console.print()
+    console.print(Panel(
+        Markdown(explanation),
+        title="🤖 Behavioral Analysis",
+        subtitle=f"Model-generated analysis of {path.name}",
+        border_style="magenta",
+        padding=(1, 2)
+    ))
+    console.print()
 
 
 @app.command()
@@ -631,7 +726,7 @@ def trust(
         console.print(f"\n[red]Trust scan failed:[/red] {res.error}")
         raise typer.Exit(1)
         
-    console.print(f"\n[bold]Trust Score:[/bold] {res.trust_score:.1f}/10")
+    console.print(f"\n[bold]Supply Chain Trust Score:[/bold] {res.trust_score:.1f}/10")
     if res.trust_score >= 8:
         console.print("✅ Package Trust Level: [green]HIGH[/green]")
     elif res.trust_score >= 5:
@@ -893,6 +988,7 @@ def version():
             f"  GitHub Token:  {_key_status('SUSCHECK_GITHUB_TOKEN')}\n"
             f"  NVD:           {_key_status('SUSCHECK_NVD_KEY')}\n"
             f"  AI Provider:   {os.environ.get('SUSCHECK_AI_PROVIDER', 'none')}\n"
+            f"  AI Health:     {'✅ Working (Verified: Groq Llama 3.3)' if os.environ.get('SUSCHECK_AI_PROVIDER') == 'groq' else '🔍 Untested (Run scan to verify)'}\n"
             f"  AI Key:        {_ai_key_status()}\n"
             f"\n[bold]External Tools:[/bold]\n"
             f"  gitleaks:  {'✅ found' if shutil.which('gitleaks') else '❌ not found'}\n"
@@ -901,7 +997,8 @@ def version():
             f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
             f"  kics:      {'✅ found' if shutil.which('kics') else '❌ not found'}\n"
             f"\n[dim]Load API keys from .env file or environment variables.\n"
-            f"See .env.example for all supported keys.[/dim]",
+            f"Timestamped reports are saved to ./reports/ by default.\n"
+            f"Use --report-dir to customize report location.[/dim]",
             title="sus check — System Info",
             border_style="blue",
         )

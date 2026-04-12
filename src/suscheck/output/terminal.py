@@ -36,8 +36,8 @@ VERDICT_DISPLAY = {
 
 def render_scan_header(target: str, artifact_type: str, version: str) -> None:
     """Render scan header."""
-    console.print(f"\n[bold blue]sus check[/bold blue] v{version}")
-    console.print(f"Target: [yellow]{target}[/yellow]")
+    console.print(f"\n[bold blue]SusCheck[/bold blue] [dim]v{version}[/dim] [magenta]— Pre-execution Security Platform[/magenta]")
+    console.print(f"Target: [bold yellow]{target}[/bold yellow]")
     console.print(f"Type:   [cyan]{artifact_type}[/cyan]\n")
 
 
@@ -46,20 +46,27 @@ def render_verdict(summary: ScanSummary) -> None:
     verdict_text, verdict_style = VERDICT_DISPLAY[summary.verdict]
 
     score_bar = _build_score_bar(summary.pri_score)
+    
+    # Platform badge
+    badge = f"[{verdict_style}]⚡ SECURITY STATUS: {verdict_text}[/{verdict_style}]"
 
     content = (
-        f"[{verdict_style}]{verdict_text}[/{verdict_style}]\n\n"
-        f"Platform Risk Index: [{verdict_style}]{summary.pri_score}/100[/{verdict_style}]\n"
+        f"{badge}\n\n"
+        f"Platform Risk Index: [bold]{summary.pri_score}/100[/bold]\n"
         f"{score_bar}\n\n"
-        f"Findings: {summary.critical_count} critical · {summary.high_count} high · "
-        f"{summary.medium_count} medium · {summary.low_count} low · {summary.info_count} info"
+        f"Analysis Results:\n"
+        f"  - {summary.critical_count} Critical Threats Found\n"
+        f"  - {summary.high_count} High Risk Findings\n"
+        f"  - {summary.medium_count + summary.low_count} Moderate/Low Flags\n"
+        f"  - {summary.info_count} Informational Signals"
     )
 
     if summary.review_count > 0:
-        content += f"\n🔍 {summary.review_count} item(s) need human review"
+        content += f"\n\n🔍 [bold]{summary.review_count}[/bold] items flagged for manual review."
 
     if summary.trust_score is not None:
-        content += f"\nSupply Chain Trust: {summary.trust_score:.1f}/10"
+        trust_color = "green" if summary.trust_score >= 8 else ("yellow" if summary.trust_score >= 5 else "red")
+        content += f"\nSupply Chain Trust: [{trust_color}]{summary.trust_score:.1f}/10[/trust_color]"
 
     border = "green" if summary.verdict == Verdict.CLEAR else (
         "yellow" if summary.verdict == Verdict.CAUTION else (
@@ -67,7 +74,7 @@ def render_verdict(summary: ScanSummary) -> None:
         )
     )
 
-    console.print(Panel(content, title="Scan Verdict", border_style=border, padding=(1, 2)))
+    console.print(Panel(content, title="[bold]Final Assessment[/bold]", border_style=border, padding=(1, 2), box=box.DOUBLE))
 
 
 def render_findings(findings: list[Finding]) -> None:

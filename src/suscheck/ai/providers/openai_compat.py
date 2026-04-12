@@ -93,11 +93,51 @@ class OpenAICompatProvider(AIProvider):
             logger.warning("AI HTTP %s: %s", r.status_code, r.text[:500])
             r.raise_for_status()
         data = r.json()
+        return parse_json_response(text)
+
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        if not self.is_configured():
+            raise RuntimeError("OpenAI-compatible provider missing API key or model")
+
+        url = f"{self._base}/chat/completions"
+        headers: dict[str, str] = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        if self._id == "openrouter":
+            ref = os.environ.get("OPENROUTER_HTTP_REFERER", "").strip()
+            if ref:
+                headers["HTTP-Referer"] = ref
+            headers["X-Title"] = os.environ.get("OPENROUTER_APP_TITLE", "SusCheck").strip() or "SusCheck"
+
+        body: dict[str, Any] = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.4,
+        }
+        r = post_json_with_retry(
+            url,
+            headers=headers,
+            json_body=body,
+            timeout_sec=float(timeout_sec),
+        )
+        if not r.ok:
+            r.raise_for_status()
+        
+        data = r.json()
         try:
-            text = data["choices"][0]["message"]["content"]
+            return data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError) as e:
             raise ValueError(f"Unexpected chat completions shape: {data!r}") from e
-        return parse_json_response(text)
 
 
 def default_base_for_provider(provider_id: str) -> str:

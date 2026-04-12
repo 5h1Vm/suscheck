@@ -1,17 +1,40 @@
 """Reporting engine for generating Markdown and Premium HTML security audits."""
 
 import datetime
-from typing import List
+from typing import List, Optional
+from pathlib import Path
 from suscheck.core.finding import ScanSummary, Finding, Severity, Verdict, ReportFormat
 
 class ReportGenerator:
     """Generates security reports in various formats based on scan summaries."""
 
     @staticmethod
+    def get_default_path(target: str, format: ReportFormat, output_dir: Optional[Path] = None) -> Path:
+        """Generate a default path for the report with a timestamp.
+        
+        Format: suscheck_report_[TARGET]_[TIMESTAMP].[EXT]
+        """
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_target = "".join([c if c.isalnum() else "_" for c in Path(target).name])
+        if not safe_target:
+            safe_target = "artifact"
+            
+        ext = format.value if format.value != "terminal" else "txt"
+        filename = f"suscheck_report_{safe_target}_{timestamp}.{ext}"
+        
+        if output_dir:
+            return output_dir / filename
+            
+        # Default to a 'reports' directory in the current working directory
+        reports_dir = Path.cwd() / "reports"
+        reports_dir.mkdir(exist_ok=True)
+        return reports_dir / filename
+
+    @staticmethod
     def generate_markdown(summary: ScanSummary) -> str:
         """Generate a clean GitHub-flavored Markdown report."""
         lines = []
-        lines.append(f"# SusCheck Security Audit: {summary.target}")
+        lines.append(f"# SusCheck Security Audit Report: {summary.target}")
         lines.append(f"**Date:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"**Verdict:** {summary.verdict.value.upper()}")
         lines.append(f"**Platform Risk Index:** {summary.pri_score}/100")
@@ -240,7 +263,7 @@ class ReportGenerator:
     <div class="container">
         <header>
             <div>
-                <h1>SusCheck Scan</h1>
+                <h1>SusCheck Security Audit Report</h1>
                 <div style="color: var(--text-dim)">Target: {summary.target}</div>
             </div>
             <div style="text-align: right; color: var(--text-dim); font-size: 0.9rem;">

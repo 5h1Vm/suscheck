@@ -32,3 +32,14 @@ class AIProvider(ABC):
         Raises on transport/HTTP errors or invalid JSON payload.
         """
         ...
+
+    @abstractmethod
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        """Call the model and return a narrative string (Markdown)."""
+        ...

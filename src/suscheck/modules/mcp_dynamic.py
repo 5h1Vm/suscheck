@@ -80,7 +80,8 @@ def observe_stdio_server_in_docker(
         client = _docker_client()
         client.ping()
     except Exception as e:
-        logger.info("Docker unavailable for MCP dynamic: %s", e)
+        logger.warning("Docker unavailable for MCP dynamic: %s", e)
+        meta["status"] = "SKIPPED"
         meta["error"] = f"docker_unavailable: {e}"
         return findings, meta
 

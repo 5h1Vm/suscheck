@@ -23,3 +23,12 @@ class NoneProvider(AIProvider):
         timeout_sec: int = 90,
     ) -> dict[str, Any]:
         raise RuntimeError("NoneProvider cannot complete triage")
+
+    def complete_narrative(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        timeout_sec: int = 120,
+    ) -> str:
+        raise RuntimeError("NoneProvider cannot complete narrative")

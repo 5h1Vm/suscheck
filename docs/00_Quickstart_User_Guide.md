@@ -37,13 +37,33 @@ SusCheck will give you a **Platform Risk Index (PRI)** score out of 100.
 
 It also has a **🔍 Needs Human Review** section. If the scanner finds something weird but can't prove it's evil (like a connection to a Telegram bot API), it will flag it here for you to manually inspect.
 
-## 4. Other useful commands
-* **`suscheck trust some-package`** — PyPI-focused supply chain signals (typosquatting hints, maintenance/yanked-style checks, deps.dev context). Use `-h` for options; npm is not implemented yet in the engine.
-* **MCP config files** — If you save a Cursor-style JSON with `mcpServers`, run `suscheck scan path/to/mcp.json` to run the **static MCP scanner** (Increment 11).
+## 4. AI-Powered "Explain" Mode (New!)
+If a file is flagged as CAUTION or HOLD, and you don't understand why, use the **explain** command. This uses behavioral AI to analyze the code and scanners' findings to tell you *exactly* what the file is doing in plain English.
 
-## 5. Helpful flags
+```bash
+# Get a plain-English behavioral analysis of a file
+suscheck explain suspicious_script.py
+```
+
+## 5. Generating Audit Reports
+For professional audits or team sharing, you can generate premium reports:
+
+```bash
+# Generate a dark-mode HTML audit report
+suscheck scan suspicious_file.py --format html --output report.html
+
+# Export scan data to JSON or Markdown
+suscheck scan suspicious_file.py --format json --output data.json
+suscheck scan suspicious_file.py --format md --output report.md
+```
+
+## 6. Other useful commands
+* **`suscheck trust some-package`** — PyPI-focused supply chain signals (typosquatting hints, maintenance/yanked-style checks, deps.dev context).
+* **MCP config files** — If you save a Cursor-style JSON with `mcpServers`, run `suscheck scan path/to/mcp.json` to run the **static MCP scanner**.
+
+## 7. Helpful flags
 * `suscheck scan -h` — all `scan` options.
-* `suscheck version` — Python version, which env vars are set (partial display), and whether tools like `gitleaks` / `semgrep` / `kics` are on your PATH.
+* `suscheck version` — Python version, which env vars are set, and tool status.
 * `--upload-vt` — **Use with caution:** uploads the file to VirusTotal (becomes public there).
 
-For exact flag behavior (including options that are declared but not yet wired), see [03_CLI_Reference.md](03_CLI_Reference.md).
+For more details, see [03_CLI_Reference.md](03_CLI_Reference.md).
