@@ -28,7 +28,7 @@ class RiskAggregator:
         Severity.HIGH: 15,
         Severity.MEDIUM: 8,
         Severity.LOW: 3,
-        Severity.INFO: 0,  # INFO represents 0 points to ensure it's purely informational
+        Severity.INFO: 1,  # Aligned with Checkpoint 1a §10 Step 2
     }
 
     # Internal finding IDs that do not contribute to score
@@ -80,7 +80,7 @@ class RiskAggregator:
         context_multiplier = 1.0
         ctx_reason = "general code"
         
-        # Determine context multiplier
+        # Determine context multiplier (Checkpoint 1a §10 Step 3)
         if "script" in self.artifact_type.lower() or "sh" in self.artifact_type.lower():
             context_multiplier = 1.5
             ctx_reason = "install/execution script"
@@ -90,6 +90,12 @@ class RiskAggregator:
         elif "mcp" in self.artifact_type.lower():
             context_multiplier = 1.4
             ctx_reason = "MCP server / agent tool surface"
+        elif "test" in self.artifact_type.lower():
+            context_multiplier = 0.5
+            ctx_reason = "test file (lower risk)"
+        elif "doc" in self.artifact_type.lower() or "readme" in self.artifact_type.lower():
+            context_multiplier = 0.3
+            ctx_reason = "documentation (minimal risk)"
 
         if context_multiplier != 1.0:
             adjustment = score * context_multiplier - score
@@ -100,20 +106,32 @@ class RiskAggregator:
         correlation_score = 0.0
         
         # Gather states
-        has_network = any(f.finding_type in (FindingType.NETWORK_INDICATOR, FindingType.C2_INDICATOR) for f in findings)
-        has_obfuscation = any(f.finding_type in (FindingType.ENCODED_PAYLOAD, FindingType.FILE_MISMATCH, FindingType.POLYGLOT) for f in findings)
-        has_execution = any(f.finding_type == FindingType.SUSPICIOUS_BEHAVIOR for f in findings)
-        has_secrets = any(f.finding_type == FindingType.SECRET_EXPOSURE for f in findings)
+        has_network = any(f.finding_type in (FindingType.NETWORK_INDICATOR, FindingType.C2_INDICATOR, FindingType.C2_COMMUNICATION) for f in findings)
+        has_obfuscation = any(f.finding_type in (FindingType.ENCODED_PAYLOAD, FindingType.OBFUSCATION, FindingType.EVASION, FindingType.POLYGLOT, FindingType.FILE_MISMATCH) for f in findings)
+        has_execution = any(f.finding_type in (FindingType.SUSPICIOUS_BEHAVIOR, FindingType.DANGEROUS_FUNCTION, FindingType.REVERSE_SHELL) for f in findings)
+        has_typosquat = any(f.finding_type == FindingType.TYPOSQUATTING for f in findings)
+        has_low_trust = trust_score is not None and trust_score < 4.0
         
-        # Check EVASION_ATTEMPT (Obfuscation + malicious execution/network)
+        # 1. EVASION_ATTEMPT (Obfuscation + malicious execution/network) (+15)
         if has_obfuscation and (has_network or has_execution):
             correlation_score += 15.0
             breakdown.append("  [red]🔥 Correlation: Evasion Attempt[/red] (Obfuscation + Network/Execution) → +[bold]15.0[/bold] pts")
 
-        # Check STAGED_ATTACK (Network + execution)
+        # 2. STAGED_ATTACK (Network download + Execution) (+30)
         if has_network and has_execution:
             correlation_score += 30.0
             breakdown.append("  [red]🔥 Correlation: Staged Attack[/red] (Network download + Execution) → +[bold]30.0[/bold] pts")
+
+        # 3. TROJAN_PACKAGE (Typosquatting + Malicious Behavior) (+25)
+        if has_typosquat and (has_execution or has_network):
+            correlation_score += 25.0
+            breakdown.append("  [red]🔥 Correlation: Trojan Package[/red] (Typosquat + Malicious Behavior) → +[bold]25.0[/bold] pts")
+
+        # 4. MALICIOUS_RELEASE (Low Trust + Critical Findings) (+30)
+        has_critical = any(f.severity == Severity.CRITICAL for f in findings)
+        if has_low_trust and has_critical:
+            correlation_score += 30.0
+            breakdown.append("  [red]🔥 Correlation: Malicious Release[/red] (Low Trust + Critical findings) → +[bold]30.0[/bold] pts")
 
         score += correlation_score
 

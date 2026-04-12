@@ -24,6 +24,8 @@ class PyPIMetadata:
     upload_time: Optional[datetime.datetime]
     latest_version: str = ""
     latest_upload_time: Optional[datetime.datetime] = None
+    first_upload_time: Optional[datetime.datetime] = None
+    release_count: int = 0
     size: int = 0
 
 
@@ -88,6 +90,16 @@ class PyPIClient:
             upload_time = get_upload_time(target_version)
             latest_upload_time = get_upload_time(latest_version)
 
+            # Get first upload time (Project/Account Age proxy)
+            all_upload_times = []
+            for v_name in releases:
+                t = get_upload_time(v_name)
+                if t:
+                    all_upload_times.append(t)
+            
+            first_upload_time = min(all_upload_times) if all_upload_times else None
+            release_count = len(releases)
+
             return PyPIMetadata(
                 name=info.get("name", package_name),
                 version=target_version,
@@ -100,6 +112,8 @@ class PyPIClient:
                 upload_time=upload_time,
                 latest_version=latest_version,
                 latest_upload_time=latest_upload_time,
+                first_upload_time=first_upload_time,
+                release_count=release_count,
                 size=releases.get(target_version, [{}])[0].get("size", 0)
             )
         except Exception as e:

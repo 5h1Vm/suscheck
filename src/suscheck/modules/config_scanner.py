@@ -100,20 +100,63 @@ class ConfigScanner(ScannerModule):
                 )
                 
         # Rule 2: Open root user in Docker
-        if "dockerfile" in file_path.name.lower() and "USER root" in content:
-           findings.append(
-                Finding(
-                    module="config_scanner_custom",
-                    finding_id="SUS-CONF-DOCKER-ROOT",
-                    title="Docker Root Privilege Execution",
-                    description="The configuration executes as root inside the Docker image.",
-                    severity=Severity.MEDIUM,
-                    finding_type=FindingType.CONFIG_RISK,
-                    confidence=1.0,
-                    file_path=str(file_path),
-                    mitre_ids=["T1611"],
-                    evidence={"pattern": "USER root"}
+        if "dockerfile" in file_path.name.lower():
+            if "USER root" in content:
+               findings.append(
+                    Finding(
+                        module="config_scanner_custom",
+                        finding_id="SUS-CONF-DOCKER-ROOT",
+                        title="Docker Root Privilege Execution",
+                        description="The configuration executes as root inside the Docker image.",
+                        severity=Severity.MEDIUM,
+                        finding_type=FindingType.CONFIG_RISK,
+                        confidence=1.0,
+                        file_path=str(file_path),
+                        mitre_ids=["T1611"],
+                        evidence={"pattern": "USER root"}
+                    )
                 )
-            )
+            
+            # Rule 3: Sensitive port exposure
+            sensitive_ports = re.compile(r'EXPOSE\s+(22|3306|6379|5432|27017)', re.IGNORECASE)
+            for i, line in enumerate(content.splitlines(), start=1):
+                if match := sensitive_ports.search(line):
+                    findings.append(
+                        Finding(
+                            module="config_scanner_custom",
+                            finding_id="SUS-CONF-DOCKER-PORT",
+                            title="Sensitive Port Exposed in Dockerfile",
+                            description=f"Port {match.group(1)} is exposed. This port is associated with sensitive services (SSH/DB).",
+                            severity=Severity.LOW,
+                            finding_type=FindingType.CONFIG_RISK,
+                            confidence=1.0,
+                            file_path=str(file_path),
+                            line_number=i,
+                            code_snippet=line.strip(),
+                            mitre_ids=["T1046"],
+                            evidence={"port": match.group(1)}
+                        )
+                    )
+
+            # Rule 4: Potential secrets in ENV/ARG
+            secret_keywords = re.compile(r'(ENV|ARG)\s+(.*(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE|KEY)\s*=)', re.IGNORECASE)
+            for i, line in enumerate(content.splitlines(), start=1):
+                if match := secret_keywords.search(line):
+                    findings.append(
+                        Finding(
+                            module="config_scanner_custom",
+                            finding_id="SUS-CONF-DOCKER-SECRET",
+                            title="Potential Hardcoded Secret in Dockerfile",
+                            description="Sensitive keyword found in ENV or ARG command. Secrets should be passed via mounts or secure providers, not baked into images.",
+                            severity=Severity.HIGH,
+                            finding_type=FindingType.CREDENTIAL_EXPOSURE,
+                            confidence=0.85,
+                            file_path=str(file_path),
+                            line_number=i,
+                            code_snippet=line.strip(),
+                            mitre_ids=["T1552"],
+                            evidence={"line": line.strip()}
+                        )
+                    )
 
         return findings

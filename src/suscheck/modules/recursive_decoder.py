@@ -11,7 +11,7 @@ from suscheck.modules.detectors.encoded_strings import detect_encoded_strings
 
 logger = logging.getLogger(__name__)
 
-MAX_DECODE_DEPTH = 5
+MAX_DECODE_DEPTH = 10
 
 
 class RecursiveDecoderEngine:

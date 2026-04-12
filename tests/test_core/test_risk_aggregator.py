@@ -78,7 +78,7 @@ def test_virustotal_adjustments():
     pri = agg.calculate(findings, clean_vt)
     assert pri.score == 0
     
-    # Malicious (5 engines): base 1 + 25 = 26
+    # Malicious (5 engines): base 1 (Info) + 25 (VT) = 26
     mal_vt = {"status": "found", "data": {"attributes": {"last_analysis_stats": {"malicious": 5, "suspicious": 0}}}}
     pri2 = agg.calculate(findings, mal_vt)
     assert pri2.score == 26

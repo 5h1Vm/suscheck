@@ -62,7 +62,9 @@ def test_typosquatting_and_abandoned(mock_deps_cls, mock_pypi_cls, trust_engine)
         home_page="",
         project_urls={},
         yanked=False,
-        upload_time=datetime.now(timezone.utc) - timedelta(days=800), # > 365 days
+        upload_time=datetime.now(timezone.utc) - timedelta(days=800),
+        latest_upload_time=datetime.now(timezone.utc) - timedelta(days=800),
+        first_upload_time=datetime.now(timezone.utc) - timedelta(days=900),
         size=500
     )
     
@@ -73,8 +75,12 @@ def test_typosquatting_and_abandoned(mock_deps_cls, mock_pypi_cls, trust_engine)
     res = trust_engine.scan("requesrs")
     
     assert res.error is None
-    # 10.0 base - 3.0 (Typosquat) - 2.0 (Abandoned) = 5.0
-    assert res.trust_score == 5.0
+    # Base 10 weights:
+    # Typo: 0.0 * 1.5 = 0
+    # Abandoned: 0.4 * 1.0 = 0.4
+    # Others: 1.0 * (1.5 + 1.5 + 1.0 + 1.0 + 1.0 + 0.5 + 1.0) = 7.5
+    # Total: 7.9
+    assert res.trust_score == 7.9
     assert len(res.findings) == 2
     
     typo = next(f for f in res.findings if f.finding_type == FindingType.TYPOSQUATTING)
@@ -101,6 +107,8 @@ def test_cve_advisories(mock_deps_cls, mock_pypi_cls, trust_engine):
         project_urls={},
         yanked=False,
         upload_time=datetime.now(timezone.utc),
+        latest_upload_time=datetime.now(timezone.utc),
+        first_upload_time=datetime.now(timezone.utc) - timedelta(days=500), # > 30 days
         size=500
     )
     
@@ -113,8 +121,11 @@ def test_cve_advisories(mock_deps_cls, mock_pypi_cls, trust_engine):
 
     res = trust_engine.scan("some-pkg")
     
-    # Base 10 - 4.0 - 4.0 = 2.0
-    assert res.trust_score == 2.0
+    # Base 10 weights: 
+    # CVEs: 0.2 * 1.0 = 0.2
+    # Others: 1.0 * (1.5*3 + 1.0*3 + 0.5) = 9.0
+    # Total: 9.2
+    assert res.trust_score == 9.2
     assert len(res.findings) == 2
     for f in res.findings:
         assert f.finding_type == FindingType.CVE

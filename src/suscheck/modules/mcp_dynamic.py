@@ -183,6 +183,51 @@ def observe_stdio_server_in_docker(
                 )
             )
 
+        # --- New: Filesystem Delta Monitoring (Checkpoint 1a Stage 2) ---
+        try:
+            fs_diff = container.diff()
+            if fs_diff:
+                meta["fs_diff_count"] = len(fs_diff)
+                sensitive_changes = []
+                for change in fs_diff:
+                    path = change.get("Path", "")
+                    # Flag modifications to sensitive system paths or new binaries
+                    if any(p in path for p in ["/etc/", "/usr/bin/", "/bin/", "/root/", ".ssh"]):
+                         sensitive_changes.append(path)
+                
+                if sensitive_changes:
+                    findings.append(
+                        Finding(
+                            module="mcp_dynamic",
+                            finding_id=f"MCP-DYN-FS-{server_name}"[:48],
+                            title=f"MCP server '{server_name}' modified sensitive system paths",
+                            description=(
+                                f"During observation, the server modified or created files in sensitive locations: "
+                                f"{', '.join(sensitive_changes[:5])}. This level of filesystem access is highly "
+                                f"suspicious for an MCP tool."
+                            ),
+                            severity=Severity.HIGH,
+                            finding_type=FindingType.SUSPICIOUS_BEHAVIOR,
+                            confidence=0.8,
+                            file_path=file_path or None,
+                            context="config",
+                            mitre_ids=["T1083", "T1222"],
+                            evidence={"sensitive_paths": sensitive_changes}
+                        )
+                    )
+        except Exception as e:
+            logger.debug(f"FS diff failed for {server_name}: {e}")
+
+        # --- New: Process Monitoring (Checkpoint 1a Stage 2) ---
+        try:
+            top_info = container.top()
+            if top_info:
+                processes = top_info.get("Processes", [])
+                meta["process_count"] = len(processes)
+                meta["top_processes"] = processes[:10]
+        except Exception:
+            pass
+
         container.reload()
         exit_code = container.attrs.get("State", {}).get("ExitCode")
         meta["exit_code"] = exit_code

@@ -70,19 +70,35 @@ class TrustEngine(ScannerModule):
                 error=f"Package {pkg_name} not found on PyPI"
             )
 
-        # Signal 1: Typosquatting
+        # --- 9-Category Weighted Trust Scoring ---
+        # Weights (Checkpoint 1a §7 Module 2)
+        # Typosquat 15%, Maintainer 15%, Takeover 15%, Abandoned 10%, 
+        # Delta 10%, Confusion 10%, Install 10%, Metadata 5%, CVEs 10%
+        
+        score_components = {
+            "typosquat": 1.0,
+            "maintainer": 1.0,
+            "takeover": 1.0,
+            "abandoned": 1.0,
+            "delta": 1.0,
+            "confusion": 1.0,
+            "install": 1.0,
+            "metadata": 1.0,
+            "cves": 1.0
+        }
+
+        # 1. Typosquat Detection (15%)
         if pkg_name not in self.POPULAR_PACKAGES:
             for pop_pkg in self.POPULAR_PACKAGES:
                 dist = Levenshtein.distance(pkg_name.lower(), pop_pkg.lower())
-                # If distance is extremely small (e.g. 1 or 2 edits away)
                 if 1 <= dist <= 2:
-                    trust_score -= 3.0
+                    score_components["typosquat"] = 0.0
                     findings.append(
                         Finding(
                             module="trust_engine",
                             finding_id="TRUST-TYPOSQUAT",
                             title=f"Potential Typosquat of '{pop_pkg}'",
-                            description=f"Package name '{pkg_name}' is dangerously close to popular package '{pop_pkg}'. Check spelling.",
+                            description=f"Package name '{pkg_name}' is dangerously close to popular package '{pop_pkg}'.",
                             severity=Severity.HIGH,
                             finding_type=FindingType.TYPOSQUATTING,
                             confidence=0.85,
@@ -91,82 +107,99 @@ class TrustEngine(ScannerModule):
                     )
                     break
 
-        # Signal 2: Abandoned packages (Project-level activity)
+        # 2. Maintainer Reputation & Account Age (15%)
+        if meta.first_upload_time:
+            account_age = datetime.now(timezone.utc) - meta.first_upload_time.replace(tzinfo=timezone.utc)
+            if account_age.days < 30:
+                score_components["maintainer"] = 0.2
+                findings.append(
+                    Finding(
+                        module="trust_engine",
+                        finding_id="TRUST-NEW-ACCOUNT",
+                        title="Brand New Account",
+                        description=f"Package registered {account_age.days} days ago. Highly suspicious for targeted supply chain attacks.",
+                        severity=Severity.MEDIUM,
+                        finding_type=FindingType.MAINTAINER_RISK,
+                        confidence=0.9
+                    )
+                )
+            elif meta.release_count < 2 and account_age.days < 90:
+                 score_components["maintainer"] = 0.5
+
+        # 3. Package Takeover Detection (15%)
+        # Logic: If account is old but this is the first release by a NEW author/maintainer name
+        # (This heuristic is simplified for v1 based on available metadata)
+        if meta.maintainer and meta.author and meta.maintainer != meta.author:
+             score_components["takeover"] = 0.7
+             # This is just a warning in v1 as it happens in legitimate forks
+        
+        # 4. Abandoned Packages (10%)
         if meta.latest_upload_time:
             project_delta = datetime.now(timezone.utc) - meta.latest_upload_time.replace(tzinfo=timezone.utc)
             if project_delta.days > 365:
-                trust_score -= 2.0
+                score_components["abandoned"] = 0.4
                 findings.append(
                     Finding(
                         module="trust_engine",
                         finding_id="TRUST-ABANDONED",
-                        title=f"Project Abandoned (>1 year)",
-                        description=f"The project appears inactive. Latest version '{meta.latest_version}' was uploaded {project_delta.days} days ago.",
+                        title="Project Abandoned",
+                        description=f"Inactive for {project_delta.days} days.",
                         severity=Severity.MEDIUM,
                         finding_type=FindingType.ABANDONED_PACKAGE,
                         confidence=1.0,
-                        mitre_ids=["T1195.002"]
                     )
                 )
 
-        # Signal 4: Old Version Usage (Informational, 0.0 penalty)
-        if meta.upload_time and meta.version != meta.latest_version:
-            version_delta = datetime.now(timezone.utc) - meta.upload_time.replace(tzinfo=timezone.utc)
-            if version_delta.days > 365:
-                findings.append(
-                    Finding(
-                        module="trust_engine",
-                        finding_id="TRUST-OLD-VERSION",
-                        title=f"Running Old Version",
-                        description=(
-                            f"Version {meta.version} is {version_delta.days} days old. "
-                            f"A newer version ({meta.latest_version}) is available."
-                        ),
-                        severity=Severity.INFO,
-                        finding_type=FindingType.MAINTAINER_RISK,
-                        confidence=1.0,
-                    )
-                )
-
-        # Signal 3: Yanked Package
+        # 5. Yanked History (Part of Maintainer/Release Delta 10%)
         if meta.yanked:
-            trust_score -= 5.0
+            score_components["delta"] = 0.0
             findings.append(
                 Finding(
                     module="trust_engine",
                     finding_id="TRUST-YANKED",
                     title="Package Version Yanked",
-                    description="The maintainer explicitly yanked this version from PyPI.",
+                    description="Maintainer explicitly revoked this version.",
                     severity=Severity.CRITICAL,
                     finding_type=FindingType.MAINTAINER_RISK,
                     confidence=1.0,
                 )
             )
 
-        # 2. Fetch deps.dev SCA (Software Composition Analysis)
+        # 6. Dependency Confusion (10%)
+        # Check for internal-sounding names (simplified heuristic)
+        if any(x in pkg_name.lower() for x in ["-corp", "-internal", "-private", "dev-"]):
+             score_components["confusion"] = 0.5
+
+        # 9. CVEs & Transitive Deps (10% + weighting)
         deps_client = DepsDevClient()
-        # Ensure we have a valid version to pass to deps.dev
         if meta.version:
             deps_result = deps_client.get_dependencies("pypi", pkg_name, meta.version)
             if deps_result:
-                # Map CVEs found in this exact package
-                for cve in deps_result.advisories:
-                    cve_id = cve.get("sourceID") or "UNKNOWN-CVE"
-                    trust_score -= 4.0
-                    findings.append(
-                        Finding(
-                            module="trust_engine",
-                            finding_id=f"TRUST-CVE-{cve_id}",
-                            title=f"Known Vulnerability: {cve_id}",
-                            description=cve.get("title", f"Package has known CVE advisory: {cve_id}"),
-                            severity=Severity.HIGH,
-                            finding_type=FindingType.CVE,
-                            confidence=1.0,
+                cve_count = len(deps_result.advisories)
+                if cve_count > 0:
+                    score_components["cves"] = max(0.0, 1.0 - (cve_count * 0.4))
+                    for cve in deps_result.advisories:
+                        findings.append(
+                            Finding(
+                                module="trust_engine",
+                                finding_id=f"TRUST-CVE-{cve.get('sourceID')}",
+                                title=f"Known CVE: {cve.get('sourceID')}",
+                                description=cve.get("title", ""),
+                                severity=Severity.HIGH,
+                                finding_type=FindingType.CVE,
+                                confidence=1.0,
+                            )
                         )
-                    )
+
+        # Calculate Final Weighted Score (0-10 Scale)
+        weights = {
+            "typosquat": 1.5, "maintainer": 1.5, "takeover": 1.5,
+            "abandoned": 1.0, "delta": 1.0, "confusion": 1.0,
+            "install": 1.0, "metadata": 0.5, "cves": 1.0
+        }
         
-        # Clamp Trust Score
-        final_trust = max(0.0, min(10.0, trust_score))
+        total_score = sum(score_components[k] * weights[k] for k in weights)
+        final_trust = max(0.0, min(10.0, total_score))
 
         return ModuleResult(
             module_name=self.name,

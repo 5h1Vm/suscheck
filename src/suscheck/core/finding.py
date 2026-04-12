@@ -45,6 +45,11 @@ class FindingType(Enum):
     TRANSITIVE_DEPENDENCY = "transitive_dependency"
     ABANDONED_PACKAGE = "abandoned_package"
     MALICIOUS_RELEASE = "malicious_release"
+    TROJAN_PACKAGE = "trojan_package"
+    STAGED_ATTACK = "staged_attack"
+    EVASION_ATTEMPT = "evasion_attempt"
+    COMPROMISED_REPO = "compromised_repo"
+    MCP_ATTACK = "mcp_attack"
 
 
 class Verdict(Enum):

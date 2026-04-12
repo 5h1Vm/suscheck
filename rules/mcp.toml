@@ -29,13 +29,22 @@ description = "Network-capable tools combined with LLM agents can enable SSRF, e
 mitre_ids = ["T1071", "T1105"]
 
 [[restricted_tools]]
-id = "MCP-TOOL-CREDENTIAL"
-name_pattern = '(?i)(get_password|read_secret|fetch_api_key|export_env|read_ssh_key|steal_token)'
+id = "MCP-TOOL-EVAL"
+name_pattern = '(?i)(eval(uate)?_code|run_python|run_js|execute_script|eval_unsafe)'
 severity = "critical"
-confidence = 0.90
-title = "MCP tool name suggests explicit credential retrieval"
-description = "Tools designed to fetch secrets, environment variables, or SSH keys expose extremely sensitive material to the model."
-mitre_ids = ["T1552", "T1555"]
+confidence = 0.95
+title = "MCP tool suggests arbitrary code evaluation"
+description = "Tools that allow the model to execute arbitrary Python or JavaScript code are equivalent to shell access and represent a critical risk."
+mitre_ids = ["T1059.006", "T1059.007"]
+
+[[restricted_tools]]
+id = "MCP-TOOL-AMBIGUOUS"
+name_pattern = '(?i)^(handle_data|process_input|utility_wrapper|exec_op)$'
+severity = "low"
+confidence = 0.40
+title = "Ambiguous high-privilege name candidate"
+description = "Vague tool names can sometimes be used to mask high-privilege operations from cursory human review. Flagged for behavioral verification (dynamic scan)."
+mitre_ids = ["T1036"]
 
 [[prompt_rules]]
 id = "MCP-PROMPT-IGNORE-PRIOR"
@@ -76,3 +85,13 @@ title = "Extremely long MCP metadata (Potential Resource Exhaustion)"
 description = "Unusually long tool descriptions or manifest entries can be used to cause context-window overflow or resource exhaustion in the agent."
 finding_type = "suspicious_behavior"
 mitre_ids = ["T1499"]
+
+[[prompt_rules]]
+id = "MCP-PROMPT-LATERAL"
+regex = '(?i)(scan\s+internal|discover\s+peers|internal\s+network|subnet|hop\s+to)'
+severity = "high"
+confidence = 0.65
+title = "Internal network discovery instructions in MCP text"
+description = "Instructions found in tool descriptions that steer the model toward internal network discovery or lateral movement."
+finding_type = "prompt_injection"
+mitre_ids = ["T1018", "T1046"]

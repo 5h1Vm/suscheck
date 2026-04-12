@@ -30,8 +30,9 @@ from suscheck.output.terminal import (
     render_verdict,
     render_vt_result,
 )
+from suscheck.core.pipeline import ScanPipeline
+from suscheck.core.finding import ReportFormat, ScanSummary, Verdict, Severity
 from suscheck.tier0 import Tier0Engine
-from suscheck.core.finding import ReportFormat
 
 # ── Load .env file ────────────────────────────────────────────
 # Searches for .env in the current directory and project root.
@@ -82,7 +83,56 @@ def scan(
     # ── Header ────────────────────────────────────────────────
     render_scan_header(target, "detecting...", __version__)
 
-    # ── Step 1: Auto-detect artifact type ─────────────────────
+    # --- Step 0: Handle Directory Targets ---
+    target_path = Path(target)
+    if target_path.is_dir():
+        console.print(f"\n[bold blue]Recursive directory scan initiated:[/bold blue] {target}")
+        
+        pipeline = ScanPipeline()
+        with console.status(f"Scanning directory {target}...", spinner="bouncingBar"):
+            all_findings = pipeline.scan_directory(target)
+        
+        modules_ran = pipeline.get_modules_ran(all_findings)
+        scan_duration = time.time() - scan_start
+        
+        aggregator = RiskAggregator("DIRECTORY")
+        pri_result = aggregator.calculate(all_findings)
+        
+        summary = _build_summary(
+            target=target,
+            artifact_type="DIRECTORY",
+            findings=all_findings,
+            pri_score=pri_result.score,
+            modules_ran=list(modules_ran),
+            scan_duration=scan_duration,
+            verdict=pri_result.verdict,
+            pri_breakdown=pri_result.breakdown
+        )
+        
+        console.print(Panel("\n".join(pri_result.breakdown), title="Score Explanation", border_style="dim"))
+        render_findings(all_findings)
+        render_verdict(summary)
+        render_scan_footer(summary)
+        
+        # Reporting logic
+        if report_format != ReportFormat.TERMINAL:
+             from suscheck.core.reporter import ReportGenerator
+             report_path = ReportGenerator.get_default_path(target, report_format, report_dir)
+             
+             content = ""
+             if report_format == ReportFormat.MARKDOWN: content = ReportGenerator.generate_markdown(summary)
+             elif report_format == ReportFormat.HTML: content = ReportGenerator.generate_html(summary)
+             elif report_format == ReportFormat.JSON:
+                import json
+                from dataclasses import asdict
+                content = json.dumps(asdict(summary), default=lambda o: o.value if isinstance(o, Enum) else str(o), indent=2)
+             
+             report_path.write_text(content, encoding="utf-8")
+             console.print(f"\n[bold green]✓[/bold green] Directory report saved: [cyan]{report_path}[/cyan]")
+             
+        return summary
+
+    # ── Step 1: Auto-detect artifact type (Existing Single File Mode) ───────────
     detection = detector.detect(target)
 
     table = Table(title="Detection Result", border_style="blue")

@@ -317,3 +317,69 @@ class ReportGenerator:
 </html>
         '''
         return html_template
+
+    @staticmethod
+    def generate_sarif(summary: ScanSummary) -> str:
+        """Generate a SARIF 2.1.0 (Static Analysis Results Interchange Format) report."""
+        import json
+        
+        # Severity mapping to SARIF levels
+        level_map = {
+            Severity.CRITICAL: "error",
+            Severity.HIGH: "error",
+            Severity.MEDIUM: "warning",
+            Severity.LOW: "note",
+            Severity.INFO: "none"
+        }
+
+        results = []
+        for f in summary.findings:
+            # Prepare result object
+            result = {
+                "ruleId": f.finding_id,
+                "message": {
+                    "text": f"{f.title}: {f.description}"
+                },
+                "level": level_map.get(f.severity, "warning"),
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": f.file_path or summary.target
+                            }
+                        }
+                    }
+                ],
+                "properties": {
+                    "module": f.module,
+                    "confidence": f.confidence,
+                    "mitreIds": getattr(f, "mitre_ids", [])
+                }
+            }
+            
+            # Add line number if available
+            if f.line_number:
+                result["locations"][0]["physicalLocation"]["region"] = {
+                    "startLine": f.line_number
+                }
+            
+            results.append(result)
+
+        sarif_log = {
+            "$schema": "https://schemastore.visma.no/schemas/sarif/sarif-2.1.0-rtm.5.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "SusCheck",
+                            "version": "0.1.0",
+                            "informationUri": "https://github.com/shivam/SusCheck"
+                        }
+                    },
+                    "results": results
+                }
+            ]
+        }
+        
+        return json.dumps(sarif_log, indent=2)
