@@ -15,15 +15,18 @@ suscheck scan suspicious_script.sh
 2. **Tier 1:** It opens the file and hunts for hidden threats (Base64 payloads, sketchy URLs like `pastebin`, hardcoded AWS secrets, or dangerous commands like `eval()` and `Invoke-Expression`).
 
 ## 2. Setting Up Your APIs (Important!)
-SusCheck works offline out of the box, but it is **10x more powerful** if you provide it with API keys. It uses these to query live threat intelligence.
+SusCheck works offline out of the box, but it is **much stronger** with API keys for live reputation data.
 
-Create a `.env` file in the folder where you run the tool:
+Create a `.env` file in the project root or your working directory (see `suscheck/.env.example` for the full list):
 ```bash
 # Get this for free at virustotal.com
 SUSCHECK_VT_KEY="your_api_key_here"
 
-# (More APIs coming soon in future increments!)
+# Optional: AbuseIPDB for IP reputation on indicators extracted from files
+# SUSCHECK_ABUSEIPDB_KEY="..."
 ```
+
+Missing keys are skipped gracefully; the CLI does not crash.
 
 ## 3. Reading the Output
 SusCheck will give you a **Platform Risk Index (PRI)** score out of 100.
@@ -34,7 +37,13 @@ SusCheck will give you a **Platform Risk Index (PRI)** score out of 100.
 
 It also has a **🔍 Needs Human Review** section. If the scanner finds something weird but can't prove it's evil (like a connection to a Telegram bot API), it will flag it here for you to manually inspect.
 
-## 4. Helpful Flags
-* `suscheck scan -h` : Shows you all the options.
-* `suscheck version` : Shows you exactly which APIs are successfully plugged in.
-* `--upload-vt` : **Use with Caution!** If you scan a file and VirusTotal has never seen it before, you can use this flag to upload the actual file to VirusTotal's servers for deep analysis. *Note: this makes the file public to security researchers on VirusTotal.*
+## 4. Other useful commands
+* **`suscheck trust some-package`** — PyPI-focused supply chain signals (typosquatting hints, maintenance/yanked-style checks, deps.dev context). Use `-h` for options; npm is not implemented yet in the engine.
+* **MCP config files** — If you save a Cursor-style JSON with `mcpServers`, run `suscheck scan path/to/mcp.json` to run the **static MCP scanner** (Increment 11).
+
+## 5. Helpful flags
+* `suscheck scan -h` — all `scan` options.
+* `suscheck version` — Python version, which env vars are set (partial display), and whether tools like `gitleaks` / `semgrep` / `kics` are on your PATH.
+* `--upload-vt` — **Use with caution:** uploads the file to VirusTotal (becomes public there).
+
+For exact flag behavior (including options that are declared but not yet wired), see [03_CLI_Reference.md](03_CLI_Reference.md).

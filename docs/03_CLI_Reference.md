@@ -1,42 +1,68 @@
-# CLI Reference
+# CLI reference
 
-`suscheck` uses `typer` to power its terminal interface.
+Entry point: `suscheck` (Typer). Loads `.env` from the project root (next to `pyproject.toml`) and the current working directory via `python-dotenv`.
 
-## Commands
+## `suscheck scan <target>`
 
-### `suscheck scan <target>`
-The primary command to execute the pipeline over a file, directory (repository), or remote artifact.
+Runs detection, then as much of the pipeline as applies to the target.
 
-**Behavior:**
-- **Files:** Runs Tier 0 (VT) -> Tier 1 (Code Scanner/Config Scanner) -> Tier 2 (Semgrep).
-- **Directories:** Automatically detours to **Repo Scanner (Gitleaks)** to hunt secrets and commit history risks.
-- **Config Files:** Automatically detours to **Config Scanner (KICS)** for IaC/DevOps scanning.
+### Local file
 
-**Key Flags:**
-- `--upload-vt`: If enabled, a file with an unknown hash will literally be uploaded to VirusTotal's API. **Warning: It exposes your file publicly.**
-- `--output / -o`: Change the logging format (json, terminal).
-- `--report / -r`: Create a persistent report (html, markdown).
-- `-h, --help`: Contextual help.
+1. **Auto-detection** table printed (artifact type, language, path, mismatch / polyglot).
+2. **Tier 0:** Hash + VirusTotal (if `SUSCHECK_VT_KEY` set). Optional `--upload-vt` uploads the file to VT (public).
+3. **Short-circuit:** If Tier 0 decides the file is known-malicious, scanning stops and PRI is finalized early.
+4. **Tier 1:** Chooses **MCP → config → code** scanner (`MCPScanner` runs first when the path/name/content indicates MCP JSON).
+5. **Enrichment:** For **code** scan results, a subset of extracted URLs/IPs may be checked against VT / AbuseIPDB (rate-limited in code).
+6. **Tier 2:** **Semgrep** if the binary is on `PATH`.
+7. **PRI** via `RiskAggregator` and Rich output.
 
-### `suscheck trust <package>`
-Specifically maps **Supply Chain Trust Signals** for third-party packages (currently PyPI).
+### Directory
 
-**Capabilities:**
-- Proximity-based **Typosquatting** detection (e.g. `requesrs` vs `requests`).
-- **Abandonment Check**: Deducts points if the package hasn't been updated in 12+ months.
-- **Yanked Check**: Flags if the version was pulled by the maintainer.
-- **Transitive SCA**: Resolves the full dependency tree via `deps.dev` to find hidden CVEs.
+If the path is a directory **with** `.git`, it is treated as a **repository**; Tier 1 uses **gitleaks** (requires `gitleaks` installed). Tier 0 is not run on directories in the current implementation (message explains skip).
 
-### `suscheck version`
-Shows the active tool version. More importantly, it acts as a diagnostics checker, evaluating the status of the setup API Keys in `.env` (like VirusTotal, AbuseIPDB, GitHub etc.).
+### Non-file targets (URL, package name)
 
-## Setup Configuration
-SusCheck requires API tokens to access maximum capabilities. Ensure you have a `.env` configured at your user root or standard execution path:
+Detection returns URL or package assumptions; **Tier 0** and file-based Tier 1 are skipped. PRI still summarizes whatever findings exist (often none without further modules).
 
-```bash
-# Inside .env
-SUSCHECK_VT_KEY="your-virustotal-key-here"
-# Add others as needed for subsequent increments. 
-```
+### Flags (check behavior in `cli.py`)
 
-To load `.env` context gracefully across the CLI, we utilize the `python-dotenv` python library right at boot. No keys are hardcoded.
+| Flag | Declared purpose | Actually wired in code? |
+|------|------------------|-------------------------|
+| `--output` / `-o` | terminal vs json | **Not implemented** — scan always uses terminal rendering today. |
+| `--report` / `-r` | html, markdown | **Not implemented** — no report files written. |
+| `--upload-vt` | upload unknown file to VT | **Yes** |
+| `--no-ai` | skip AI triage | Placeholder for future use (no AI triage in pipeline yet). |
+| `-v` / `--verbose` | logging | **Yes** |
+
+Use `suscheck scan -h` for the full Typer-generated help.
+
+---
+
+## `suscheck trust <package>`
+
+Supply-chain–focused check via `TrustEngine`: PyPI metadata, typosquatting vs a small popular-package set, yanked/abandonment-style signals, and deps.dev–backed transitive risk as wired in code.
+
+**Ecosystem:** The CLI accepts `--ecosystem` / `-e`, but **`trust_engine.py` only implements `pypi` today** — any other value returns a clear “not supported” error from the engine.
+
+---
+
+## `suscheck version`
+
+Prints version, Python version, configured API key **presence** (partial prefixes only), and whether external tools (`gitleaks`, `semgrep`, `bandit`, `docker`, `kics`) exist on `PATH`.
+
+---
+
+## Stub commands (placeholders)
+
+These exist so the CLI surface matches the roadmap; they print a “coming in Increment …” style message:
+
+- `suscheck explain <file>` — Increment 17
+- `suscheck install …` — Increment 15
+- `suscheck clone …` — Increment 15
+- `suscheck connect …` — Increment 15
+
+---
+
+## Environment variables (common)
+
+Documented in `.env.example` in the repo. Typical names include `SUSCHECK_VT_KEY`, `SUSCHECK_ABUSEIPDB_KEY`, `SUSCHECK_GITHUB_TOKEN`, `SUSCHECK_NVD_KEY`, AI-related vars. **Missing keys:** corresponding features skip; the tool should not crash.

@@ -12,6 +12,8 @@ Many workflows rely on unverified code execution such as:
 
 SusCheck acts as a fast filtering layer to provide actionable intelligence and an absolute risk score (the PRI: Platform Risk Index) to give a definitive "Go/No-Go" status before execution.
 
+**Scope in v1 (current code):** file and directory scanning (including **gitleaks** for git repos when installed), **IaC/config** helpers (**KICS** when installed), **MCP client JSON** static review, **supply chain trust** via a dedicated **`trust`** command (PyPI-backed today), plus optional **Semgrep**. See `docs/` and `Checkpoints/Progress_Audit.md` for what is implemented vs still on the roadmap (Checkpoint 1a).
+
 ## Core Ideology
 1. **No Hallucinations:** Use concrete patterns, static rules, and actual cyber-intelligence API lookups first.
 2. **Speed is important, but correctness comes first:** The quick-pass hashing (Tier 0) executes in milliseconds, while code scanning (Tier 1) detects the majority of threats within seconds. The system prioritizes accurate detection over marginal speed gains, ensuring reliability without significant performance trade-offs.

@@ -1,46 +1,129 @@
-# Architecture & Code Structure
+# Architecture & code structure
 
-SusCheck uses a heavily decoupled pipeline model where findings from each engine are compiled sequentially.
+SusCheck is a **CLI-first** pipeline: each stage produces `Finding` objects; **`RiskAggregator`** turns them into a **PRI** score and verdict; **`terminal`** (Rich) renders output.
 
-## The Scanning Pipeline
+## End-to-end flow (`suscheck scan <path>`)
+
+Applies when the target resolves to a **local file** (directories and non-file targets follow different branches).
 
 ```
-Input File → Auto-Detector → Tier 0 (Hash/VT) → Tier 1 (Static Analysis / Code Scanner) → PRI Aggregator → Verdict Output
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────────────────────────────┐
+│  Auto-detector  │ ──► │   Tier 0     │ ──► │  Tier 1: one primary static module      │
+│  artifact type  │     │ hash + VT    │     │  MCP → repo → config → code (first match)│
+└─────────────────┘     └──────────────┘     └─────────────────────────────────────────┘
+        │                        │                              │
+        │                        │ short-circuit (known bad)    │
+        ▼                        ▼                              ▼
+   mismatch /              stop early                   optional VT/AbuseIPDB
+   polyglot findings                                    enrichment on code URLs/IPs
+                                                                  │
+                                                                  ▼
+                        ┌─────────────────┐     ┌────────────────────────────┐
+                        │  Tier 2         │     │  RiskAggregator (PRI)      │
+                        │  Semgrep        │     │  + terminal output         │
+                        │  (if installed) │     └────────────────────────────┘
+                        └─────────────────┘
 ```
 
-1. **Auto-Detector** (`suscheck.core.auto_detector`): Quickly evaluates magic bytes, shebang lines, and file extensions to categorize the artifact type (e.g., Python code, Shell script, binary).
-2. **Tier 0** (`suscheck.tier0`): Calculates cryptographic hashes and passes them to VirusTotal. It contains a short-circuit rule to instantly abort scanning if malware is confirmed via external APIs.
-3. **Tier 1** (`suscheck.modules.code_scanner`): The Layer 1 Code Scanner orchestrates all Language-Agnostic analyzers across files. Analyzers include:
-   - **Credentials** (API keys, Tokens)
-   - **Encoded Strings** (Base64, Hex payloads)
-   - **Entropy Checks** (Randomized, potentially obfuscated logic)
-   - **Dangerous Functions** (eval, exec, `curl|bash`, PowerShell IEX)
-   - **Network Indicators** (Suspicious Domains, C2 Servers, Dynamic DNS)
+### Auto-detector (`core/auto_detector.py`)
+
+**What:** Chooses `ArtifactType` (code, config, repository, package, mcp_server, binary, unknown) and `Language` (python, json, dockerfile, **mcp_manifest**, …).
+
+**Why:** Downstream scanners use this to pick tools and to apply PRI **context multipliers** (e.g. MCP).
+
+**Notable behavior:** Filename rules (`Dockerfile`, `mcp.json`, …), magic bytes (via `python-magic` when installed), shebang, extension, content heuristics, **extension vs magic mismatch** (security finding), **polyglot** flag, and **MCP JSON** heuristics (`mcpServers` marker in `.json` files).
+
+### Tier 0 (`tier0/`)
+
+**What:** `Tier0Engine` hashes the file (`hash_engine.py`), queries VirusTotal (`virustotal.py`), and may **short-circuit** the scan when reputation is decisively bad.
+
+**Why:** Fast, shared ground truth before expensive static rules.
+
+### Tier 1 static modules (`modules/`)
+
+For a **single file**, `cli.py` picks **one** primary scanner (first `can_handle` match):
+
+| Order | Module | Rough role |
+|-------|--------|------------|
+| 1 | `MCPScanner` (`mcp_scanner.py`) | MCP client/manifest JSON: `mcpServers`, risky commands, tool names, prompt patterns (`rules/mcp.toml`) |
+| 2 | `RepoScanner` (`repo_scanner.py`) | **Directories only** — not used for single files in this branch |
+| 3 | `ConfigScanner` (`config_scanner.py`) | Dockerfile / YAML / JSON configs, KICS + custom CI rules |
+| 4 | `CodeScanner` (`code_scanner.py`) | Layer 1 detectors + recursive decode peel + TOML plugins |
+
+**Why this order:** MCP-shaped JSON must run **before** the generic config scanner, which would otherwise treat any `.json` as generic IaC/config.
+
+For a **directory** with `.git`, auto-detection yields **repository**; `scan` uses **gitleaks** via `RepoScanner`. Tier 0 is skipped for non-files.
+
+### Tier 2 (Semgrep)
+
+**What:** `semgrep_runner.py` runs the external `semgrep` CLI when present.
+
+**Why:** Community vulnerability rules (SQLi, unsafe `subprocess`, etc.) complement regex/threat heuristics.
+
+### PRI (`core/risk_aggregator.py`)
+
+**What:** Combines severities, confidence, **context multiplier** (install script / package / **MCP**), **correlation bonuses**, **VirusTotal** adjustments, clamp 0–100, verdict bands.
+
+**Why:** One explainable score. *Note:* The `trust` command’s trust score is **separate** from PRI today; `RiskAggregator` still uses a **1.0×** placeholder for “supply chain trust multiplier” inside `scan` (see developer guide).
+
+### Output (`output/terminal.py`)
+
+**What:** Rich tables, panels, finding lists, PRI breakdown.
+
+**Why:** Human-readable default. JSON/HTML/Markdown report paths are **not** implemented in code yet (flags may exist on `scan` without full wiring—see CLI reference).
 
 ---
 
-## Directory Structure
-
-Here's an overview of the important files currently implemented in `src/suscheck/`:
+## Directory layout (`src/suscheck/`)
 
 ```
 src/suscheck/
-├── cli.py             # Main entry point using Typer. Handles configurations, flags, output.
-├── core/              # Shared data definitions and utility structures
-│   ├── auto_detector.py # Infers file types dynamically
-│   └── finding.py       # Dataclass formats for Security Findings and Verdict statuses
-├── modules/           # Tier 1 scanners (Static Analysis)
-│   ├── code_scanner.py         # Main orchestrator for Tier 1 detectors
-│   └── detectors/              # Individual analysis modules
-│       ├── credentials.py          # Finds AWS, Stripe, GitHub PAT tokens etc.
-│       ├── dangerous_functions.py  # Language-agnostic detection for execution/shells
-│       ├── encoded_strings.py      # Extracts & decodes hidden payloads
-│       ├── entropy.py              # Shannon Entropy measurement for strings
-│       └── network_indicators.py   # Extracts Domains, IP, known Bad infra / Ports
-├── output/            # Renders results back to the user
-│   └── terminal.py      # Rich terminal rendering (Tables, Progress bars, Explanations)
-└── tier0/             # Hash validation & VT Lookups
-    ├── engine.py        # Orchestrator for Tier0 flow
-    ├── hash_engine.py   # Local SHA256/MD5/SHA1 generation
-    └── virustotal.py    # VirusTotal API interactions and polling logic for uploads
+├── __init__.py          # package version
+├── __main__.py          # python -m suscheck → cli
+├── cli.py               # Typer commands, scan orchestration
+├── core/
+│   ├── auto_detector.py # artifact / language detection
+│   ├── finding.py       # Finding, enums, ScanSummary
+│   └── risk_aggregator.py
+├── tier0/
+│   ├── engine.py        # Tier0 orchestrator
+│   ├── hash_engine.py
+│   ├── virustotal.py
+│   └── abuseipdb.py
+├── modules/
+│   ├── base.py          # ScannerModule, ModuleResult
+│   ├── code_scanner.py
+│   ├── recursive_decoder.py
+│   ├── mcp_scanner.py
+│   ├── config_scanner.py
+│   ├── repo_scanner.py
+│   ├── semgrep_runner.py
+│   ├── config/
+│   │   └── kics_orchestrator.py
+│   ├── repo/
+│   │   └── gitleaks_runner.py
+│   ├── supply_chain/
+│   │   ├── trust_engine.py
+│   │   ├── pypi_client.py
+│   │   └── depsdev_client.py
+│   └── detectors/
+│       ├── plugin_loader.py
+│       ├── encoded_strings.py
+│       ├── network_indicators.py
+│       ├── entropy.py
+│       └── credentials.py
+└── output/
+    └── terminal.py
 ```
+
+## Repository root (`rules/`)
+
+TOML/JSON rules and mappings used at runtime: language plugins, `network.toml`, `mcp.toml`, `mitre_mapping.json`. See [05_Rules_Reference.md](05_Rules_Reference.md).
+
+## Tests (`tests/`)
+
+Mirror major areas: `test_tier0`, `test_core`, `test_code_scanner`, `test_repo`, `test_mcp`, etc. **Malicious samples** for manual runs live under `tests/samples/` (when present); automated tests prefer **temp files** and mocks.
+
+## Checkpoint 1a alignment
+
+The roadmap in `Checkpoints/Checkpoint 1a.MD` describes the **full** product vision. **Implementation status** is tracked honestly in `Checkpoints/Progress_Audit.md` (increments done vs still open). This architecture doc describes **what the code does today**.
