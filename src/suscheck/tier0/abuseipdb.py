@@ -9,28 +9,9 @@ import time
 from typing import Optional
 
 import requests
-from pydantic import BaseModel, Field
-
-from suscheck.core.finding import Finding, FindingType, Severity
-
-logger = logging.getLogger(__name__)
-
-ABUSEIPDB_API_URL = "https://api.abuseipdb.com/api/v2/check"
-DEFAULT_TIMEOUT = 10
-
-
-class AbuseIPDBResult(BaseModel):
-    """Data model for AbuseIPDB response."""
-    ip_address: str = Field(alias="ipAddress")
-    abuse_confidence_score: int = Field(alias="abuseConfidenceScore")
-    total_reports: int = Field(alias="totalReports")
-    country_code: Optional[str] = Field(None, alias="countryCode")
-    domain: Optional[str] = None
-    is_public: bool = Field(True, alias="isPublic")
-    is_whitelisted: Optional[bool] = Field(None, alias="isWhitelisted")
-
-    class Config:
-        populate_by_name = True
+    model_config = {
+        "populate_by_name": True
+    }
 
 
 class AbuseIPDBClient:
