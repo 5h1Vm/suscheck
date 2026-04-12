@@ -230,6 +230,19 @@ class AutoDetector:
             method = "filename_match"
             confidence = 0.95
 
+        # JSON MCP client configs often register as generic JSON — detect by marker
+        if path.suffix.lower() == ".json" or detected_lang == Language.JSON:
+            try:
+                head = path.read_text(encoding="utf-8", errors="ignore")[:8192]
+            except OSError:
+                head = ""
+            if '"mcpServers"' in head or '"mcp_servers"' in head:
+                if detected_lang != Language.MCP_MANIFEST:
+                    detected_lang = Language.MCP_MANIFEST
+                    artifact_type = ArtifactType.MCP_SERVER
+                    method = "mcp_manifest_content"
+                confidence = max(confidence, 0.92)
+
         # Mismatch detection
         type_mismatch = False
         mismatch_detail = None
@@ -354,6 +367,8 @@ class AutoDetector:
         }
         if name in special:
             return special[name]
+        if name in ("mcp-config.json", "mcp.json", "mcp_config.json"):
+            return Language.MCP_MANIFEST
         if ".github/workflows" in str(path).replace("\\", "/") and name.endswith((".yml", ".yaml")):
             return Language.GITHUB_ACTIONS
         if name == ".gitlab-ci.yml":

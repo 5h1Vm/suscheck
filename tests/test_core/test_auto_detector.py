@@ -63,6 +63,22 @@ class TestAutoDetector:
         assert result.artifact_type == ArtifactType.MCP_SERVER
         assert result.detection_method == "url_pattern"
 
+    def test_detect_mcp_manifest_by_filename(self, tmp_path):
+        f = tmp_path / "mcp-config.json"
+        f.write_text('{"mcpServers": {}}', encoding="utf-8")
+        result = self.detector.detect(str(f))
+        assert result.artifact_type == ArtifactType.MCP_SERVER
+        assert result.language == Language.MCP_MANIFEST
+        assert result.detection_method == "filename_match"
+
+    def test_detect_mcp_manifest_by_content_marker(self, tmp_path):
+        f = tmp_path / "cursor-style.json"
+        f.write_text('{"mcpServers": {"x": {"command": "npx"}}}', encoding="utf-8")
+        result = self.detector.detect(str(f))
+        assert result.artifact_type == ArtifactType.MCP_SERVER
+        assert result.language == Language.MCP_MANIFEST
+        assert result.detection_method == "mcp_manifest_content"
+
     def test_detect_polyglot(self, tmp_path):
         """Test a file that could be multiple things."""
         f = tmp_path / "script.dat"

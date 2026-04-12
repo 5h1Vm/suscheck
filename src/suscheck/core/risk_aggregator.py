@@ -81,7 +81,10 @@ class RiskAggregator:
         elif "package" in self.artifact_type.lower():
             context_multiplier = 1.4
             ctx_reason = "dependency package"
-            
+        elif "mcp" in self.artifact_type.lower():
+            context_multiplier = 1.4
+            ctx_reason = "MCP server / agent tool surface"
+
         if context_multiplier != 1.0:
             adjustment = score * context_multiplier - score
             score *= context_multiplier

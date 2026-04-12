@@ -17,6 +17,7 @@ from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, V
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code_scanner import CodeScanner
 from suscheck.modules.config_scanner import ConfigScanner
+from suscheck.modules.mcp_scanner import MCPScanner
 from suscheck.modules.repo_scanner import RepoScanner
 from suscheck.output.terminal import (
     render_findings,
@@ -247,8 +248,13 @@ def scan(
         try:
             config_scanner = ConfigScanner()
             repo_scanner = RepoScanner()
-            
-            if repo_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+            mcp_scanner = MCPScanner()
+
+            if mcp_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+                scanner = mcp_scanner
+                code_result = scanner.scan(str(file_path))
+                modules_ran.append("mcp")
+            elif repo_scanner.can_handle(detection.artifact_type.value, str(file_path)):
                 scanner = repo_scanner
                 code_result = scanner.scan(str(file_path))
                 modules_ran.append("repo")
@@ -324,7 +330,7 @@ def scan(
 
                 render_findings(code_result.findings)
         except Exception as e:
-            console.print(f"  [red]Code Scanner failed: {e}[/red]")
+            console.print(f"  [red]Tier 1 static scan failed: {e}[/red]")
 
         # ==========================================
         # Tier 2: Layer 2 SAST (Semgrep)
@@ -362,13 +368,17 @@ def scan(
     aggregator = RiskAggregator(detection.artifact_type.value)
     pri_result = aggregator.calculate(all_findings, vt_dict)
 
+    modules_skipped = ["supply_chain", "ai_triage"]
+    if file_path and os.path.isfile(str(file_path)) and "mcp" not in modules_ran:
+        modules_skipped.append("mcp")
+
     summary = _build_summary(
         target=target,
         artifact_type=detection.artifact_type.value,
         findings=all_findings,
         pri_score=pri_result.score,
         modules_ran=modules_ran,
-        modules_skipped=["supply_chain", "mcp", "ai_triage"],
+        modules_skipped=modules_skipped,
         scan_duration=scan_duration,
         vt_result=vt_dict,
     )
