@@ -14,23 +14,25 @@ from pathlib import Path
 from typing import Optional
 
 
-class ArtifactType(Enum):
+class ArtifactType(str, Enum):
     CODE = "code"
     CONFIG = "config"
     REPOSITORY = "repository"
     PACKAGE = "package"
     MCP_SERVER = "mcp_server"
     BINARY = "binary"
+    DIRECTORY = "directory"
     UNKNOWN = "unknown"
 
 
-class Language(Enum):
+class Language(str, Enum):
     PYTHON = "python"
     JAVASCRIPT = "javascript"
     TYPESCRIPT = "typescript"
     POWERSHELL = "powershell"
     BASH = "bash"
     PHP = "php"
+    HTML = "html"
     RUBY = "ruby"
     GO = "go"
     RUST = "rust"
@@ -86,7 +88,7 @@ EXTENSION_MAP: dict[str, Language] = {
     ".jsx": Language.JAVASCRIPT, ".ts": Language.TYPESCRIPT, ".tsx": Language.TYPESCRIPT,
     ".ps1": Language.POWERSHELL, ".psm1": Language.POWERSHELL, ".psd1": Language.POWERSHELL,
     ".sh": Language.BASH, ".bash": Language.BASH, ".zsh": Language.BASH,
-    ".php": Language.PHP, ".phtml": Language.PHP,
+    ".php": Language.PHP, ".phtml": Language.PHP, ".html": Language.HTML, ".htm": Language.HTML,
     ".rb": Language.RUBY, ".rake": Language.RUBY,
     ".go": Language.GO, ".rs": Language.RUST,
     ".pl": Language.PERL, ".pm": Language.PERL,
@@ -117,6 +119,8 @@ CONTENT_PATTERNS: list[tuple[str, Language, float]] = [
     ("module.exports", Language.JAVASCRIPT, 0.7),
     ("function ", Language.JAVASCRIPT, 0.3),
     ("<?php", Language.PHP, 0.9),
+    ("<!DOCTYPE html", Language.HTML, 0.5),
+    ("<html", Language.HTML, 0.3),
     ("[CmdletBinding()]", Language.POWERSHELL, 0.9),
     ("Invoke-", Language.POWERSHELL, 0.5),
     ("Get-", Language.POWERSHELL, 0.4),
@@ -126,11 +130,17 @@ CONTENT_PATTERNS: list[tuple[str, Language, float]] = [
     ("use std::", Language.RUST, 0.8),
     ("pub fn", Language.RUST, 0.7),
     ("public static void main", Language.JAVA, 0.9),
+    ("@echo off", Language.BATCH, 0.9),
+    ("set ", Language.BATCH, 0.3),
+    ("goto ", Language.BATCH, 0.5),
+    ("REM ", Language.BATCH, 0.4),
+    ("pause", Language.BATCH, 0.3),
 ]
 
 
 class AutoDetector:
-    def __init__(self):
+    def __init__(self, config: Optional["ConfigManager"] = None):
+        self.config = config
         self._magic_available = False
         try:
             import magic
@@ -144,6 +154,24 @@ class AutoDetector:
 
         if not path.exists():
             return self._handle_non_file_target(target)
+            
+        # Check size limit from config (default 10MB)
+        if path.is_file():
+            max_mb = 10
+            if self.config:
+                max_mb = self.config.get("scanners.code.max_file_size_mb", 10)
+            
+            if path.stat().st_size > (max_mb * 1024 * 1024):
+                 return DetectionResult(
+                    artifact_type=ArtifactType.BINARY,
+                    language=Language.UNKNOWN,
+                    file_path=path,
+                    detection_method="size_limit_exceeded",
+                    confidence=1.0,
+                    magic_description=f"File exceeds {max_mb}MB limit set in config.",
+                    type_mismatch=True,
+                    mismatch_detail=f"File too large to scan ({path.stat().st_size / (1024*1024):.1f} MB)"
+                )
 
         if path.is_dir():
             return self._detect_directory(path)
@@ -166,14 +194,38 @@ class AutoDetector:
                 file_path=Path(target),
                 detection_method="url_pattern",
                 confidence=0.5,
+                is_polyglot=False # Added to match struct
+            )
+
+        # If it looks like a local path (starts with ./, ../, / or contains path separators)
+        # but doesn't exist, don't assume it's a package.
+        if any(target.startswith(p) for p in ["./", "../", "/"]) or os.path.sep in target:
+            return DetectionResult(
+                artifact_type=ArtifactType.UNKNOWN,
+                language=Language.UNKNOWN,
+                file_path=Path(target),
+                detection_method="path_not_found",
+                confidence=1.0,
+                magic_description=f"Local path not found: {target}"
+            )
+
+        # If it's a simple name without extensions or slashes, it's likely a package
+        if "." not in target and "/" not in target and "\\" not in target:
+            return DetectionResult(
+                artifact_type=ArtifactType.PACKAGE,
+                language=Language.UNKNOWN,
+                file_path=Path(target),
+                detection_method="assumed_package_name",
+                confidence=0.4,
             )
 
         return DetectionResult(
-            artifact_type=ArtifactType.PACKAGE,
+            artifact_type=ArtifactType.UNKNOWN,
             language=Language.UNKNOWN,
             file_path=Path(target),
-            detection_method="assumed_package_name",
-            confidence=0.4,
+            detection_method="unrecognized_local_input",
+            confidence=1.0,
+            magic_description="Not a file, directory, or valid URL."
         )
 
     def _detect_directory(self, path: Path) -> DetectionResult:
@@ -186,11 +238,11 @@ class AutoDetector:
                 confidence=0.95,
             )
         return DetectionResult(
-            artifact_type=ArtifactType.UNKNOWN,
+            artifact_type=ArtifactType.DIRECTORY,
             language=Language.UNKNOWN,
             file_path=path,
-            detection_method="directory",
-            confidence=0.3,
+            detection_method="local_directory",
+            confidence=1.0,
         )
 
     def _detect_file(self, path: Path) -> DetectionResult:
@@ -222,6 +274,13 @@ class AutoDetector:
             confidence = 0.5
 
         artifact_type = self._language_to_artifact_type(detected_lang)
+
+        # Downgrade BATCH if no heuristics or shebang matches (avoids generic text files)
+        if detected_lang == Language.BATCH and method == "extension":
+            if not content_lang == Language.BATCH and not shebang_lang:
+                # If it's a very small file (< 10 bytes) or has no batch markers, it's just text
+                detected_lang = Language.UNKNOWN
+                method = "downgraded_from_extension"
 
         special = self._check_special_filenames(path)
         if special:
@@ -290,6 +349,7 @@ class AutoDetector:
                 "text/x-shellscript": Language.BASH,
                 "text/x-sh": Language.BASH,
                 "text/x-php": Language.PHP,
+                "text/html": Language.HTML,
                 "text/x-ruby": Language.RUBY,
                 "text/x-perl": Language.PERL,
                 "text/x-c": Language.C,
@@ -364,6 +424,7 @@ class AutoDetector:
             ".env": Language.ENV_FILE,
             ".env.local": Language.ENV_FILE,
             ".env.production": Language.ENV_FILE,
+            ".env.example": Language.ENV_FILE,
         }
         if name in special:
             return special[name]

@@ -28,9 +28,9 @@ _OPENAI_COMPAT_IDS = frozenset(
 )
 
 
-def create_ai_provider() -> AIProvider:
-    """Build provider from ``SUSCHECK_AI_*`` and common upstream env names. Never returns None."""
-    pid = os.environ.get("SUSCHECK_AI_PROVIDER", "none").strip().lower()
+def create_ai_provider(name: str | None = None) -> AIProvider:
+    """Build provider from name or env. Never returns None."""
+    pid = (name or os.environ.get("SUSCHECK_AI_PROVIDER", "none")).strip().lower()
     model = os.environ.get("SUSCHECK_AI_MODEL", "").strip()
 
     if pid in ("none", "", "off"):
@@ -51,5 +51,23 @@ def create_ai_provider() -> AIProvider:
         base = default_base_for_provider(pid)
         return OpenAICompatProvider(name=pid, api_key=key, model=model, base_url=base)
 
+    if name: # If specifically requested but not matched
+         return NoneProvider()
+
     logger.warning("Unknown SUSCHECK_AI_PROVIDER=%r — AI triage disabled.", pid)
     return NoneProvider()
+
+def get_available_providers() -> list[str]:
+    """Return list of provider IDs that have configured API keys."""
+    available = []
+    # 1. Check direct suspects
+    for pid in ["anthropic", "gemini", "google", "ollama"]:
+        p = create_ai_provider(pid)
+        if p.is_configured():
+            available.append(pid)
+    # 2. Check OpenAI-compat group
+    for pid in _OPENAI_COMPAT_IDS:
+        p = create_ai_provider(pid)
+        if p.is_configured():
+            available.append(pid)
+    return available

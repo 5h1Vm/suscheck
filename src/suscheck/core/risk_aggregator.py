@@ -133,6 +133,23 @@ class RiskAggregator:
             correlation_score += 30.0
             breakdown.append("  [red]🔥 Correlation: Malicious Release[/red] (Low Trust + Critical findings) → +[bold]30.0[/bold] pts")
 
+        # 5. SUPPLY_CHAIN_COMPROMISE (Typosquat + Obfuscation) (+20) - Aligned with CP1a
+        if has_typosquat and has_obfuscation:
+            correlation_score += 20.0
+            breakdown.append("  [red]🔥 Correlation: Supply Chain Compromise[/red] (Typosquat + Obfuscation) → +[bold]20.0[/bold] pts")
+
+        # 6. COMPROMISED_REPO (Secret + Suspicious behavior) (+15)
+        has_secret = any(f.finding_type == FindingType.SECRET_EXPOSURE for f in findings)
+        if has_secret and (has_execution or has_network):
+            correlation_score += 15.0
+            breakdown.append("  [red]🔥 Correlation: Compromised Repository[/red] (Secret + Suspect Activity) → +[bold]15.0[/bold] pts")
+
+        # 7. MCP_ATTACK (MCP Over-privilege + Lateral/Proxy signals) (+25)
+        has_mcp_risk = any(f.finding_type == FindingType.MCP_OVERPRIVILEGE for f in findings)
+        if has_mcp_risk and (has_network or has_obfuscation):
+            correlation_score += 25.0
+            breakdown.append("  [red]🔥 Correlation: MCP Attack Pattern[/red] (MCP Risk + Network/Evasion) → +[bold]25.0[/bold] pts")
+
         score += correlation_score
 
         # ── Step 5: Supply Chain Trust Score Multiplier ───────────────────────
@@ -148,16 +165,21 @@ class RiskAggregator:
             # Clamp input to expected TrustEngine range
             t = max(0.0, min(10.0, t))
 
-            # Piecewise-linear mapping, documented for auditability:
-            #   t in [5,10]:  m = 1.1 - 0.02 * t   (5 → 1.0, 10 → 0.9)
-            #   t in [0,5) :  m = 1.3 - 0.06 * t   (0 → 1.3, 5 → 1.0)
-            if t >= 5.0:
-                trust_multiplier = 1.1 - 0.02 * t
+            # Discrete Mapping §10 Step 5:
+            # 9-10→0.7x, 7-8→0.85x, 5-6→1.0x, 3-4→1.2x, 1-2→1.5x, 0→1.1x
+            if t >= 9.0:
+                trust_multiplier = 0.7
+            elif t >= 7.0:
+                trust_multiplier = 0.85
+            elif t >= 5.0:
+                trust_multiplier = 1.0
+            elif t >= 3.0:
+                trust_multiplier = 1.2
+            elif t >= 1.0:
+                trust_multiplier = 1.5
             else:
-                trust_multiplier = 1.3 - 0.06 * t
-
-            # Hard clamp to avoid extreme swings even if formula changes later
-            trust_multiplier = max(0.85, min(1.35, trust_multiplier))
+                # 0-0.9 range
+                trust_multiplier = 1.1
 
             pre_trust_score = score
             score *= trust_multiplier

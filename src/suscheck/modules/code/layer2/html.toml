@@ -1,0 +1,39 @@
+[[rules]]
+id = "HTML-HIDDEN-IFRAME"
+name = "Hidden HTML Iframe"
+regex = '''<iframe[^>]*width\s*=\s*["'](?:0|1)px?["'][^>]*height\s*=\s*["'](?:0|1)px?["']'''
+severity = "high"
+confidence = 0.80
+finding_type = "suspicious_behavior"
+description = "Detection of hidden iframes with 0 or 1 pixel dimensions. Often used for silent drive-by-downloads or clickjacking."
+mitre_ids = ["T1204.001"]
+
+[[rules]]
+id = "HTML-SUSPICIOUS-SCRIPT-SRC"
+name = "Suspicious Script Source"
+regex = '''<script[^>]*src\s*=\s*["'](?:https?:)?\/\/[\w\.-]+\/(?:[a-zA-Z0-9]{32,}|[a-zA-Z0-9]{16})\.js["']'''
+severity = "medium"
+confidence = 0.60
+finding_type = "suspicious_behavior"
+description = "Detection of script tags loading JS from long, randomized, or non-standard paths. Common in malware and cryptojackers."
+mitre_ids = ["T1204"]
+
+[[rules]]
+id = "HTML-PHISHING-INPUT"
+name = "Phishing Input Field"
+regex = '''<input[^>]*name\s*=\s*["'](?:cc|credit_card|cvv|password_confirm|ssn)["'][^>]*>'''
+severity = "medium"
+confidence = 0.50
+finding_type = "phishing"
+description = "Detection of input fields for highly sensitive data in a plain HTML file. Potential credential harvester or phishing page."
+mitre_ids = ["T1566"]
+
+[[rules]]
+id = "HTML-EXTERNAL-FORM-ACTION"
+name = "External Form Action"
+regex = '''<form[^>]*action\s*=\s*["'](?:https?:\/\/)(?!localhost|127\.0\.0\.1|[\w-]+\.\w+).*["']'''
+severity = "medium"
+confidence = 0.40
+finding_type = "phishing"
+description = "Form action pointing to an external domain. Common in phishing sites designed to post data to a remote server."
+mitre_ids = ["T1566"]

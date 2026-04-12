@@ -15,15 +15,15 @@ from rich.panel import Panel
 from rich.table import Table
 
 from suscheck import __version__
-from suscheck.core.auto_detector import AutoDetector
+from suscheck.core.auto_detector import AutoDetector, Language
 from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
 from suscheck.core.risk_aggregator import RiskAggregator
-from suscheck.modules.code_scanner import CodeScanner
-from suscheck.modules.config_scanner import ConfigScanner
-from suscheck.modules.mcp_dynamic import MCPDynamicScanner
-from suscheck.modules.mcp_scanner import MCPScanner
-from suscheck.modules.repo_scanner import RepoScanner
-from suscheck.output.terminal import (
+from suscheck.modules.code.scanner import CodeScanner
+from suscheck.modules.config.scanner import ConfigScanner
+from suscheck.modules.mcp.dynamic import MCPDynamicScanner
+from suscheck.modules.mcp.scanner import MCPScanner
+from suscheck.modules.repo.scanner import RepoScanner
+from suscheck.modules.reporting.terminal import (
     render_findings,
     render_scan_footer,
     render_scan_header,
@@ -32,7 +32,12 @@ from suscheck.output.terminal import (
 )
 from suscheck.core.pipeline import ScanPipeline
 from suscheck.core.finding import ReportFormat, ScanSummary, Verdict, Severity
-from suscheck.tier0 import Tier0Engine
+from suscheck.modules.external import Tier0Engine
+from suscheck.core.config_manager import ConfigManager
+from suscheck.modules.wrappers.install import install_package
+from suscheck.modules.wrappers.clone import clone_repo
+from suscheck.modules.wrappers.connect import connect_mcp
+from suscheck.core.diagnostics import DiagnosticSuite, DiagnosticResult
 
 # ── Load .env file ────────────────────────────────────────────
 # Searches for .env in the current directory and project root.
@@ -80,15 +85,23 @@ def scan(
 
     scan_start = time.time()
 
-    # ── Header ────────────────────────────────────────────────
-    render_scan_header(target, "detecting...", __version__)
-
-    # --- Step 0: Handle Directory Targets ---
+    # --- Step 0: Auto-Detection (Immediate) ---
     target_path = Path(target)
+    config_mgr = ConfigManager()
+    detector = AutoDetector(config_mgr)
+    detection = detector.detect(target)
+    
+    # --- Step 1: Render Header with Real Info ---
+    type_display = f"{detection.artifact_type.value.upper()}"
+    if detection.language != Language.UNKNOWN:
+        type_display += f" ({detection.language.value.capitalize()})"
+        
+    render_scan_header(target, type_display, __version__)
+
+    pipeline = ScanPipeline(config_mgr)
     if target_path.is_dir():
         console.print(f"\n[bold blue]Recursive directory scan initiated:[/bold blue] {target}")
         
-        pipeline = ScanPipeline()
         with console.status(f"Scanning directory {target}...", spinner="bouncingBar"):
             all_findings = pipeline.scan_directory(target)
         
@@ -116,8 +129,18 @@ def scan(
         
         # Reporting logic
         if report_format != ReportFormat.TERMINAL:
+             config_mgr = ConfigManager()
              from suscheck.core.reporter import ReportGenerator
-             report_path = ReportGenerator.get_default_path(target, report_format, report_dir)
+             
+             # Check if we should use timestamped folders from config
+             use_timestamp = config_mgr.get("reporting.timestamped", True)
+             
+             report_path = ReportGenerator.get_default_path(
+                 target, 
+                 report_format, 
+                 report_dir or config_mgr.get("reporting.default_dir"), 
+                 timestamped=use_timestamp
+             )
              
              content = ""
              if report_format == ReportFormat.MARKDOWN: content = ReportGenerator.generate_markdown(summary)
@@ -346,8 +369,8 @@ def scan(
             
             # --- Dynamic Threat Intelligence Enrichment ---
             if code_result.findings:
-                from suscheck.tier0.virustotal import VirusTotalClient
-                from suscheck.tier0.abuseipdb import AbuseIPDBClient
+                from suscheck.modules.external.virustotal import VirusTotalClient
+                from suscheck.modules.external.abuseipdb import AbuseIPDBClient
                 from suscheck.core.finding import Finding, FindingType, Severity
                 
                 vt_client = VirusTotalClient()
@@ -591,8 +614,17 @@ def scan(
 
         report_path = output
         if not report_path and report_format != ReportFormat.TERMINAL:
+            config_mgr = ConfigManager()
+            from suscheck.core.reporter import ReportGenerator
+            
             # Generate a default timestamped path if no output path provided
-            report_path = ReportGenerator.get_default_path(target, report_format, report_dir)
+            use_timestamp = config_mgr.get("reporting.timestamped", True)
+            report_path = ReportGenerator.get_default_path(
+                target, 
+                report_format, 
+                report_dir or config_mgr.get("reporting.default_dir"),
+                timestamped=use_timestamp
+            )
 
         if report_path:
             try:
@@ -697,7 +729,7 @@ def explain(file: str = typer.Argument(help="File to explain")):
 
         # Tier 1 Code Scanner (YARA/Regex)
         if detection.artifact_type.value == "code":
-            from suscheck.modules.code_scanner import CodeScanner
+            from suscheck.modules.code.scanner import CodeScanner
             code_scanner = CodeScanner()
             c_res = code_scanner.scan_file(file)
             findings.extend(c_res.findings)
@@ -848,26 +880,18 @@ def install(
             )
         )
 
-    # Execute the actual install command.
-    if installer == "pip":
-        import sys
+    # Execute the actual install command using modular wrapper.
+    console.print(f"\n[bold]Executing installation...[/bold]\n")
+    return_code = install_package(trust_ecosystem, package)
 
-        cmd = [sys.executable, "-m", "pip", "install", package]
-    else:  # npm
-        cmd = ["npm", "install", package]
-
-    console.print(f"\n[bold]Executing:[/bold] [cyan]{' '.join(cmd)}[/cyan]\n")
-    try:
-        result = subprocess.run(cmd, check=False)
-    except FileNotFoundError:
-        console.print(f"[red]Failed to run installer command:[/red] {' '.join(cmd)}")
-        raise typer.Exit(1)
-
-    if result.returncode != 0:
-        console.print(
-            f"[red]Installer exited with non-zero status code {result.returncode}.[/red]"
-        )
-        raise typer.Exit(result.returncode)
+    if return_code != 0:
+        if return_code == 127:
+            console.print(f"[red]Failed to run installer command: installer not found.[/red]")
+        else:
+            console.print(
+                f"[red]Installer exited with non-zero status code {return_code}.[/red]"
+            )
+        raise typer.Exit(return_code)
 
 
 @app.command()
@@ -915,23 +939,18 @@ def clone(
             )
         )
 
-    # Execute `git clone` only if allowed.
-    cmd = ["git", "clone", url]
-    if dest:
-        cmd.append(dest)
+    # Execute `git clone` using modular wrapper.
+    console.print(f"\n[bold]Executing git clone...[/bold]\n")
+    return_code = clone_repo(url, dest)
 
-    console.print(f"\n[bold]Executing:[/bold] [cyan]{' '.join(cmd)}[/cyan]\n")
-    try:
-        result = subprocess.run(cmd, check=False)
-    except FileNotFoundError:
-        console.print(f"[red]Failed to run git command:[/red] {' '.join(cmd)}")
-        raise typer.Exit(1)
-
-    if result.returncode != 0:
-        console.print(
-            f"[red]git clone exited with non-zero status code {result.returncode}.[/red]"
-        )
-        raise typer.Exit(result.returncode)
+    if return_code != 0:
+        if return_code == 127:
+            console.print(f"[red]Failed to run git command: git not found.[/red]")
+        else:
+            console.print(
+                f"[red]git clone exited with non-zero status code {return_code}.[/red]"
+            )
+        raise typer.Exit(return_code)
 
 
 @app.command()
@@ -967,11 +986,12 @@ def connect(
         raise typer.Exit(1)
 
     if summary.pri_score > 15 and force:
+        res = connect_mcp(server, summary.pri_score, force=True)
         console.print(
             Panel(
                 (
                     "[bold red]WARNING:[/bold red] Allowing MCP connection despite elevated PRI score "
-                    f"({summary.pri_score}/100, {summary.verdict.value.upper()}) "
+                    f"({res['pri_score']}/100, {summary.verdict.value.upper()}) "
                     "because [yellow]--force[/yellow] was specified.\n\n"
                     "[dim]suscheck does not perform the connection itself; configure your MCP client "
                     "using the scan results above.[/dim]"
@@ -1044,8 +1064,9 @@ def version():
             f"  gitleaks:  {'✅ found' if shutil.which('gitleaks') else '❌ not found'}\n"
             f"  semgrep:   {'✅ found' if shutil.which('semgrep') else '❌ not found'}\n"
             f"  bandit:    {'✅ found' if shutil.which('bandit') else '❌ not found'}\n"
+            f"  checkov:   {'✅ found' if shutil.which('checkov') else '❌ not found'}\n"
+            f"  kics:      {'✅ found' if shutil.which('kics') else '❌ not found (Checkov used as primary)'}\n"
             f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
-            f"  kics:      {'✅ found' if shutil.which('kics') else '❌ not found'}\n"
             f"\n[dim]Load API keys from .env file or environment variables.\n"
             f"Timestamped reports are saved to ./reports/ by default.\n"
             f"Use --report-dir to customize report location.[/dim]",
@@ -1053,3 +1074,31 @@ def version():
             border_style="blue",
         )
     )
+@app.command()
+def check_keys():
+    """Diagnostic check for all configured API keys and secrets."""
+    config_mgr = ConfigManager()
+    suite = DiagnosticSuite(config_mgr)
+    
+    console.print(f"\n[bold blue]SusCheck Diagnostic Suite[/bold blue] v{__version__}")
+    console.print(f"Checking configured external services...\n")
+    
+    with console.status("Pinging services...", spinner="dots"):
+        results = suite.run_all()
+    
+    table = Table(title="Service Connectivity & Auth Status", box=None)
+    table.add_column("Service", style="bold")
+    table.add_column("Status", justify="center")
+    table.add_column("Message")
+
+    for res in results:
+        status_style = "green" if res.status == "OK" else "yellow" if res.status == "SKIPPED" else "red"
+        status_text = f"[{status_style}]{res.status}[/{status_style}]"
+        table.add_row(res.service, status_text, res.message)
+
+    console.print(table)
+    console.print("\n[dim]Note: API keys are now exclusively managed in your .env file.[/dim]\n")
+
+
+if __name__ == "__main__":
+    app()

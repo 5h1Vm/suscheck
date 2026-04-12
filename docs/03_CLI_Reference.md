@@ -86,8 +86,30 @@ Safety gate for MCP servers before wiring them into a client.
 
 `suscheck explain <file>` remains a placeholder for Increment 17.
 
+## `suscheck check-keys`
+
+Diagnostic command to validate the health and authentication of configured API keys.
+
+- **Operation**: Pings VirusTotal, AbuseIPDB, and GitHub APIs (if tokens are set). Checks for AI provider connectivity (OpenAI/Anthropic).
+- **Output**: A formatted table showing:
+  - **Service**: The external provider name.
+  - **Status**: OK (Healthy), ERROR (Auth/Network failure), or MISSING (No key found).
+  - **Details**: Specific error messages or partial key prefixes for confirmation.
+
+**Usage**: `suscheck check-keys`
+
 ---
 
 ## Environment variables (common)
 
-Documented in `.env.example` in the repo. Typical names include `SUSCHECK_VT_KEY`, `SUSCHECK_ABUSEIPDB_KEY`, `SUSCHECK_GITHUB_TOKEN`, `SUSCHECK_NVD_KEY`, AI-related vars. **Missing keys:** corresponding features skip; the tool should not crash.
+SusCheck uses an **environment-first** configuration model. Sensitive credentials should **never** be added to `suscheck.yaml`.
+
+| Variable | Service | Purpose |
+|----------|---------|---------|
+| `SUSCHECK_VT_KEY` | VirusTotal | File/URL reputation and hash lookups. |
+| `SUSCHECK_ABUSEIPDB_KEY` | AbuseIPDB | IP address reputation and blacklisting. |
+| `SUSCHECK_GITHUB_TOKEN` | GitHub | Authenticated API access for repository audits. |
+| `SUSCHECK_NVD_KEY` | NIST NVD | Vulnerability database lookups (optional/rate-limits). |
+| `SUSCHECK_AI_API_KEY` | LLM Provider | Required for AI-driven triage and explanations. |
+
+**Missing keys:** Corresponding features are automatically skipped; the tool maintains stability and continues with offline heuristics.

@@ -16,13 +16,14 @@ class DependencyNode:
     version: str
     is_direct: bool
     relation: str
-
+    node_id: int  # Added to track index for path reconstruction
 
 @dataclass
 class DepsDevResult:
     """Transitive dependency tree and metadata from Deps.dev."""
     dependencies: list[DependencyNode]
     advisories: list[dict]  # Known CVEs mapped in this version
+    edges: list[dict]      # Relationships between nodes
 
 
 class DepsDevClient:
@@ -54,14 +55,14 @@ class DepsDevClient:
 
             # Rebuild a flat list of dependency nodes for scanning
             dependencies = []
-            for node in nodes:
-                # node_key: { "system": "PyPI", "name": "requests", "version": "2.31.0" }
+            for i, node in enumerate(nodes):
                 n_key = node.get("versionKey", {})
                 dependencies.append(DependencyNode(
                     package_name=n_key.get("name", "unknown"),
                     version=n_key.get("version", "unknown"),
                     is_direct=node.get("relation") == "DIRECT",
-                    relation=node.get("relation", "UNKNOWN")
+                    relation=node.get("relation", "UNKNOWN"),
+                    node_id=i
                 ))
 
             # Fetch security advisories specifically for this package version
@@ -69,7 +70,8 @@ class DepsDevClient:
 
             return DepsDevResult(
                 dependencies=dependencies,
-                advisories=advisories
+                advisories=advisories,
+                edges=edges
             )
         except Exception as e:
             logger.debug(f"Deps.dev fetch failed: {e}")

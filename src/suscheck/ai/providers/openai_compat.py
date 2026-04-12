@@ -93,7 +93,8 @@ class OpenAICompatProvider(AIProvider):
             logger.warning("AI HTTP %s: %s", r.status_code, r.text[:500])
             r.raise_for_status()
         data = r.json()
-        return parse_json_response(text)
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return parse_json_response(content)
 
     def complete_narrative(
         self,

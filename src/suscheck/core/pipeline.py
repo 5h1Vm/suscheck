@@ -3,24 +3,34 @@
 import os
 import time
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from suscheck.core.config_manager import ConfigManager
 
 from suscheck.core.auto_detector import AutoDetector
 from suscheck.core.finding import Finding, ScanSummary, Verdict
 from suscheck.core.risk_aggregator import RiskAggregator
-from suscheck.modules.code_scanner import CodeScanner
-from suscheck.modules.config_scanner import ConfigScanner
-from suscheck.modules.mcp_scanner import MCPScanner
+from suscheck.modules.code.scanner import CodeScanner
+from suscheck.modules.config.scanner import ConfigScanner
+from suscheck.modules.mcp.scanner import MCPScanner
 
 class ScanPipeline:
     """Orchestrates complex scan workflows like recursive directory traversal."""
 
-    def __init__(self):
+    def __init__(self, config: Optional["ConfigManager"] = None):
+        self.config = config
         self.detector = AutoDetector()
-        self.ignore_dirs = {
+        
+        # Pull ignored directories from config or use defaults
+        default_ignore = {
             ".git", ".github", "venv", ".venv", "__pycache__", 
             "node_modules", ".gemini", "dist", "build", ".pytest_cache"
         }
+        if self.config:
+            user_ignore = self.config.get("scanners.generic.ignore_dirs", [])
+            self.ignore_dirs = set(default_ignore) | set(user_ignore)
+        else:
+            self.ignore_dirs = default_ignore
 
     def scan_directory(self, target_dir: str, skip_tier0: bool = True) -> List[Finding]:
         """Recursively scan a directory and return all findings."""

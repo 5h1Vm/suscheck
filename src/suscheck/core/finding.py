@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Optional
 
 
-class Severity(Enum):
+class Severity(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -13,7 +13,7 @@ class Severity(Enum):
     INFO = "info"
 
 
-class FindingType(Enum):
+class FindingType(str, Enum):
     C2_COMMUNICATION = "c2_communication"
     C2_INDICATOR = "c2_indicator"
     ENCODED_PAYLOAD = "encoded_payload"
@@ -52,14 +52,14 @@ class FindingType(Enum):
     MCP_ATTACK = "mcp_attack"
 
 
-class Verdict(Enum):
+class Verdict(str, Enum):
     CLEAR = "clear"
     CAUTION = "caution"
     HOLD = "hold"
     ABORT = "abort"
 
 
-class ReportFormat(Enum):
+class ReportFormat(str, Enum):
     TERMINAL = "terminal"
     MARKDOWN = "markdown"
     HTML = "html"

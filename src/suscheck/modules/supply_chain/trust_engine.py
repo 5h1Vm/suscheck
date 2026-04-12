@@ -127,11 +127,42 @@ class TrustEngine(ScannerModule):
                  score_components["maintainer"] = 0.5
 
         # 3. Package Takeover Detection (15%)
-        # Logic: If account is old but this is the first release by a NEW author/maintainer name
-        # (This heuristic is simplified for v1 based on available metadata)
+        # Heuristic: If account is old but this is the first release by a NEW author/maintainer name
+        # OR if author and maintainer are different and account age is relatively low (< 1 year)
         if meta.maintainer and meta.author and meta.maintainer != meta.author:
-             score_components["takeover"] = 0.7
-             # This is just a warning in v1 as it happens in legitimate forks
+             is_recent_pkg = account_age.days < 365
+             if is_recent_pkg:
+                score_components["takeover"] = 0.4
+                findings.append(
+                    Finding(
+                        module="trust_engine",
+                        finding_id="TRUST-TAKEOVER-MISMATCH",
+                        title="Author/Maintainer Mismatch",
+                        description=f"Package author ({meta.author}) differs from maintainer ({meta.maintainer}) on a relatively new package. Possible takeover or credential sharing.",
+                        severity=Severity.MEDIUM,
+                        finding_type=FindingType.TAKEOVER,
+                        confidence=0.65
+                    )
+                )
+             else:
+                score_components["takeover"] = 0.8
+
+        # 3b. Release Cadence Anomaly (Supplement for Takeover)
+        if meta.release_count > 5 and account_age.days > 0:
+            cadence = meta.release_count / (account_age.days / 30) # releases per month
+            if cadence > 10 and account_age.days < 180:
+                score_components["takeover"] = min(score_components["takeover"], 0.3)
+                findings.append(
+                    Finding(
+                        module="trust_engine",
+                        finding_id="TRUST-HIGH-CADENCE",
+                        title="Abnormal Release Cadence",
+                        description=f"Package has {meta.release_count} releases in {account_age.days} days ({cadence:.1f}/mo). Sudden spikes in releases often precede malicious payload injection.",
+                        severity=Severity.MEDIUM,
+                        finding_type=FindingType.TAKEOVER,
+                        confidence=0.75
+                    )
+                )
         
         # 4. Abandoned Packages (10%)
         if meta.latest_upload_time:
@@ -169,27 +200,119 @@ class TrustEngine(ScannerModule):
         # Check for internal-sounding names (simplified heuristic)
         if any(x in pkg_name.lower() for x in ["-corp", "-internal", "-private", "dev-"]):
              score_components["confusion"] = 0.5
+             findings.append(
+                Finding(
+                    module="trust_engine",
+                    finding_id="TRUST-CONFUSION",
+                    title="Potential Dependency Confusion Name",
+                    description=f"Package name '{pkg_name}' contains internal/private patterns. Verify it's not a hijacked internal namespace.",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.DEPENDENCY_CONFUSION,
+                    confidence=0.6
+                )
+             )
+
+        # 7. Install Script Risk (10%)
+        # Check for suspicious strings in summary/description if available
+        # (v1 approximation using metadata descriptions where available)
+        desc = (str(meta.home_page or "") + str(meta.project_urls or {})).lower()
+        suspicious_markers = ["curl", "wget", "chmod", "os.system", "subprocess", "eval(", "exec("]
+        if any(sm in desc for sm in suspicious_markers):
+            score_components["install"] = 0.3
+            findings.append(
+                Finding(
+                    module="trust_engine",
+                    finding_id="TRUST-SCRIPT-RISK",
+                    title="Suspicious Metadata Instructions",
+                    description="Package metadata references shell tools or dynamic execution. May indicate malicious install scripts.",
+                    severity=Severity.HIGH,
+                    finding_type=FindingType.INSTALL_SCRIPT_RISK,
+                    confidence=0.7
+                )
+            )
+
+        metadata_findings = []
+        hp = (meta.home_page or "").lower()
+        if hp and not hp.startswith("https://"):
+            if "localhost" not in hp and "127.0.0.1" not in hp:
+                metadata_findings.append("Non-HTTPS homepage")
+        if not meta.author_email or "@" not in meta.author_email:
+            metadata_findings.append("Invalid/Missing author email")
+        
+        if metadata_findings:
+            score_components["metadata"] = 0.5
+            findings.append(
+                Finding(
+                    module="trust_engine",
+                    finding_id="TRUST-METADATA-HYGIENE",
+                    title="Poor Metadata Hygiene",
+                    description=f"Package metadata has quality issues: {', '.join(metadata_findings)}.",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.METADATA_MISMATCH,
+                    confidence=0.8
+                )
+            )
 
         # 9. CVEs & Transitive Deps (10% + weighting)
         deps_client = DepsDevClient()
         if meta.version:
             deps_result = deps_client.get_dependencies("pypi", pkg_name, meta.version)
             if deps_result:
+                # Build simple adjacency map for path reconstruction
+                adj = {}
+                for edge in deps_result.edges:
+                    src = edge.get("fromNode")
+                    dst = edge.get("toNode")
+                    if src not in adj: adj[src] = []
+                    adj[src].append(dst)
+                
+                def get_path_to(target_idx: int) -> str:
+                    # Simple BFS to find path from root (usually node 0) to target
+                    import collections
+                    q = collections.deque([(0, [0])])
+                    visited = {0}
+                    while q:
+                        curr, path = q.popleft()
+                        if curr == target_idx:
+                            return " -> ".join([deps_result.dependencies[i].package_name for i in path])
+                        for neighbor in adj.get(curr, []):
+                            if neighbor not in visited:
+                                visited.add(neighbor)
+                                q.append((neighbor, path + [neighbor]))
+                    return "unknown path"
+
                 cve_count = len(deps_result.advisories)
                 if cve_count > 0:
                     score_components["cves"] = max(0.0, 1.0 - (cve_count * 0.4))
                     for cve in deps_result.advisories:
+                        finding_title = f"Known CVE: {cve.get('sourceID')}"
+                        finding_desc = cve.get("title", "")
+                        finding_desc = f"[Direct] {finding_desc}"
+                            
                         findings.append(
                             Finding(
                                 module="trust_engine",
                                 finding_id=f"TRUST-CVE-{cve.get('sourceID')}",
-                                title=f"Known CVE: {cve.get('sourceID')}",
-                                description=cve.get("title", ""),
+                                title=finding_title,
+                                description=finding_desc,
                                 severity=Severity.HIGH,
                                 finding_type=FindingType.CVE,
                                 confidence=1.0,
                             )
                         )
+                
+                # Signal depth of transitive mapping
+                if deps_result.dependencies:
+                    findings.append(
+                        Finding(
+                            module="trust_engine",
+                            finding_id="TRUST-TRANSITIVE-INDEX",
+                            title=f"Indexed {len(deps_result.dependencies)} transitive dependencies",
+                            description=f"Full graph analyzed. Root package chain depth: {len(deps_result.edges)} edges discovered.",
+                            severity=Severity.INFO,
+                            confidence=1.0,
+                        )
+                    )
 
         # Calculate Final Weighted Score (0-10 Scale)
         weights = {

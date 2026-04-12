@@ -12,3 +12,5 @@ venv/
 .ruff_cache/
 *.so
 .env
+suscheck.yaml
+*.yaml

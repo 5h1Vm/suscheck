@@ -9,12 +9,13 @@ class ReportGenerator:
     """Generates security reports in various formats based on scan summaries."""
 
     @staticmethod
-    def get_default_path(target: str, format: ReportFormat, output_dir: Optional[Path] = None) -> Path:
+    def get_default_path(target: str, format: ReportFormat, output_dir: Optional[Path] = None, timestamped: bool = False) -> Path:
         """Generate a default path for the report with a timestamp.
         
-        Format: suscheck_report_[TARGET]_[TIMESTAMP].[EXT]
+        If timestamped is True, it creates a subfolder R_YYYYMMDD_HHMMSS/
         """
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        now = datetime.datetime.now()
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
         safe_target = "".join([c if c.isalnum() else "_" for c in Path(target).name])
         if not safe_target:
             safe_target = "artifact"
@@ -22,13 +23,16 @@ class ReportGenerator:
         ext = format.value if format.value != "terminal" else "txt"
         filename = f"suscheck_report_{safe_target}_{timestamp}.{ext}"
         
-        if output_dir:
-            return output_dir / filename
+        base_dir = output_dir or (Path.cwd() / "reports")
+        
+        if timestamped:
+            # Create a unique subfolder for this specific scan
+            subfolder = base_dir / f"scan_{timestamp}"
+            subfolder.mkdir(parents=True, exist_ok=True)
+            return subfolder / filename
             
-        # Default to a 'reports' directory in the current working directory
-        reports_dir = Path.cwd() / "reports"
-        reports_dir.mkdir(exist_ok=True)
-        return reports_dir / filename
+        base_dir.mkdir(parents=True, exist_ok=True)
+        return base_dir / filename
 
     @staticmethod
     def generate_markdown(summary: ScanSummary) -> str:

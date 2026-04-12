@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from suscheck.ai.factory import create_ai_provider
+from suscheck.ai.factory import create_ai_provider, get_available_providers
 from suscheck.core.finding import Finding, Severity
 
 logger = logging.getLogger(__name__)
@@ -122,13 +122,26 @@ def run_ai_triage(
     artifact_type: str,
     console: Any = None,
 ) -> TriageRunResult:
-    """If configured, call LLM once; update findings in place."""
-    provider = create_ai_provider()
-    if not provider.is_configured():
-        return TriageRunResult(0.0, False, provider.name, None)
-
+    """If configured, call LLM once; update findings in place.
+    Implements GRACEFUL DEGRADATION: If primary fails, try other available providers.
+    """
     if not findings:
-        return TriageRunResult(0.0, False, provider.name, None)
+        return TriageRunResult(0.0, False, "none", None)
+
+    # 1. Determine preference order
+    primary = create_ai_provider()
+    providers_to_try = []
+    
+    if primary.is_configured():
+        providers_to_try.append(primary.name)
+        
+    all_av = get_available_providers()
+    for av in all_av:
+        if av not in providers_to_try:
+            providers_to_try.append(av)
+
+    if not providers_to_try:
+        return TriageRunResult(0.0, False, "none", "No AI providers configured")
 
     brief = _brief_findings(findings)
     user_payload = {
@@ -138,19 +151,29 @@ def run_ai_triage(
     }
     user_prompt = json.dumps(user_payload, indent=2)
 
-    try:
-        if console:
-            console.print(f"  [dim]AI triage ({provider.name}) analyzing {len(brief)} finding(s)...[/dim]")
-        data = provider.complete_triage_json(
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            timeout_sec=120,
-        )
-        pri_adj = apply_triage_response(findings, data)
-        return TriageRunResult(pri_adj, True, provider.name, None)
-    except Exception as e:
-        logger.exception("AI triage failed")
-        err = str(e)[:500]
-        if console:
-            console.print(f"  [yellow]AI triage failed: {err}[/yellow]")
-        return TriageRunResult(0.0, False, provider.name, err)
+    last_err = None
+    for p_name in providers_to_try:
+        provider = create_ai_provider(p_name)
+        try:
+            if console:
+                status_msg = f"  [dim]AI triage ({provider.name}) analyzing {len(brief)} finding(s)...[/dim]"
+                if last_err:
+                     status_msg = f"  [yellow]↺ Retrying triage with {provider.name}...[/yellow]"
+                console.print(status_msg)
+            
+            data = provider.complete_triage_json(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                timeout_sec=120,
+            )
+            pri_adj = apply_triage_response(findings, data)
+            return TriageRunResult(pri_adj, True, provider.name, None)
+        except Exception as e:
+            logger.exception(f"AI triage with {p_name} failed")
+            last_err = str(e)[:500]
+            continue
+            
+    # All failed
+    if console and last_err:
+        console.print(f"  [red]AI triage failed for all configured providers. Proceeding with local risk engine only.[/red]")
+    return TriageRunResult(0.0, False, "fallback_failed", last_err)

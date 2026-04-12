@@ -1,0 +1,39 @@
+[[rules]]
+id = "FUNC-PHP-PASSTHRU"
+name = "PHP passthru/shell_exec"
+regex = '\b(?:passthru|shell_exec|proc_open|popen|system|exec)\s*\('
+severity = "high"
+confidence = 0.70
+finding_type = "suspicious_behavior"
+description = "PHP command execution function. Can run arbitrary OS commands."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-PHP-PREG-E"
+name = "PHP preg_replace /e modifier"
+regex = '''preg_replace\s*\(\s*["'][^"']*\/e[imsxuU]*["']'''
+severity = "critical"
+confidence = 0.85
+finding_type = "suspicious_behavior"
+description = "preg_replace with /e modifier executes the replacement as PHP code. Classic webshell pattern."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-PHP-EVAL"
+name = "PHP eval/assert"
+regex = '\b(?:eval|assert)\s*\('
+severity = "critical"
+confidence = 0.80
+finding_type = "suspicious_behavior"
+description = "PHP evaluation functions. Often used for obfuscated payloads or dynamic code execution."
+mitre_ids = ["T1059"]
+
+[[rules]]
+id = "FUNC-PHP-OBFUSCATION"
+name = "PHP Obfuscation Patterns"
+regex = '\b(?:base64_decode|gzuncompress|gzinflate|str_rot13)\s*\('
+severity = "medium"
+confidence = 0.60
+finding_type = "obfuscation"
+description = "PHP decoding/decompression functions. Often used to hide malicious payloads in scripts."
+mitre_ids = ["T1027"]
