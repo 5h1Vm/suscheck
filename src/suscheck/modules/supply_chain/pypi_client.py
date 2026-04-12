@@ -22,7 +22,9 @@ class PyPIMetadata:
     project_urls: dict
     yanked: bool
     upload_time: Optional[datetime.datetime]
-    size: int
+    latest_version: str = ""
+    latest_upload_time: Optional[datetime.datetime] = None
+    size: int = 0
 
 
 class PyPIClient:
@@ -37,8 +39,9 @@ class PyPIClient:
             "User-Agent": "SusCheck/0.1.0 (Security Scanner)",
         })
 
-    def get_package_metadata(self, package_name: str) -> Optional[PyPIMetadata]:
-        """Fetch and parse metadata for a specific package."""
+    def get_package_metadata(self, package_name: str, version: Optional[str] = None) -> Optional[PyPIMetadata]:
+        """Fetch and parse metadata for a package, capturing both specific and latest version info."""
+        # We always start with the base URL to get the global 'latest' information
         url = f"{self.BASE_URL}/{package_name}/json"
         
         try:
@@ -50,30 +53,54 @@ class PyPIClient:
             data = resp.json()
             info = data.get("info", {})
             releases = data.get("releases", {})
-            current_version = info.get("version", "")
             
-            # Find upload time of current version safely
-            upload_time = None
-            size = 0
-            if current_version in releases and releases[current_version]:
-                # Grab first distribution upload (usually sdist or wheel)
-                dist_info = releases[current_version][0]
-                time_str = dist_info.get("upload_time")
-                if time_str:
-                    upload_time = datetime.datetime.fromisoformat(time_str)
-                size = dist_info.get("size", 0)
+            latest_version = info.get("version", "")
+            
+            # If a specific version was requested, we need to extract its metadata
+            # otherwise we use the 'info' which is already 'latest'.
+            target_version = version if version else latest_version
+            
+            # Extract metadata for the target version
+            # Note: PyPI info dictionary in the base JSON reflects the LATEST version.
+            # If we want metadata for an OLDER version, we have to be careful.
+            
+            # If target_version == latest_version, we can use 'info'.
+            # Otherwise, we might need a separate call OR parse releases.
+            
+            target_info = info
+            if version and version != latest_version:
+                # To get accurate 'yanked' etc for an old version, we SHOULD hit the version-specific URL
+                # as the root JSON 'info' is for latest.
+                v_url = f"{self.BASE_URL}/{package_name}/{version}/json"
+                v_resp = self.session.get(v_url, timeout=self.timeout)
+                if v_resp.status_code == 200:
+                    target_info = v_resp.json().get("info", {})
+
+            # Get upload times
+            def get_upload_time(v_name):
+                v_releases = releases.get(v_name, [])
+                if v_releases:
+                    time_str = v_releases[0].get("upload_time")
+                    if time_str:
+                        return datetime.datetime.fromisoformat(time_str)
+                return None
+
+            upload_time = get_upload_time(target_version)
+            latest_upload_time = get_upload_time(latest_version)
 
             return PyPIMetadata(
                 name=info.get("name", package_name),
-                version=current_version,
-                author=info.get("author", ""),
-                author_email=info.get("author_email", ""),
-                maintainer=info.get("maintainer", ""),
-                home_page=info.get("home_page", ""),
-                project_urls=info.get("project_urls") or {},
-                yanked=info.get("yanked", False),
+                version=target_version,
+                author=target_info.get("author", ""),
+                author_email=target_info.get("author_email", ""),
+                maintainer=target_info.get("maintainer", ""),
+                home_page=target_info.get("home_page", ""),
+                project_urls=target_info.get("project_urls") or {},
+                yanked=target_info.get("yanked", False),
                 upload_time=upload_time,
-                size=size
+                latest_version=latest_version,
+                latest_upload_time=latest_upload_time,
+                size=releases.get(target_version, [{}])[0].get("size", 0)
             )
         except Exception as e:
             logger.debug(f"PyPI fetch failed: {e}")

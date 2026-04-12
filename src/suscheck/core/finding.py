@@ -54,6 +54,13 @@ class Verdict(Enum):
     ABORT = "abort"
 
 
+class ReportFormat(Enum):
+    TERMINAL = "terminal"
+    MARKDOWN = "markdown"
+    HTML = "html"
+    JSON = "json"
+
+
 @dataclass
 class Finding:
     """A single security finding from any scanner module."""
@@ -111,3 +118,4 @@ class ScanSummary:
     modules_skipped: list[str] = field(default_factory=list)
     vt_result: Optional[dict] = None
     trust_score: Optional[float] = None
+    pri_breakdown: list[str] = field(default_factory=list)

@@ -6,7 +6,7 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 
-from suscheck.core.finding import Finding, ScanSummary, Severity, Verdict
+from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
 
 console = Console()
 
@@ -76,11 +76,23 @@ def render_findings(findings: list[Finding]) -> None:
         console.print("[green]No security findings detected.[/green]\n")
         return
 
-    # Separate regular findings and review items
-    regular = [f for f in findings if not f.needs_human_review]
+    # Separate review items and regular findings
     reviews = [f for f in findings if f.needs_human_review]
+    regular_raw = [f for f in findings if not f.needs_human_review]
 
-    if regular:
+    # False-positive / low-confidence display filter:
+    # - Keep all findings in scoring, but do not show low-confidence items
+    #   as primary alerts.
+    # - Items explicitly marked for review are always shown.
+    primary: list[Finding] = []
+    low_confidence: list[Finding] = []
+    for f in regular_raw:
+        if f.confidence is not None and f.confidence < 0.4 and f.finding_type != FindingType.REVIEW_NEEDED:
+            low_confidence.append(f)
+        else:
+            primary.append(f)
+
+    if primary:
         table = Table(
             title="Findings",
             box=box.ROUNDED,
@@ -92,7 +104,7 @@ def render_findings(findings: list[Finding]) -> None:
         table.add_column("Location", min_width=15)
         table.add_column("MITRE", min_width=10)
 
-        for f in sorted(regular, key=lambda x: list(Severity).index(x.severity)):
+        for f in sorted(primary, key=lambda x: list(Severity).index(x.severity)):
             icon = SEVERITY_ICONS[f.severity]
             color = SEVERITY_COLORS[f.severity]
 
@@ -104,14 +116,41 @@ def render_findings(findings: list[Finding]) -> None:
 
             mitre = ", ".join(f.mitre_ids) if f.mitre_ids else "—"
 
+            detail = f.description
+            if f.ai_explanation:
+                detail += f"\n[magenta]AI[/magenta] [dim]{f.ai_explanation}[/dim]"
+            if f.ai_false_positive:
+                detail += "\n[green]AI: likely false positive[/green]"
+
             table.add_row(
                 f"[{color}]{icon}[/{color}]",
-                f"[{color}]{f.title}[/{color}]\n[dim]{f.description}[/dim]",
+                f"[{color}]{f.title}[/{color}]\n[dim]{detail}[/dim]",
                 f"[dim]{location}[/dim]",
                 f"[dim]{mitre}[/dim]",
             )
 
         console.print(table)
+
+    if low_confidence:
+        lc_table = Table(
+            title="Low Confidence Indicators",
+            box=box.SIMPLE,
+            border_style="dim",
+            show_lines=False,
+        )
+        lc_table.add_column("Sev", width=4, justify="center")
+        lc_table.add_column("Finding", min_width=40)
+
+        for f in sorted(low_confidence, key=lambda x: list(Severity).index(x.severity)):
+            icon = SEVERITY_ICONS[f.severity]
+            color = SEVERITY_COLORS[f.severity]
+            detail = f.description
+            lc_table.add_row(
+                f"[{color}]{icon}[/{color}]",
+                f"[{color}]{f.title}[/{color}]\n[dim]{detail}[/dim] (conf {f.confidence:.2f})",
+            )
+
+        console.print(lc_table)
 
     if reviews:
         console.print()

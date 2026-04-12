@@ -107,3 +107,48 @@ def test_neutral_findings_ignored():
     agg = RiskAggregator("CODE")
     pri = agg.calculate(findings)
     assert pri.score == 0
+
+
+def test_ai_pri_adjustment_clamped():
+    findings = [
+        Finding(
+            finding_id="1",
+            title="Low",
+            description="d",
+            severity=Severity.LOW,
+            confidence=1.0,
+            module="test",
+            finding_type=FindingType.REVIEW_NEEDED,
+        ),
+    ]
+    agg = RiskAggregator("CODE")
+    pri = agg.calculate(findings, ai_pri_delta=10.0)
+    assert pri.score == 13  # 3 + 10
+    pri2 = agg.calculate(findings, ai_pri_delta=100.0)
+    assert pri2.score == 18  # 3 + 15 clamp
+    assert any("AI Triage Adjustment" in b for b in pri2.breakdown)
+
+
+def test_trust_score_influences_pri():
+    """Low trust should raise PRI, high trust should lower it."""
+    findings = [
+        Finding(
+            finding_id="1",
+            title="Medium",
+            description="d",
+            severity=Severity.MEDIUM,
+            confidence=1.0,
+            module="test",
+            finding_type=FindingType.REVIEW_NEEDED,
+        ),
+    ]
+
+    agg = RiskAggregator("CODE")
+    base = agg.calculate(findings).score
+
+    low_trust = agg.calculate(findings, trust_score=2.0)
+    high_trust = agg.calculate(findings, trust_score=9.0)
+
+    assert low_trust.score > base
+    assert high_trust.score < base
+    assert any("Trust Score" in b for b in low_trust.breakdown)

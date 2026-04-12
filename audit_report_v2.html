@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SusCheck Report: pypi:urllib3@2.0.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent: #f59e0b;
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #f59e0b;
+            --low: #34d399;
+            --info: #38bdf8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 3rem;
+            border-bottom: 2px solid var(--surface);
+            padding-bottom: 1.5rem;
+        }
+        h1 { margin: 0; font-weight: 800; font-size: 2.5rem; letter-spacing: -1px; }
+        .verdict-banner {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .pri-gauge {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 10px solid var(--surface-hover);
+            border-top-color: var(--accent);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .pri-value { font-size: 2.5rem; font-weight: 800; color: var(--accent); }
+        .pri-label { font-size: 0.8rem; text-transform: uppercase; color: var(--text-dim); }
+        
+        .verdict-info h2 { margin: 0; font-size: 2rem; color: var(--accent); text-transform: uppercase; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        .card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .card h2 { margin-top: 0; font-size: 1.2rem; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1px; }
+        
+        ul.breakdown { list-style: none; padding: 0; }
+        ul.breakdown li { margin-bottom: 0.5rem; padding-left: 1.5rem; position: relative; }
+        ul.breakdown li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        .stat-item { background: var(--bg); padding: 1rem; border-radius: 0.5rem; text-align: center; }
+        .stat-val { display: block; font-size: 1.5rem; font-weight: 800; }
+        .stat-lbl { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
+
+        .findings-list { margin-top: 3rem; }
+        .finding-card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--accent);
+            transition: transform 0.2s;
+        }
+        .finding-card:hover { transform: translateY(-3px); background: var(--surface-hover); }
+        .finding-card.critical { border-left-color: var(--critical); }
+        .finding-card.high { border-left-color: var(--high); }
+        
+        .finding-header { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; }
+        .badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 2rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .badge.critical { background: var(--critical); }
+        .badge.high { background: var(--high); }
+        .badge.medium { background: var(--medium); color: #000; }
+        .badge.low { background: var(--low); color: #000; }
+        
+        .module-tag { color: var(--text-dim); font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
+        .description { color: var(--text-dim); }
+        .location { margin-top: 1rem; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+        
+        .ai-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>SusCheck Scan</h1>
+                <div style="color: var(--text-dim)">Target: pypi:urllib3@2.0.0</div>
+            </div>
+            <div style="text-align: right; color: var(--text-dim); font-size: 0.9rem;">
+                Generated: 2026-04-12 16:50:44<br>
+                Duration: 0.01s
+            </div>
+        </header>
+
+        <div class="verdict-banner">
+            <div class="pri-gauge">
+                <span class="pri-value">51</span>
+                <span class="pri-label">PRI Score</span>
+            </div>
+            <div class="verdict-info">
+                <h2>Verdict: hold</h2>
+                <div style="margin-top: 0.5rem; opacity: 0.8;">
+                    This artifact has been classified with a <strong>HOLD</strong> status after evaluating 2 security indicators.
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Mathematical Breakdown</h2>
+                <ul class="breakdown">
+                    <li>Score Breakdown:</li><li>  • Package Abandoned (>1 year) → 8 pts × 1.00 conf = 8.0 pts</li><li>  • Package Version Yanked → 25 pts × 1.00 conf = 25.0 pts</li><li>  ⚡ Context Multiplier (dependency package) → x1.4 (added 13.2 pts)</li><li>  🧩 Trust Score 3.0/10 → x1.12 (added 5.5 pts)</li><li><strong>  Total Score: 51/100</strong></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h2>Findings Summary</h2>
+                <div class="stats-grid">
+                    <div class="stat-item"><span class="stat-val" style="color: var(--critical)">1</span><span class="stat-lbl">Critical</span></div>
+                    <div class="stat-item"><span class="stat-val" style="color: var(--high)">0</span><span class="stat-lbl">High</span></div>
+                    <div class="stat-item"><span class="stat-val" style="color: var(--medium)">1</span><span class="stat-lbl">Medium</span></div>
+                    <div class="stat-item"><span class="stat-val">0</span><span class="stat-lbl">Info</span></div>
+                </div>
+                <div style="margin-top: 1.5rem; font-size: 0.9rem;">
+                    <strong>Artifact:</strong> package<br>
+                    <strong>Trust Score:</strong> 3.0/10<br>
+                    <strong>Modules:</strong> supply_chain
+                </div>
+            </div>
+        </div>
+
+        <div class="findings-list">
+            <h2>Detailed Inventory</h2>
+            
+            <div class="finding-card medium">
+                <div class="finding-header">
+                    <span class="badge medium">MEDIUM</span>
+                    <span class="finding-id">TRUST-ABANDONED</span>
+                    <span class="module-tag">trust_engine</span>
+                </div>
+                <h3>Package Abandoned (>1 year)</h3>
+                <p class="description">The latest version was uploaded 1081 days ago. Ensure it is still maintained.</p>
+                <div class="location">Location: <code>N/A</code></div>
+                
+            </div>
+            
+            <div class="finding-card critical">
+                <div class="finding-header">
+                    <span class="badge critical">CRITICAL</span>
+                    <span class="finding-id">TRUST-YANKED</span>
+                    <span class="module-tag">trust_engine</span>
+                </div>
+                <h3>Package Version Yanked</h3>
+                <p class="description">The maintainer explicitly yanked this version from PyPI.</p>
+                <div class="location">Location: <code>N/A</code></div>
+                
+            </div>
+            
+        </div>
+    </div>
+</body>
+</html>
+        

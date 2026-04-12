@@ -205,6 +205,14 @@ For the product roadmap vs implementation gap list, use **`Checkpoints/Progress_
 
 **Why:** Static assessment of agent-exposed capabilities before connecting an MCP server.
 
+### `src/suscheck/modules/mcp_dynamic.py` (~320 lines)
+
+**What:** `MCPDynamicScanner` + `observe_stdio_server_in_docker()`: uses Docker Engine API (`docker` PyPI extra) to run each **stdio** MCP `command` + `args` inside an inferred image (`node:20-bookworm-slim` vs `python:3.12-slim`). Observes ~60s (configurable via `observe_seconds` in `scan()` config), compares container network TX bytes, scans logs for `http(s)` URLs, emits INFO if process keeps running. **Skips** entries that only have `url` (remote transport).
+
+**Why:** Increment 12 — lightweight dynamic signal without claiming full filesystem syscall tracing.
+
+**Honest limits:** Pull/install traffic (e.g. `npx`) can raise TX; no destination-level capture without extra tooling; arbitrary commands may fail if the image lacks dependencies.
+
 ---
 
 ## Tier 1 — supply chain (trust command)
@@ -236,6 +244,44 @@ For the product roadmap vs implementation gap list, use **`Checkpoints/Progress_
 **What:** Runs `semgrep` with JSON output; maps results to `Finding`.
 
 **Why:** Vulnerability-style rules beyond regex threat hunting.
+
+---
+
+## AI triage (Increment 13)
+
+### `src/suscheck/ai/key_resolution.py`
+
+**What:** `api_key_for_provider()` returns `SUSCHECK_AI_KEY` if set, else common upstream names (`GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `SAMBANOVA_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`).
+
+**Why:** Match how other tools and `.env` templates name keys without duplicating secrets.
+
+### `src/suscheck/ai/http_retry.py`
+
+**What:** `post_json_with_retry` — retries POST on **429** / **503** with `Retry-After` or exponential backoff (capped).
+
+**Why:** Free-tier and shared keys hit rate limits; avoids failing a whole scan on transient throttling.
+
+### `src/suscheck/ai/factory.py`
+
+**What:** Maps `SUSCHECK_AI_PROVIDER` to implementations: **openai, groq, openrouter, mistral, cerebras, sambanova** → `OpenAICompatProvider` + default base URLs; **anthropic**; **gemini** / **google** → `GeminiProvider`; **ollama**; **none**.
+
+**Why:** One entry point for `run_ai_triage`. Optional `SUSCHECK_AI_JSON_MODE=0` disables `response_format` for picky gateways; OpenRouter can use `OPENROUTER_HTTP_REFERER` / `OPENROUTER_APP_TITLE`.
+
+### `src/suscheck/ai/triage_engine.py`
+
+**What:** Serializes up to 24 findings (by severity), calls the provider for **one** JSON response (`pri_adjustment` in **[-15, 15]**, per-finding `explanation`, `likely_false_positive`, `confidence`), mutates `Finding.ai_*` fields, returns adjustment for PRI.
+
+**Why:** Checkpoint 1a step 7 (AI ±15) + explain/FP hints without hardcoded verdicts.
+
+### `src/suscheck/ai/providers/*`
+
+**What:** `NoneProvider`; `OpenAICompatProvider` (OpenAI + Groq + custom base URL); `AnthropicProvider` (HTTP Messages API); `OllamaProvider` (`/api/chat`, `format: json`).
+
+**Why:** Multi-backend support without requiring every SDK; **`google`** is explicitly not implemented yet (factory logs and falls back to none).
+
+### `src/suscheck/ai/json_extract.py`
+
+**What:** Strips markdown fences and `json.loads` model output.
 
 ---
 

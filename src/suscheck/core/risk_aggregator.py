@@ -28,7 +28,7 @@ class RiskAggregator:
         Severity.HIGH: 15,
         Severity.MEDIUM: 8,
         Severity.LOW: 3,
-        Severity.INFO: 1,  # INFO represents 1 point per checkpoint definition
+        Severity.INFO: 0,  # INFO represents 0 points to ensure it's purely informational
     }
 
     # Internal finding IDs that do not contribute to score
@@ -40,7 +40,13 @@ class RiskAggregator:
     def __init__(self, artifact_type: str = "CODE"):
         self.artifact_type = artifact_type.upper()
 
-    def calculate(self, findings: list[Finding], vt_result: dict | None = None) -> PRIScore:
+    def calculate(
+        self,
+        findings: list[Finding],
+        vt_result: dict | None = None,
+        ai_pri_delta: float = 0.0,
+        trust_score: float | None = None,
+    ) -> PRIScore:
         """Calculate the 10-step PRI score from findings."""
         score = 0.0
         breakdown = []
@@ -112,8 +118,46 @@ class RiskAggregator:
         score += correlation_score
 
         # ── Step 5: Supply Chain Trust Score Multiplier ───────────────────────
-        # To be implemented in Increment 9. For now, 1.0x.
-        trust_multiplier = 1.0
+        # Map TrustEngine's 0–10 score into a gentle PRI multiplier.
+        # - Medium trust (~5/10) ≈ 1.0x (neutral)
+        # - High trust (8–10) gives a modest discount (~0.90–0.95x)
+        # - Low trust (0–3) increases score more aggressively (up to ~1.30x)
+        if trust_score is not None:
+            try:
+                t = float(trust_score)
+            except (TypeError, ValueError):
+                t = 0.0
+            # Clamp input to expected TrustEngine range
+            t = max(0.0, min(10.0, t))
+
+            # Piecewise-linear mapping, documented for auditability:
+            #   t in [5,10]:  m = 1.1 - 0.02 * t   (5 → 1.0, 10 → 0.9)
+            #   t in [0,5) :  m = 1.3 - 0.06 * t   (0 → 1.3, 5 → 1.0)
+            if t >= 5.0:
+                trust_multiplier = 1.1 - 0.02 * t
+            else:
+                trust_multiplier = 1.3 - 0.06 * t
+
+            # Hard clamp to avoid extreme swings even if formula changes later
+            trust_multiplier = max(0.85, min(1.35, trust_multiplier))
+
+            pre_trust_score = score
+            score *= trust_multiplier
+            trust_delta = score - pre_trust_score
+
+            # Choose color based on whether trust lowered or raised risk.
+            if trust_delta < 0:
+                color = "green"
+            elif t <= 3.0:
+                color = "red"
+            else:
+                color = "yellow"
+
+            verb = "subtracted" if trust_delta < 0 else "added"
+            breakdown.append(
+                f"  [{color}]🧩 Trust Score [/]{t:.1f}/10 → x{trust_multiplier:.2f} "
+                f"({verb} [bold]{abs(trust_delta):.1f}[/bold] pts)"
+            )
 
         # ── Step 6: VirusTotal Adjustments ────────────────────────────────────
         vt_adjustment = 0.0
@@ -138,9 +182,14 @@ class RiskAggregator:
                 breakdown.append(f"  [red]🚨 VirusTotal Extreme[/red] ({malicious} detections) → +[bold]60.0[/bold] pts")
                 
         score += vt_adjustment
-        
-        # ── Step 7: AI Adjustment ─────────────────────────────────────────────
-        # To be implemented with external LLM triage
+
+        # ── Step 7: AI Adjustment (max ±15 per Checkpoint 1a) ─────────────────
+        ai_adj = max(-15.0, min(15.0, float(ai_pri_delta)))
+        if ai_adj != 0.0:
+            score += ai_adj
+            breakdown.append(
+                f"  [magenta]🤖 AI Triage Adjustment[/magenta] → [bold]{ai_adj:+.1f}[/bold] pts"
+            )
 
         # ── Step 8: Normalize (Clamp to 0-100) ────────────────────────────────
         score_int = int(score)

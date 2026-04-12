@@ -46,6 +46,7 @@ For a **single file**, `cli.py` picks **one** primary scanner (first `can_handle
 | Order | Module | Rough role |
 |-------|--------|------------|
 | 1 | `MCPScanner` (`mcp_scanner.py`) | MCP client/manifest JSON: `mcpServers`, risky commands, tool names, prompt patterns (`rules/mcp.toml`) |
+| 1b | `MCPDynamicScanner` (`mcp_dynamic.py`) | **Optional** (`--mcp-dynamic`): run declared stdio commands in short-lived Docker containers, sample network TX + logs |
 | 2 | `RepoScanner` (`repo_scanner.py`) | **Directories only** — not used for single files in this branch |
 | 3 | `ConfigScanner` (`config_scanner.py`) | Dockerfile / YAML / JSON configs, KICS + custom CI rules |
 | 4 | `CodeScanner` (`code_scanner.py`) | Layer 1 detectors + recursive decode peel + TOML plugins |
@@ -62,9 +63,15 @@ For a **directory** with `.git`, auto-detection yields **repository**; `scan` us
 
 ### PRI (`core/risk_aggregator.py`)
 
-**What:** Combines severities, confidence, **context multiplier** (install script / package / **MCP**), **correlation bonuses**, **VirusTotal** adjustments, clamp 0–100, verdict bands.
+**What:** Combines severities, confidence, **context multiplier** (install script / package / **MCP**), **correlation bonuses**, **VirusTotal** adjustments, **optional AI delta (±15)**, clamp 0–100, verdict bands.
 
 **Why:** One explainable score. *Note:* The `trust` command’s trust score is **separate** from PRI today; `RiskAggregator` still uses a **1.0×** placeholder for “supply chain trust multiplier” inside `scan` (see developer guide).
+
+### AI triage (`ai/`)
+
+**What:** After static/Tier 2 findings exist, `run_ai_triage` (unless `--no-ai`) calls the configured provider once, fills `Finding.ai_explanation` / `ai_false_positive` / `ai_confidence`, and passes **`ai_pri_delta`** into `RiskAggregator`.
+
+**Why:** Increment 13 — short explanations and bounded PRI nudge; no AI when provider is `none` or misconfigured.
 
 ### Output (`output/terminal.py`)
 

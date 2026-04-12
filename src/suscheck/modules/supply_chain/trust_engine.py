@@ -38,7 +38,11 @@ class TrustEngine(ScannerModule):
         findings = []
         errors = []
         
-        # Parse target. e.g. "pypi:requests" or just "requests" (defaults to pypi)
+        # Parse target. e.g. "pypi:requests@2.31.0" or just "requests@2.31.0"
+        version = None
+        if "@" in target:
+            target, version = target.split("@", 1)
+
         if ":" in target:
             ecosystem, pkg_name = target.split(":", 1)
         else:
@@ -57,7 +61,7 @@ class TrustEngine(ScannerModule):
         
         # 1. Fetch PyPI Metadata
         pypi_client = PyPIClient()
-        meta = pypi_client.get_package_metadata(pkg_name)
+        meta = pypi_client.get_package_metadata(pkg_name, version=version)
         if not meta:
             return ModuleResult(
                 module_name=self.name,
@@ -87,21 +91,40 @@ class TrustEngine(ScannerModule):
                     )
                     break
 
-        # Signal 2: Abandoned packages
-        if meta.upload_time:
-            delta = datetime.now(timezone.utc) - meta.upload_time.replace(tzinfo=timezone.utc)
-            if delta.days > 365:
+        # Signal 2: Abandoned packages (Project-level activity)
+        if meta.latest_upload_time:
+            project_delta = datetime.now(timezone.utc) - meta.latest_upload_time.replace(tzinfo=timezone.utc)
+            if project_delta.days > 365:
                 trust_score -= 2.0
                 findings.append(
                     Finding(
                         module="trust_engine",
                         finding_id="TRUST-ABANDONED",
-                        title=f"Package Abandoned (>1 year)",
-                        description=f"The latest version was uploaded {delta.days} days ago. Ensure it is still maintained.",
+                        title=f"Project Abandoned (>1 year)",
+                        description=f"The project appears inactive. Latest version '{meta.latest_version}' was uploaded {project_delta.days} days ago.",
                         severity=Severity.MEDIUM,
                         finding_type=FindingType.ABANDONED_PACKAGE,
                         confidence=1.0,
                         mitre_ids=["T1195.002"]
+                    )
+                )
+
+        # Signal 4: Old Version Usage (Informational, 0.0 penalty)
+        if meta.upload_time and meta.version != meta.latest_version:
+            version_delta = datetime.now(timezone.utc) - meta.upload_time.replace(tzinfo=timezone.utc)
+            if version_delta.days > 365:
+                findings.append(
+                    Finding(
+                        module="trust_engine",
+                        finding_id="TRUST-OLD-VERSION",
+                        title=f"Running Old Version",
+                        description=(
+                            f"Version {meta.version} is {version_delta.days} days old. "
+                            f"A newer version ({meta.latest_version}) is available."
+                        ),
+                        severity=Severity.INFO,
+                        finding_type=FindingType.MAINTAINER_RISK,
+                        confidence=1.0,
                     )
                 )
 

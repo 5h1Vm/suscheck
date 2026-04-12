@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    "requests==2.31.0",
+    "requesrs==2.31.0",
+    "pandas==2.2.0"
+  ],
+  "metadata": {
+    "project": "typosquat-test-suite"
+  }
+}

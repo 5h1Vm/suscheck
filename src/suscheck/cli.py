@@ -2,8 +2,11 @@
 
 import logging
 import os
+import subprocess
 import time
+from enum import Enum
 from pathlib import Path
+from typing import List, Optional, Union
 
 import typer
 from dotenv import load_dotenv
@@ -17,6 +20,7 @@ from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, V
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code_scanner import CodeScanner
 from suscheck.modules.config_scanner import ConfigScanner
+from suscheck.modules.mcp_dynamic import MCPDynamicScanner
 from suscheck.modules.mcp_scanner import MCPScanner
 from suscheck.modules.repo_scanner import RepoScanner
 from suscheck.output.terminal import (
@@ -27,6 +31,7 @@ from suscheck.output.terminal import (
     render_vt_result,
 )
 from suscheck.tier0 import Tier0Engine
+from suscheck.core.finding import ReportFormat
 
 # ── Load .env file ────────────────────────────────────────────
 # Searches for .env in the current directory and project root.
@@ -49,14 +54,19 @@ detector = AutoDetector()
 @app.command()
 def scan(
     target: str = typer.Argument(help="File, directory, URL, or package name to scan"),
-    output: str = typer.Option("terminal", "--output", "-o", help="Output format: terminal, json"),
-    report: str = typer.Option(None, "--report", "-r", help="Generate report: html, markdown"),
+    report_format: ReportFormat = typer.Option(ReportFormat.TERMINAL, "--format", "-f", help="Output format: terminal, markdown, html, json"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="File to save the report to"),
     no_ai: bool = typer.Option(False, "--no-ai", help="Skip AI triage, rules-only mode"),
     upload_vt: bool = typer.Option(
         False, "--upload-vt",
         help="Upload file to VirusTotal if hash unknown. ⚠️  File becomes PUBLIC on VT.",
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    mcp_dynamic: bool = typer.Option(
+        False,
+        "--mcp-dynamic",
+        help="After static MCP scan, run optional Docker observation (requires docker package + daemon).",
+    ),
 ):
     """Scan any artifact for security issues."""
     if verbose:
@@ -212,6 +222,7 @@ def scan(
                 modules_ran=["tier0"],
                 scan_duration=time.time() - scan_start,
                 vt_result=tier0_result.vt_dict,
+                pri_breakdown=pri_result.breakdown,
             )
             
             console.print(Panel(
@@ -222,7 +233,7 @@ def scan(
             ))
             render_verdict(summary)
             render_scan_footer(summary)
-            return
+            return summary
 
         # Show Tier 0 timing
         console.print(
@@ -332,6 +343,37 @@ def scan(
         except Exception as e:
             console.print(f"  [red]Tier 1 static scan failed: {e}[/red]")
 
+        if (
+            mcp_dynamic
+            and file_path
+            and os.path.isfile(str(file_path))
+            and "mcp" in modules_ran
+        ):
+            try:
+                dyn = MCPDynamicScanner()
+                if dyn.can_handle(detection.artifact_type.value, str(file_path)):
+                    console.print("\n[bold]MCP Dynamic (Docker)[/bold]")
+                    dyn_res = dyn.scan(str(file_path))
+                    modules_ran.append("mcp_dynamic")
+                    all_findings.extend(dyn_res.findings)
+                    if dyn_res.error:
+                        console.print(f"  [dim]MCP dynamic: {dyn_res.error}[/dim]")
+                    for note in dyn_res.metadata.get("observations") or []:
+                        if note.get("error"):
+                            console.print(f"  [dim]  server {note.get('server')}: {note['error']}[/dim]")
+                        elif note.get("skip"):
+                            console.print(
+                                f"  [dim]  server {note.get('server')}: skipped ({note['skip']})[/dim]"
+                            )
+                    if dyn_res.findings:
+                        render_findings(dyn_res.findings)
+                    elif not dyn_res.error:
+                        console.print(
+                            "  [dim]MCP dynamic finished (no findings from observation).[/dim]"
+                        )
+            except Exception as e:
+                console.print(f"  [yellow]MCP dynamic observation failed: {e}[/yellow]")
+
         # ==========================================
         # Tier 2: Layer 2 SAST (Semgrep)
         # ==========================================
@@ -364,13 +406,90 @@ def scan(
     # ── Final verdict ─────────────────────────────────────────
     scan_duration = time.time() - scan_start
 
-    # Compute proper PRI score from all findings
-    aggregator = RiskAggregator(detection.artifact_type.value)
-    pri_result = aggregator.calculate(all_findings, vt_dict)
+    supply_chain_trust_score: float | None = None
 
-    modules_skipped = ["supply_chain", "ai_triage"]
+    ai_pri_delta = 0.0
+    tres = None
+
+    # ── Supply chain trust (package targets only) ────────────────────────────
+    # Integrate TrustEngine into the main scan so that a low Trust Score
+    # meaningfully raises PRI and a very high Trust Score can slightly reduce it.
+    if "package" in detection.artifact_type.value.lower():
+        from suscheck.modules.supply_chain.trust_engine import TrustEngine
+
+        trust_engine = TrustEngine()
+        if ":" in target:
+            full_target = target
+        else:
+            ecosystem = "pypi"
+            full_target = f"{ecosystem}:{target}"
+
+        with console.status(
+            f"Querying supply chain trust for {full_target}...",
+            spinner="dots",
+        ):
+            trust_res = trust_engine.scan(full_target)
+
+        if trust_res.error:
+            console.print(
+                f"[yellow]Supply chain trust scan skipped:[/yellow] {trust_res.error}"
+            )
+        else:
+            supply_chain_trust_score = trust_res.trust_score
+            if trust_res.findings:
+                all_findings.extend(trust_res.findings)
+            if "supply_chain" not in modules_ran:
+                modules_ran.append("supply_chain")
+
+    if not no_ai and all_findings:
+        from suscheck.ai.triage_engine import run_ai_triage
+
+        tres = run_ai_triage(
+            all_findings,
+            target=target,
+            artifact_type=detection.artifact_type.value,
+            console=console,
+        )
+        ai_pri_delta = tres.pri_adjustment
+        if tres.ran:
+            modules_ran.append("ai_triage")
+            note_lines = [
+                f"[bold]{f.finding_id}[/bold]: {f.ai_explanation}"
+                for f in all_findings
+                if f.ai_explanation
+            ]
+            if note_lines:
+                console.print(
+                    Panel(
+                        "\n\n".join(note_lines[:24]),
+                        title="AI Triage",
+                        border_style="magenta",
+                    )
+                )
+
+    aggregator = RiskAggregator(detection.artifact_type.value)
+    pri_result = aggregator.calculate(
+        all_findings,
+        vt_dict,
+        ai_pri_delta=ai_pri_delta,
+        trust_score=supply_chain_trust_score,
+    )
+
+    modules_skipped: list[str] = []
+    if "package" in detection.artifact_type.value.lower() and "supply_chain" not in modules_ran:
+        modules_skipped.append("supply_chain")
+    if "ai_triage" not in modules_ran:
+        modules_skipped.append("ai_triage")
     if file_path and os.path.isfile(str(file_path)) and "mcp" not in modules_ran:
         modules_skipped.append("mcp")
+    if (
+        file_path
+        and os.path.isfile(str(file_path))
+        and "mcp" in modules_ran
+        and "mcp_dynamic" not in modules_ran
+    ):
+        if not mcp_dynamic:
+            modules_skipped.append("mcp_dynamic")
 
     summary = _build_summary(
         target=target,
@@ -381,6 +500,9 @@ def scan(
         modules_skipped=modules_skipped,
         scan_duration=scan_duration,
         vt_result=vt_dict,
+        trust_score=supply_chain_trust_score,
+        verdict=pri_result.verdict,
+        pri_breakdown=pri_result.breakdown,
     )
     
     # Render the detailed breakdown from RiskAggregator
@@ -394,6 +516,38 @@ def scan(
     render_verdict(summary)
     render_scan_footer(summary)
 
+    # ── Step 11: Export Report ───────────────────────────────────────────
+    if report_format != ReportFormat.TERMINAL:
+        from suscheck.core.reporter import ReportGenerator
+
+        content = ""
+        if report_format == ReportFormat.JSON:
+            import json
+            from dataclasses import asdict
+
+            def enum_converter(obj):
+                if isinstance(obj, Enum):
+                    return obj.value
+                raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+            content = json.dumps(asdict(summary), default=enum_converter, indent=2)
+        elif report_format == ReportFormat.MARKDOWN:
+            content = ReportGenerator.generate_markdown(summary)
+        elif report_format == ReportFormat.HTML:
+            content = ReportGenerator.generate_html(summary)
+
+        if output:
+            try:
+                output.write_text(content, encoding="utf-8")
+                console.print(f"\n[bold green]✓[/bold green] Report saved to: [cyan]{output}[/cyan]")
+            except Exception as e:
+                console.print(f"\n[bold red]✗[/bold red] Failed to save report: {e}")
+        else:
+            # If no output path, print to stdout (helpful for piping)
+            print(content)
+
+    return summary
+
 
 
 def _build_summary(
@@ -405,17 +559,23 @@ def _build_summary(
     modules_skipped: list[str] | None = None,
     scan_duration: float = 0.0,
     vt_result: dict | None = None,
+    trust_score: float | None = None,
+    verdict: Verdict | None = None,
+    pri_breakdown: list[str] | None = None,
 ) -> ScanSummary:
     """Build a ScanSummary from current scan state."""
-    # Determine verdict from PRI score
-    if pri_score <= 15:
-        verdict = Verdict.CLEAR
-    elif pri_score <= 40:
-        verdict = Verdict.CAUTION
-    elif pri_score <= 70:
-        verdict = Verdict.HOLD
-    else:
-        verdict = Verdict.ABORT
+    # Prefer an explicit verdict (from RiskAggregator) when provided,
+    # but fall back to deriving it from the PRI score so callers that
+    # do not use RiskAggregator remain supported.
+    if verdict is None:
+        if pri_score <= 15:
+            verdict = Verdict.CLEAR
+        elif pri_score <= 40:
+            verdict = Verdict.CAUTION
+        elif pri_score <= 70:
+            verdict = Verdict.HOLD
+        else:
+            verdict = Verdict.ABORT
 
     return ScanSummary(
         target=target,
@@ -434,6 +594,8 @@ def _build_summary(
         modules_ran=modules_ran,
         modules_skipped=modules_skipped or [],
         vt_result=vt_result,
+        trust_score=trust_score,
+        pri_breakdown=pri_breakdown or [],
     )
 
 
@@ -457,7 +619,10 @@ def trust(
     from suscheck.modules.supply_chain.trust_engine import TrustEngine
     engine = TrustEngine()
     
-    full_target = f"{ecosystem}:{package}"
+    if ":" in package:
+        full_target = package
+    else:
+        full_target = f"{ecosystem}:{package}"
     
     with console.status(f"Querying {ecosystem} and deps.dev for {package}...", spinner="dots"):
         res = engine.scan(full_target)
@@ -486,7 +651,78 @@ def install(
     """Scan a package, then install it if safe."""
     console.print(f"\n[bold blue]sus check install[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] via {ecosystem}")
-    console.print("[dim]Coming in Increment 15.[/dim]")
+
+    # Normalize ecosystem for trust/scan target vs installer command.
+    eco = ecosystem.lower()
+    if eco in ("pip", "pypi"):
+        trust_ecosystem = "pypi"
+        installer = "pip"
+    elif eco == "npm":
+        trust_ecosystem = "npm"
+        installer = "npm"
+    else:
+        console.print(f"[red]Unsupported ecosystem:[/red] {ecosystem}")
+        raise typer.Exit(1)
+
+    # For packages, we prefer the ecosystem-qualified form so the TrustEngine
+    # can reuse it (e.g. ``pypi:requests`` or ``npm:lodash``).
+    scan_target = f"{trust_ecosystem}:{package}"
+
+    console.print("\n[dim]Scanning package before install...[/dim]")
+    summary = scan(target=scan_target)
+
+    # Block installs when PRI is above the CAUTION band unless --force is used.
+    if summary.pri_score > 40 and not force:
+        verdict_label = summary.verdict.value.upper()
+        console.print(
+            Panel(
+                (
+                    "[bold red]Installation blocked by SusCheck.[/bold red]\n\n"
+                    f"Platform Risk Index: [bold]{summary.pri_score}/100[/bold] ({verdict_label}).\n"
+                    "Threshold for safe install is PRI ≤ 40.\n\n"
+                    "Review the findings above before trusting this package.\n"
+                    "If you still wish to proceed, re-run with [yellow]--force[/yellow]."
+                ),
+                title="🚫 Install Blocked",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
+    if summary.pri_score > 40 and force:
+        console.print(
+            Panel(
+                (
+                    "[bold red]WARNING:[/bold red] Proceeding with install despite high PRI score "
+                    f"({summary.pri_score}/100, {summary.verdict.value.upper()}) "
+                    "because [yellow]--force[/yellow] was specified."
+                ),
+                border_style="red",
+                padding=(1, 1),
+            )
+        )
+
+    # Execute the actual install command.
+    if installer == "pip":
+        import sys
+
+        cmd = [sys.executable, "-m", "pip", "install", package]
+    else:  # npm
+        cmd = ["npm", "install", package]
+
+    console.print(f"\n[bold]Executing:[/bold] [cyan]{' '.join(cmd)}[/cyan]\n")
+    try:
+        result = subprocess.run(cmd, check=False)
+    except FileNotFoundError:
+        console.print(f"[red]Failed to run installer command:[/red] {' '.join(cmd)}")
+        raise typer.Exit(1)
+
+    if result.returncode != 0:
+        console.print(
+            f"[red]Installer exited with non-zero status code {result.returncode}.[/red]"
+        )
+        raise typer.Exit(result.returncode)
 
 
 @app.command()
@@ -498,7 +734,59 @@ def clone(
     """Scan a repository, then clone it if safe."""
     console.print(f"\n[bold blue]sus check clone[/bold blue]")
     console.print(f"Repository: [yellow]{url}[/yellow]")
-    console.print("[dim]Coming in Increment 15.[/dim]")
+
+    console.print("\n[dim]Scanning repository URL before clone...[/dim]")
+    summary = scan(target=url)
+
+    # Block clone when PRI indicates anything other than CLEAR, unless forced.
+    if summary.pri_score > 15 and not force:
+        verdict_label = summary.verdict.value.upper()
+        console.print(
+            Panel(
+                (
+                    "[bold red]Clone blocked by SusCheck.[/bold red]\n\n"
+                    f"Platform Risk Index: [bold]{summary.pri_score}/100[/bold] ({verdict_label}).\n"
+                    "Only CLEAR repositories (PRI ≤ 15) are allowed by default.\n\n"
+                    "Review findings above before cloning this repository.\n"
+                    "If you still wish to proceed, re-run with [yellow]--force[/yellow]."
+                ),
+                title="🚫 Clone Blocked",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
+    if summary.pri_score > 15 and force:
+        console.print(
+            Panel(
+                (
+                    "[bold red]WARNING:[/bold red] Proceeding with clone despite elevated PRI score "
+                    f"({summary.pri_score}/100, {summary.verdict.value.upper()}) "
+                    "because [yellow]--force[/yellow] was specified."
+                ),
+                border_style="red",
+                padding=(1, 1),
+            )
+        )
+
+    # Execute `git clone` only if allowed.
+    cmd = ["git", "clone", url]
+    if dest:
+        cmd.append(dest)
+
+    console.print(f"\n[bold]Executing:[/bold] [cyan]{' '.join(cmd)}[/cyan]\n")
+    try:
+        result = subprocess.run(cmd, check=False)
+    except FileNotFoundError:
+        console.print(f"[red]Failed to run git command:[/red] {' '.join(cmd)}")
+        raise typer.Exit(1)
+
+    if result.returncode != 0:
+        console.print(
+            f"[red]git clone exited with non-zero status code {result.returncode}.[/red]"
+        )
+        raise typer.Exit(result.returncode)
 
 
 @app.command()
@@ -509,7 +797,57 @@ def connect(
     """Scan an MCP server, then provide connection config if safe."""
     console.print(f"\n[bold blue]sus check connect[/bold blue]")
     console.print(f"MCP Server: [yellow]{server}[/yellow]")
-    console.print("[dim]Coming in Increment 15.[/dim]")
+
+    console.print("\n[dim]Scanning MCP server target before connection...[/dim]")
+    summary = scan(target=server)
+
+    # For MCP connections we mirror the repo policy: only CLEAR is allowed
+    # by default; anything higher requires explicit human override.
+    if summary.pri_score > 15 and not force:
+        verdict_label = summary.verdict.value.upper()
+        console.print(
+            Panel(
+                (
+                    "[bold red]Connection blocked by SusCheck.[/bold red]\n\n"
+                    f"Platform Risk Index: [bold]{summary.pri_score}/100[/bold] ({verdict_label}).\n"
+                    "Only CLEAR MCP endpoints (PRI ≤ 15) are allowed by default.\n\n"
+                    "Review the findings above before wiring this server into your client.\n"
+                    "If you still wish to proceed, re-run with [yellow]--force[/yellow]."
+                ),
+                title="🚫 Connect Blocked",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
+    if summary.pri_score > 15 and force:
+        console.print(
+            Panel(
+                (
+                    "[bold red]WARNING:[/bold red] Allowing MCP connection despite elevated PRI score "
+                    f"({summary.pri_score}/100, {summary.verdict.value.upper()}) "
+                    "because [yellow]--force[/yellow] was specified.\n\n"
+                    "[dim]suscheck does not perform the connection itself; configure your MCP client "
+                    "using the scan results above.[/dim]"
+                ),
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+    else:
+        console.print(
+            Panel(
+                (
+                    "[bold green]SusCheck did not block this MCP target.[/bold green]\n\n"
+                    f"PRI score: [bold]{summary.pri_score}/100[/bold] ({summary.verdict.value.upper()}).\n"
+                    "You may now add this server to your MCP client configuration.\n"
+                    "[dim]Note: suscheck does not create or modify client configs automatically.[/dim]"
+                ),
+                border_style="green",
+                padding=(1, 2),
+            )
+        )
 
 
 @app.command()
@@ -525,6 +863,26 @@ def version():
             return f"✅ configured ({val[:8]}...)"
         return "❌ not set"
 
+    _ai_key_names = (
+        "SUSCHECK_AI_KEY",
+        "OPENAI_API_KEY",
+        "GROQ_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        "CEREBRAS_API_KEY",
+        "SAMBANOVA_API_KEY",
+    )
+
+    def _ai_key_status() -> str:
+        for name in _ai_key_names:
+            val = os.environ.get(name, "")
+            if val:
+                return f"✅ via {name} ({val[:8]}...)"
+        return "❌ not set (see .env.example for provider-specific names)"
+
     console.print(
         Panel(
             f"[bold blue]sus check[/bold blue] v{__version__}\n"
@@ -535,7 +893,7 @@ def version():
             f"  GitHub Token:  {_key_status('SUSCHECK_GITHUB_TOKEN')}\n"
             f"  NVD:           {_key_status('SUSCHECK_NVD_KEY')}\n"
             f"  AI Provider:   {os.environ.get('SUSCHECK_AI_PROVIDER', 'none')}\n"
-            f"  AI Key:        {_key_status('SUSCHECK_AI_KEY')}\n"
+            f"  AI Key:        {_ai_key_status()}\n"
             f"\n[bold]External Tools:[/bold]\n"
             f"  gitleaks:  {'✅ found' if shutil.which('gitleaks') else '❌ not found'}\n"
             f"  semgrep:   {'✅ found' if shutil.which('semgrep') else '❌ not found'}\n"
