@@ -52,7 +52,6 @@ class RiskAggregator:
         breakdown = []
         breakdown.append("[bold]Score Breakdown:[/bold]")
 
-        # ── Step 1 & 2: Base Scoring ──────────────────────────────────────────
         base_score = 0.0
         contributing_findings = []
         for f in findings:

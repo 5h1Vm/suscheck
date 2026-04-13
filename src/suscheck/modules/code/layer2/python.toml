@@ -57,3 +57,23 @@ confidence = 0.40
 finding_type = "suspicious_behavior"
 description = "Raw socket creation. Could be used for reverse shells or network communication."
 mitre_ids = ["T1071"]
+
+[[rules]]
+id = "WEB-PY-SQLI"
+name = "Potential SQL Injection"
+regex = '''(?i)\.execute\s*\(\s*["'].*%\s*s.*["']'''
+severity = "high"
+confidence = 0.60
+finding_type = "vulnerability"
+description = "Raw SQL formatting found. Consider using parameterized queries to prevent SQL Injection."
+mitre_ids = ["T1190"]
+
+[[rules]]
+id = "WEB-PY-XSS"
+name = "Potential XSS (flask/django)"
+regex = '''(?i)Markup\s*\(\s*.*render_template\s*\('''
+severity = "medium"
+confidence = 0.50
+finding_type = "vulnerability"
+description = "Insecure HTML rendering detected. May lead to Cross-Site Scripting (XSS)."
+mitre_ids = ["T1189"]

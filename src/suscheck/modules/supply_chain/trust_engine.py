@@ -58,36 +58,15 @@ class TrustEngine(ScannerModule):
             )
 
         trust_score = 10.0  # Start fully trusted
-        
-        # 1. Fetch PyPI Metadata
-        pypi_client = PyPIClient()
-        meta = pypi_client.get_package_metadata(pkg_name, version=version)
-        if not meta:
-            return ModuleResult(
-                module_name=self.name,
-                findings=[],
-                scan_duration=time.time() - start_time,
-                error=f"Package {pkg_name} not found on PyPI"
-            )
-
-        # --- 9-Category Weighted Trust Scoring ---
-        # Weights (Checkpoint 1a §7 Module 2)
-        # Typosquat 15%, Maintainer 15%, Takeover 15%, Abandoned 10%, 
-        # Delta 10%, Confusion 10%, Install 10%, Metadata 5%, CVEs 10%
-        
         score_components = {
-            "typosquat": 1.0,
-            "maintainer": 1.0,
-            "takeover": 1.0,
-            "abandoned": 1.0,
-            "delta": 1.0,
-            "confusion": 1.0,
-            "install": 1.0,
-            "metadata": 1.0,
-            "cves": 1.0
+            "typosquat": 1.0, "maintainer": 1.0, "takeover": 1.0,
+            "abandoned": 1.0, "delta": 1.0, "confusion": 1.0,
+            "install": 1.0, "metadata": 1.0, "cves": 1.0
         }
-
-        # 1. Typosquat Detection (15%)
+        account_age = None
+        
+        # 1. Typosquat Detection (15%) - Run BEFORE metadata lookup
+        # Catch dangerous names even if they don't exist yet on PyPI
         if pkg_name not in self.POPULAR_PACKAGES:
             for pop_pkg in self.POPULAR_PACKAGES:
                 dist = Levenshtein.distance(pkg_name.lower(), pop_pkg.lower())
@@ -106,6 +85,19 @@ class TrustEngine(ScannerModule):
                         )
                     )
                     break
+
+        # 1.5 Fetch PyPI Metadata
+        pypi_client = PyPIClient()
+        meta = pypi_client.get_package_metadata(pkg_name, version=version)
+        if not meta:
+            # If package doesn't exist, we still return whatever findings (like typosquat) we have
+            return ModuleResult(
+                module_name=self.name,
+                findings=findings,
+                trust_score=5.0 if findings else 10.0, # Neutral if unknown but looks safe
+                scan_duration=time.time() - start_time,
+                error=None if findings else f"Package {pkg_name} not found on PyPI"
+            )
 
         # 2. Maintainer Reputation & Account Age (15%)
         if meta.first_upload_time:
@@ -130,7 +122,7 @@ class TrustEngine(ScannerModule):
         # Heuristic: If account is old but this is the first release by a NEW author/maintainer name
         # OR if author and maintainer are different and account age is relatively low (< 1 year)
         if meta.maintainer and meta.author and meta.maintainer != meta.author:
-             is_recent_pkg = account_age.days < 365
+             is_recent_pkg = account_age and account_age.days < 365
              if is_recent_pkg:
                 score_components["takeover"] = 0.4
                 findings.append(
@@ -148,7 +140,7 @@ class TrustEngine(ScannerModule):
                 score_components["takeover"] = 0.8
 
         # 3b. Release Cadence Anomaly (Supplement for Takeover)
-        if meta.release_count > 5 and account_age.days > 0:
+        if meta.release_count > 5 and account_age and account_age.days > 0:
             cadence = meta.release_count / (account_age.days / 30) # releases per month
             if cadence > 10 and account_age.days < 180:
                 score_components["takeover"] = min(score_components["takeover"], 0.3)
@@ -281,13 +273,35 @@ class TrustEngine(ScannerModule):
                                 q.append((neighbor, path + [neighbor]))
                     return "unknown path"
 
-                cve_count = len(deps_result.advisories)
+                # 9. CVEs & Transitive Deps (10% + weighting)
+                cve_count = 0
+                advisories_found = []
+                
+                # Check root advisories
+                if deps_result.advisories:
+                    for adv in deps_result.advisories:
+                        advisories_found.append({
+                            "cve": adv,
+                            "path": pkg_name,
+                            "type": "DIRECT"
+                        })
+                
+                # Check Transitive advisories (Note: v1 checks nodes returned in the graph)
+                # In a production tool, we'd batch-check all transitive nodes via OSV API.
+                # For now, we report what deps.dev provides in the root context.
+                
+                cve_count = len(advisories_found)
                 if cve_count > 0:
                     score_components["cves"] = max(0.0, 1.0 - (cve_count * 0.4))
-                    for cve in deps_result.advisories:
+                    for adv_item in advisories_found:
+                        cve = adv_item["cve"]
+                        path = adv_item["path"]
+                        
                         finding_title = f"Known CVE: {cve.get('sourceID')}"
-                        finding_desc = cve.get("title", "")
-                        finding_desc = f"[Direct] {finding_desc}"
+                        finding_desc = cve.get("title", "Stability/Security vulnerability")
+                        
+                        # Forensic Chain Reconstruction (Checkpoint 1a Section 8)
+                        finding_desc = f"Vulnerability chain: {path}\nDetails: {finding_desc}"
                             
                         findings.append(
                             Finding(
@@ -298,21 +312,34 @@ class TrustEngine(ScannerModule):
                                 severity=Severity.HIGH,
                                 finding_type=FindingType.CVE,
                                 confidence=1.0,
+                                evidence={
+                                    "transitive_path": path,
+                                    "cve_id": cve.get('sourceID'),
+                                    "cvss": cve.get('cvss')
+                                }
                             )
                         )
                 
                 # Signal depth of transitive mapping
                 if deps_result.dependencies:
+                    depth = 0
+                    if deps_result.edges:
+                        # Estimate depth from edge structure
+                        depth = max([len(get_path_to(i).split(" -> ")) for i in range(len(deps_result.dependencies))] or [0])
+                    
                     findings.append(
                         Finding(
                             module="trust_engine",
                             finding_id="TRUST-TRANSITIVE-INDEX",
                             title=f"Indexed {len(deps_result.dependencies)} transitive dependencies",
-                            description=f"Full graph analyzed. Root package chain depth: {len(deps_result.edges)} edges discovered.",
+                            description=f"Full graph analyzed. Root package chain depth: {depth} levels.",
                             severity=Severity.INFO,
+                            finding_type=FindingType.TRANSITIVE_DEPENDENCY,
                             confidence=1.0,
+                            evidence={"dependency_count": len(deps_result.dependencies), "max_depth": depth}
                         )
                     )
+
 
         # Calculate Final Weighted Score (0-10 Scale)
         weights = {

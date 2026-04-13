@@ -27,3 +27,23 @@ confidence = 0.60
 finding_type = "suspicious_behavior"
 description = "setTimeout() with a string argument acts as eval(). Can execute arbitrary code."
 mitre_ids = ["T1059.007"]
+
+[[rules]]
+id = "WEB-JS-XSS"
+name = "Potential DOM XSS"
+regex = '''(?i)\.innerHTML\s*=\s*'''
+severity = "medium"
+confidence = 0.40
+finding_type = "vulnerability"
+description = "Direct innerHTML assignment found. May lead to Cross-Site Scripting (XSS) if input is unsanitized."
+mitre_ids = ["T1189"]
+
+[[rules]]
+id = "WEB-JS-API-LEAK"
+name = "Hardcoded API Proxy"
+regex = '''(?i)apiKey\s*:\s*["'][A-Za-z0-0_-]{16,}["']'''
+severity = "high"
+confidence = 0.50
+finding_type = "credential_leak"
+description = "Potential API key hardcoded in client-side code. High risk of exploitation."
+mitre_ids = ["T1552"]

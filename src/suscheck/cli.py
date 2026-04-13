@@ -23,6 +23,7 @@ from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
 from suscheck.modules.mcp.scanner import MCPScanner
 from suscheck.modules.repo.scanner import RepoScanner
+from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
 from suscheck.modules.reporting.terminal import (
     render_findings,
     render_scan_footer,
@@ -288,6 +289,23 @@ def scan(
             if prior_score < 100:
                 pri_result.breakdown.insert(-1, "  [red]⚡ Tier 0 Short-Circuit[/red] (Known Malicious Hash) → bumped score to [bold]100/100[/bold]")
                 pri_result.breakdown[-1] = "  [bold]Total Score: 100/100[/bold]"
+
+            def print_unified_report(target: str, res: dict, console: Console):
+                """Print the final Security Trust Report with a detailed PRI breakdown."""
+                pri = res["pri"]
+                findings = res["findings"]
+                duration = res["duration"]
+                artifact = res["artifact_info"]
+
+                console.print()
+                console.print(Panel(
+                    f"[bold blue]SECURITY TRUST REPORT[/bold blue]\n"
+                    f"Target: [cyan]{artifact['path']}[/cyan]\n"
+                    f"Type: {artifact['type']} | Files: {artifact['file_count']} | Time: {duration:.2f}s",
+                    # Aligned with Checkpoint 1a Unified Context
+                    title="[bold white]SusCheck Analysis Summary[/bold white]",
+                    border_style="blue"
+                ))
 
             summary = _build_summary(
                 target=target,

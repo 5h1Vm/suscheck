@@ -48,6 +48,72 @@ class SupplyChainAuditor:
                 
         return findings
 
+    def scan_source_imports(self, file_path: str) -> List[Finding]:
+        """Audit dependencies extracted directly from source code imports."""
+        findings = []
+        ext = os.path.splitext(file_path)[1].lower()
+        
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except Exception:
+            return []
+
+        packages = set()
+        if ext == ".py":
+            # 1. 'from x ...' -> x
+            matches = re.finditer(r'^\s*from\s+([a-zA-Z0-9_\-]+)', content, re.MULTILINE)
+            for m in matches:
+                pkg = m.group(1).strip()
+                packages.add(pkg)
+            # 2. 'import x' -> x
+            # Stop at end of line or comment
+            matches = re.finditer(r'^\s*import\s+([^#\n\r]+)', content, re.MULTILINE)
+            for m in matches:
+                # Handle comma-separated imports: import os, sys, requests
+                pkg_line = m.group(1).strip()
+                parts = pkg_line.split(",")
+                for p in parts:
+                    # pkg as alias: import requests as r
+                    p_clean = p.strip()
+                    if " as " in p_clean:
+                        p_clean = p_clean.split(" as ")[0].strip()
+                    clean = p_clean.split(".")[0].strip()
+                    if clean:
+                        packages.add(clean)
+
+        elif ext in (".js", ".ts", ".jsx", ".tsx"):
+            # require('x')
+            # import x from 'y'
+            matches = re.finditer(r'require\s*\(\s*["\']([^"\']+)["\']\s*\)', content)
+            for m in matches:
+                packages.add(m.group(1).split("/")[0]) # node namespacing
+            matches = re.finditer(r'from\s+["\']([^"\']+)["\']', content)
+            for m in matches:
+                packages.add(m.group(1).split("/")[0])
+
+        logger.debug(f"Source Auditor found potential packages in {file_path}: {packages}")
+
+        # Filter out built-ins (simple v1 list)
+        builtins = {"os", "sys", "time", "re", "json", "math", "random", "fs", "path", "http", "stream", "crypto"}
+        packages = [p for p in packages if p and p not in builtins]
+
+        for pkg in packages:
+            try:
+                # Check for typosquatting and trust on the extracted name
+                ecosystem = "pypi" if ext == ".py" else "npm"
+                result = self.trust_engine.scan(f"{ecosystem}:{pkg}")
+                
+                # Tag these as Shadow Dependencies
+                for f in result.findings:
+                    f.description = f"[SHADOW DEP] Found in code imports: {f.description}"
+                    f.file_path = file_path # Contextualize for Aggregator
+                    findings.append(f)
+            except Exception:
+                continue
+        
+        return findings
+
     def _parse_requirements(self, file_path: str) -> List[str]:
         """Extract packages from a requirements.txt file."""
         packages = []

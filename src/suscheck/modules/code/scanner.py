@@ -182,9 +182,20 @@ class CodeScanner:
                     f"Detector {detector_name}: {len(detector_findings)} findings"
                 )
             except Exception as e:
-                error_msg = f"Detector {detector_name} failed: {e}"
-                result.errors.append(error_msg)
                 logger.error(error_msg, exc_info=True)
+        
+        # --- New: Shadow Dependency Extraction (Step 9 Expansion) ---
+        # Identifies packages in code but missing from requirements.txt
+        if file_path and file_path.lower().endswith((".py", ".js", ".ts", ".jsx", ".tsx")):
+            try:
+                from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
+                auditor = SupplyChainAuditor()
+                shadow_findings = auditor.scan_source_imports(file_path)
+                if shadow_findings:
+                    result.findings.extend(shadow_findings)
+                    result.detectors_ran.append("shadow_dependency_auditor")
+            except Exception as e:
+                logger.debug(f"Shadow dependency audit failed: {e}")
 
         # Deduplicate findings on the same line with the same module
         result.findings = self._deduplicate(result.findings)
