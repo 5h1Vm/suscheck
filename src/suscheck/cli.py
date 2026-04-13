@@ -16,7 +16,7 @@ from rich.table import Table
 
 from suscheck import __version__
 from suscheck.core.auto_detector import AutoDetector, Language
-from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
+from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict, ReportFormat
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
@@ -31,7 +31,6 @@ from suscheck.modules.reporting.terminal import (
     render_vt_result,
 )
 from suscheck.core.pipeline import ScanPipeline
-from suscheck.core.finding import ReportFormat, ScanSummary, Verdict, Severity
 from suscheck.modules.external import Tier0Engine
 from suscheck.core.config_manager import ConfigManager
 from suscheck.modules.wrappers.install import install_package
@@ -367,11 +366,8 @@ def scan(
             if err:
                 console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
             
-            # --- Dynamic Threat Intelligence Enrichment ---
-            if code_result.findings:
                 from suscheck.modules.external.virustotal import VirusTotalClient
                 from suscheck.modules.external.abuseipdb import AbuseIPDBClient
-                from suscheck.core.finding import Finding, FindingType, Severity
                 
                 vt_client = VirusTotalClient()
                 abuse_client = AbuseIPDBClient()

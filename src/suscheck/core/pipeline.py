@@ -13,6 +13,7 @@ from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.scanner import MCPScanner
+from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
 
 class ScanPipeline:
     """Orchestrates complex scan workflows like recursive directory traversal."""
@@ -31,6 +32,8 @@ class ScanPipeline:
             self.ignore_dirs = set(default_ignore) | set(user_ignore)
         else:
             self.ignore_dirs = default_ignore
+            
+        self.supply_chain_auditor = SupplyChainAuditor()
 
     def scan_directory(self, target_dir: str, skip_tier0: bool = True) -> List[Finding]:
         """Recursively scan a directory and return all findings."""
@@ -76,6 +79,12 @@ class ScanPipeline:
             scanner = MCPScanner()
             res = scanner.scan(str(path))
             findings.extend(res.findings)
+        
+        # New: Dependency manifest auditing
+        filename = path.name.lower()
+        if filename in ["requirements.txt", "pyproject.toml"]:
+            dep_findings = self.supply_chain_auditor.scan_manifest(str(path))
+            findings.extend(dep_findings)
             
         return findings
 

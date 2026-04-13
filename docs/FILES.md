@@ -6,7 +6,6 @@ This document provides a comprehensive guide to every folder and file in the Sus
 
 ## 📂 Root Directory
 *   `src/`: Main source code for the SusCheck platform.
-*   `tests/`: Comprehensive test suite, including units, integration, and malicious samples.
 *   `docs/`: Developer and user guides.
 *   `scripts/`: Automation scripts for platform setup and legacy component management.
 *   `requirements.txt`: Python dependencies required for the platform.
@@ -41,7 +40,6 @@ The heart of the platform, structured for maximum modularity.
 
 ---
 
-## 📂 tests/
 A structured testing environment for rigorous security verification.
 
 *   `unit/`: Isolated tests for core logic (Agreggator, Detector, Config).
