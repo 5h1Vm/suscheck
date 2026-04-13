@@ -3,6 +3,7 @@
 import logging
 import os
 import subprocess
+import sys
 import time
 from enum import Enum
 from pathlib import Path
@@ -99,6 +100,15 @@ def scan(
     render_scan_header(target, type_display, __version__)
 
     pipeline = ScanPipeline(config_mgr)
+    target_path = Path(target).resolve()
+    
+    # Check if target is intended to be a local path and verify existence
+    is_explicit_local = any(target.startswith(p) for p in ["./", "../", "/"])
+    if is_explicit_local and not target_path.exists():
+        console.print(f"\n[bold red]CRITICAL: Target path not found:[/bold red] {target}")
+        console.print("[dim]If this is a package name, do not use path prefixes (e.g. use 'requests' instead of './requests')[/dim]")
+        sys.exit(1)
+
     if target_path.is_dir():
         console.print(f"\n[bold blue]Recursive directory scan initiated:[/bold blue] {target}")
         
@@ -736,7 +746,7 @@ def explain(file: str = typer.Argument(help="File to explain")):
             ))
         
         # Tier 0 Static Rules
-        from suscheck.tier0 import Tier0Engine
+        from suscheck.modules.external.engine import Tier0Engine
         tier0 = Tier0Engine()
         t0_res = tier0.check_file(file)
         findings.extend(t0_res.findings)

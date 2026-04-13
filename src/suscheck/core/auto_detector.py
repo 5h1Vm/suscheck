@@ -302,24 +302,30 @@ class AutoDetector:
                     method = "mcp_manifest_content"
                 confidence = max(confidence, 0.92)
 
-        # Mismatch detection
+        # Mismatch detection (T1036.008 Masquerading)
         type_mismatch = False
         mismatch_detail = None
-        if (ext_lang and magic_lang
-                and ext_lang != magic_lang
-                and magic_lang != Language.UNKNOWN
-                and ext_lang != Language.UNKNOWN):
-            type_mismatch = True
-            mismatch_detail = (
-                f"Extension suggests {ext_lang.value} but "
-                f"magic bytes indicate {magic_lang.value}"
-            )
+        
+        # Scenario A: Extension vs Magic Bytes (Strongest indicator)
+        if ext_lang and magic_lang and ext_lang != magic_lang:
+            if magic_lang != Language.UNKNOWN and ext_lang != Language.UNKNOWN:
+                type_mismatch = True
+                mismatch_detail = f"Extension suggests {ext_lang.value} but magic bytes indicate {magic_lang.value}"
+
+        # Scenario B: Extension vs Content Heuristics (Fallback if magic fails)
+        if not type_mismatch and ext_lang and content_lang:
+            # If extension is non-code (e.g. .jpg, .txt) but heuristics find strong code markers
+            if ext_lang == Language.UNKNOWN or ext_lang in [Language.INI, Language.JSON]:
+                if content_lang in [Language.PYTHON, Language.JAVASCRIPT, Language.BASH, Language.PHP]:
+                    type_mismatch = True
+                    mismatch_detail = f"File has extension '{path.suffix}' but content identifies as {content_lang.value} code"
 
         # Polyglot detection
         all_detected = set()
         for lang in [magic_lang, shebang_lang, ext_lang, content_lang]:
             if lang and lang != Language.UNKNOWN:
                 all_detected.add(lang)
+        
         is_polyglot = len(all_detected) > 1 and not type_mismatch
         secondary = [l for l in all_detected if l != detected_lang]
 

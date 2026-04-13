@@ -66,7 +66,7 @@ def render_verdict(summary: ScanSummary) -> None:
 
     if summary.trust_score is not None:
         trust_color = "green" if summary.trust_score >= 8 else ("yellow" if summary.trust_score >= 5 else "red")
-        content += f"\nSupply Chain Trust: [{trust_color}]{summary.trust_score:.1f}/10[/trust_color]"
+        content += f"\nSupply Chain Trust: [{trust_color}]{summary.trust_score:.1f}/10[/]"
 
     border = "green" if summary.verdict == Verdict.CLEAR else (
         "yellow" if summary.verdict == Verdict.CAUTION else (

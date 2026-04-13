@@ -111,31 +111,28 @@ class ScanPipeline:
         findings: List[Finding] = []
         det = self.detector.detect(str(path))
         
-        if det.artifact_type == ArtifactType.CODE:
+        if det.artifact_type == ArtifactType.CODE or det.type_mismatch:
             res = self.code_scanner.scan_file(str(path), language=det.language.value)
             findings.extend(res.findings)
             
-            # New: Shadow Dependency Detection (Step 9 Expansion)
-            # extracts imports from code even if no manifest exists
-            # only if it looks like code we support
-            if path.suffix.lower() in [".py", ".js", ".ts", ".jsx", ".tsx"]:
+            # Shadow Dependency Detection
+            if det.language in [Language.PYTHON, Language.JAVASCRIPT]:
                 shadow_findings = self.supply_chain_auditor.scan_source_imports(str(path))
                 findings.extend(shadow_findings)
                 
         elif det.artifact_type == ArtifactType.CONFIG:
             res = self.config_scanner.scan(str(path))
             findings.extend(res.findings)
+        
+        elif det.artifact_type == ArtifactType.UNKNOWN and path.is_file():
+            # Fallback for unknown files - at least check for secrets
+            res = self.repo_scanner.scan_file_secrets(str(path))
+            findings.extend(res)
+            
         elif det.artifact_type == ArtifactType.MCP_SERVER:
             # Static check
             s_scanner = MCPScanner()
             res = s_scanner.scan(str(path))
             findings.extend(res.findings)
-            
-            # Dynamic check (Step 12) if requested
-            if dynamic_mcp:
-                from suscheck.modules.mcp.dynamic import MCPDynamicScanner
-                d_scanner = MCPDynamicScanner()
-                d_res = d_scanner.scan(str(path))
-                findings.extend(d_res.findings)
         
         return findings

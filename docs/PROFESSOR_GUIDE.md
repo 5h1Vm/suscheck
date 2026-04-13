@@ -33,4 +33,18 @@ source .venv/bin/activate
 suscheck scan <path_to_code_or_repo>
 ```
 
-Refer to `audit/18_STEP_AUDIT.md` for a detailed mapping of technical requirements to implementation files.
+## 5. Industry Engine Orchestration
+SusCheck is designed as an **Intelligence Orchestrator**. Rather than building primitive checkers from ground up, it leverages industry-standard security engines and provides a unified intelligence layer for scoring and triage.
+
+| Domain | Orchestrated Engine | Purpose |
+| :--- | :--- | :--- |
+| **Static Analysis (SAST)** | [Semgrep](https://semgrep.dev/) | OWASP Top 10 patterns & Framework-specific flaws |
+| **Python Security** | [Bandit](https://github.com/PyCQA/bandit) | Python-specific AST security analysis |
+| **Secret Detection** | [Gitleaks](https://github.com/gitleaks/gitleaks) | High-fidelity credential & API key discovery |
+| **Cloud/IaC** | [Checkov](https://www.checkov.io/) | Infrastructure-as-Code (Docker/K8s) misconfiguration |
+| **Supply Chain** | [OSV-Scanner](https://osv.dev/) | Vulnerability lookup for transitive dependencies |
+| **Malware Intel** | [VirusTotal](https://www.virustotal.com/) | Hash-based reputation (70+ AV engines) |
+| **Network Intel** | [AbuseIPDB](https://www.abuseipdb.com/) | Real-time IP reputation & blacklist checking |
+| **Fingerprinting** | [Libmagic](https://github.com/file/file) | Native binary identification (MIME/Magic) |
+
+The true innovation of SusCheck is the **Unified Forensic Brain** which normalizes findings from all these sources, performs cross-layer correlation, and uses AI-driven triage to produce a single, actionable PRI score.
