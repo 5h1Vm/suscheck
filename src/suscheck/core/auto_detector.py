@@ -65,6 +65,7 @@ class Language(str, Enum):
     PE_EXE = "pe_exe"
     ELF = "elf"
     APK = "apk"
+    TEXT = "text"
     UNKNOWN = "unknown"
 
 
@@ -100,6 +101,8 @@ EXTENSION_MAP: dict[str, Language] = {
     ".xml": Language.XML, ".tf": Language.TERRAFORM, ".hcl": Language.TERRAFORM,
     ".env": Language.ENV_FILE, ".bat": Language.BATCH, ".cmd": Language.BATCH,
     ".vbs": Language.VBS,
+    ".txt": Language.TEXT,
+    ".log": Language.TEXT,
 }
 
 SHEBANG_MAP: dict[str, Language] = {
@@ -135,6 +138,10 @@ CONTENT_PATTERNS: list[tuple[str, Language, float]] = [
     ("goto ", Language.BATCH, 0.5),
     ("REM ", Language.BATCH, 0.4),
     ("pause", Language.BATCH, 0.3),
+    ("os.system", Language.PYTHON, 0.4),
+    ("import os", Language.PYTHON, 0.4),
+    ("import sys", Language.PYTHON, 0.3),
+    ("import subprocess", Language.PYTHON, 0.5),
 ]
 
 
@@ -308,7 +315,12 @@ class AutoDetector:
         
         # Scenario A: Extension vs Magic Bytes (Strongest indicator)
         if ext_lang and magic_lang and ext_lang != magic_lang:
-            if magic_lang != Language.UNKNOWN and ext_lang != Language.UNKNOWN:
+            # Report if extension is common non-binary (TEXT, UNKNOWN, INI) but magic is binary
+            binary_langs = [Language.PE_EXE, Language.ELF, Language.APK]
+            if magic_lang in binary_langs and ext_lang in [Language.TEXT, Language.UNKNOWN, Language.INI]:
+                type_mismatch = True
+                mismatch_detail = f"Masquerading: File has extension {path.suffix} but contains {magic_lang.value} binary header"
+            elif magic_lang != Language.UNKNOWN and ext_lang != Language.UNKNOWN:
                 type_mismatch = True
                 mismatch_detail = f"Extension suggests {ext_lang.value} but magic bytes indicate {magic_lang.value}"
 
@@ -326,7 +338,16 @@ class AutoDetector:
             if lang and lang != Language.UNKNOWN:
                 all_detected.add(lang)
         
-        is_polyglot = len(all_detected) > 1 and not type_mismatch
+        # Enhanced Polyglot Check: if magic says image but content says code
+        image_markers = ["image", "bitmap", "icon", "png", "gif", "jpeg"]
+        if magic_desc and any(marker in magic_desc.lower() for marker in image_markers):
+            if detected_lang in [Language.JAVASCRIPT, Language.PYTHON, Language.BASH]:
+                is_polyglot = True
+            else:
+                is_polyglot = len(all_detected) > 1 and not type_mismatch
+        else:
+            is_polyglot = len(all_detected) > 1 and not type_mismatch
+            
         secondary = [l for l in all_detected if l != detected_lang]
 
         return DetectionResult(
@@ -412,7 +433,8 @@ class AutoDetector:
         if not scores:
             return None
         best = max(scores, key=scores.get)
-        return best if scores[best] >= 0.5 else None
+        # Lower threshold slightly for suspicious content markers
+        return best if scores[best] >= 0.4 else None
 
     def _check_special_filenames(self, path: Path) -> Optional[Language]:
         name = path.name.lower()

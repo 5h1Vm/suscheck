@@ -12,14 +12,15 @@ from typing import List, Set, Optional, TYPE_CHECKING, Dict, Any
 if TYPE_CHECKING:
     from suscheck.core.config_manager import ConfigManager
 
-from suscheck.core.auto_detector import AutoDetector, ArtifactType
-from suscheck.core.finding import Finding, ScanSummary, Verdict
+from suscheck.core.auto_detector import AutoDetector, ArtifactType, Language
+from suscheck.core.finding import Finding, ScanSummary, Verdict, Severity, FindingType
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.scanner import MCPScanner
 from suscheck.modules.repo.scanner import RepoScanner
 from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
+from suscheck.modules.external.engine import Tier0Engine
 from suscheck.ai.triage_engine import run_ai_triage
 
 class ScanPipeline:
@@ -33,6 +34,7 @@ class ScanPipeline:
         self.repo_scanner = RepoScanner()
         self.code_scanner = CodeScanner()
         self.config_scanner = ConfigScanner()
+        self.tier0_engine = Tier0Engine()
         
         # Pull ignored directories from config or use defaults
         default_ignore = {
@@ -45,51 +47,50 @@ class ScanPipeline:
         else:
             self.ignore_dirs = default_ignore
 
-    def scan_project(self, target_dir: str, dynamic_mcp: bool = False, ai_triage: bool = True) -> Dict[str, Any]:
-        """Performs a Unified Forensic Scan of an entire project directory."""
-        start_time = time.time()
+    def scan_directory(self, target_dir: str) -> List[Finding]:
+        """Recursive scan helper as expected by CLI."""
         target_path = Path(target_dir).resolve()
         findings: List[Finding] = []
         
         # --- Tier 1: Repository-Level Orchestration ---
-        # 1. Gitleaks (Step 10)
         repo_res = self.repo_scanner.scan(str(target_path))
         findings.extend(repo_res.findings)
         
-        # 2. Dependency Manifests (Step 9) - Transitive Chains
-        for root, _, files in os.walk(target_dir):
-            if any(p in root for p in self.ignore_dirs):
-                continue
-            for f in files:
-                if f.lower() in ["requirements.txt", "pyproject.toml", "package.json"]:
-                    manifest_path = Path(root) / f
-                    dep_findings = self.supply_chain_auditor.scan_manifest(str(manifest_path))
-                    findings.extend(dep_findings)
-
         # --- Tier 1: Recursive File Analysis ---
         files_to_scan = []
         for root, dirs, files in os.walk(target_dir):
-            # Prune ignore_dirs in-place
             dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
             for f in files:
                 files_to_scan.append(Path(root) / f)
 
         for p in files_to_scan:
             try:
-                # Direct dispatch based on Auto-Detector (Step 0)
-                file_findings = self.scan_single_file(p, dynamic_mcp=dynamic_mcp)
+                # Tier 0: Hash & Reputation
+                t0_res = self.tier0_engine.check_file(str(p))
+                findings.extend(t0_res.findings)
+                
+                # Direct dispatch based on Auto-Detector
+                file_findings = self.scan_single_file(p)
                 findings.extend(file_findings)
             except Exception:
                 continue
+                
+        return findings
 
-        # --- Tier 2: Unified AI Triage (Step 13) ---
+    def scan_project(self, target_dir: str, dynamic_mcp: bool = False, ai_triage: bool = True) -> Dict[str, Any]:
+        """Performs a Unified Forensic Scan and returns a summary report."""
+        start_time = time.time()
+        target_path = Path(target_dir).resolve()
+        
+        findings = self.scan_directory(target_dir)
+
+        # --- Tier 2: Unified AI Triage ---
         ai_delta = 0.0
         if ai_triage and findings:
             triage_res = run_ai_triage(findings, target=str(target_path), artifact_type="REPOSITORY")
             ai_delta = triage_res.pri_adjustment
 
-        # --- Tier 3: Unified Risk Aggregation (Step 14) ---
-        # Note: trust_score calculation for full projects is a composite of all manifestations
+        # --- Tier 3: Unified Risk Aggregation ---
         pri_result = self.aggregator.calculate(
             findings=findings,
             ai_pri_delta=ai_delta
@@ -102,7 +103,7 @@ class ScanPipeline:
             "artifact_info": {
                 "path": str(target_path),
                 "type": "REPOSITORY",
-                "file_count": len(files_to_scan)
+                "file_count": len(list(target_path.rglob('*'))) # Simplified for count
             }
         }
 
@@ -111,7 +112,22 @@ class ScanPipeline:
         findings: List[Finding] = []
         det = self.detector.detect(str(path))
         
-        if det.artifact_type == ArtifactType.CODE or det.type_mismatch:
+        if det.type_mismatch:
+            findings.append(
+                Finding(
+                    module="auto-detector",
+                    finding_id="FILE-TYPE-MISMATCH",
+                    title="File Type Mismatch (Masquerading Detected T1036.008)",
+                    description=det.mismatch_detail or "File type mismatch detected.",
+                    severity=Severity.HIGH,
+                    finding_type=FindingType.FILE_MISMATCH,
+                    confidence=1.0,
+                    file_path=str(path),
+                    mitre_ids=["T1036.008"]
+                )
+            )
+
+        if det.artifact_type in [ArtifactType.CODE, ArtifactType.UNKNOWN] or det.type_mismatch:
             res = self.code_scanner.scan_file(str(path), language=det.language.value)
             findings.extend(res.findings)
             
@@ -119,6 +135,11 @@ class ScanPipeline:
             if det.language in [Language.PYTHON, Language.JAVASCRIPT]:
                 shadow_findings = self.supply_chain_auditor.scan_source_imports(str(path))
                 findings.extend(shadow_findings)
+                
+            # If still no findings and it's unknown/text, try secret scan as fallback
+            if not findings and det.language in [Language.UNKNOWN, Language.TEXT]:
+                secret_findings = self.repo_scanner.scan_file_secrets(str(path))
+                findings.extend(secret_findings)
                 
         elif det.artifact_type == ArtifactType.CONFIG:
             res = self.config_scanner.scan(str(path))

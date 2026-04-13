@@ -57,3 +57,11 @@ class RepoScanner(ScannerModule):
             scan_duration=time.time() - start_time,
             error="; ".join(errors) if errors else None
         )
+
+    def scan_file_secrets(self, file_path: str) -> list:
+        """Scan a single file specifically for secrets using Gitleaks."""
+        # Note: Gitleaks detect --source <file> works for single files.
+        # However, we need to handle non-git targets with --no-git.
+        runner = GitleaksRunner()
+        res = runner.scan_directory(file_path) # scan_directory handles files too
+        return res.findings

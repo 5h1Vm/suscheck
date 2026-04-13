@@ -780,6 +780,14 @@ def explain(file: str = typer.Argument(help="File to explain")):
         except:
             pass
 
+    # ── Step 1.5: Render Static Indicators ──
+    if findings:
+        from suscheck.modules.reporting.terminal import render_findings
+        console.print("[bold cyan]🔍 Forensic Indicators Gathered:[/bold cyan]")
+        render_findings(findings)
+    else:
+        console.print("[dim]No static indicators found in baseline scan.[/dim]")
+
     # ── Step 2: Read Content ──
     try:
         content = path.read_text(encoding="utf-8", errors="replace")
