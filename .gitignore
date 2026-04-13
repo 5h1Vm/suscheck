@@ -4,8 +4,6 @@ __pycache__/
 dist/
 build/
 .eggs/
-venv/
-.venv/
 *.egg
 .mypy_cache/
 .pytest_cache/
@@ -14,3 +12,8 @@ venv/
 .env
 suscheck.yaml
 *.yaml
+venv/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage

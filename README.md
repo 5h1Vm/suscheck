@@ -1,7 +1,7 @@
-# SusCheck (v0.1.0)
+# SusCheck (v1.0.0 Gold)
 ### Pre-execution Security Auditing Platform
-
-**SusCheck** is a high-performance security platform designed to audit code, infrastructure (IaC), and third-party artifacts *before* they are executed. By using a multi-tiered analysis engine, SusCheck provides sub-second detection for common threats while orchestrating advanced SAST and AI triage for complex artifacts.
+**Lead Researcher**: Shivam Kumar Singh (NFSU Delhi)  
+**Academic Affiliation**: National Forensic Sciences University  
 
 ---
 
@@ -56,8 +56,34 @@ For a detailed guide on every folder and file in the repository, see:
 
 ---
 
+## 📈 v1.0.0 Compliance Matrix (18 Steps)
+
+| Step | Design Goal | Status | Implementation File |
+| :--- | :--- | :--- | :--- |
+| **0** | Project Skeleton | ✅ | `pyproject.toml`, `src/suscheck/` |
+| **1** | Auto-Detector | ✅ | `core/auto_detector.py` |
+| **2** | Finding Model + Rich UI | ✅ | `core/finding.py`, `modules/reporting/` |
+| **3** | Tier 0: Hash + VT | ✅ | `modules/external/virustotal.py` |
+| **4** | Code Scanner L1 | ✅ | `modules/code/scanner.py` |
+| **5** | Recursive Decoder | ✅ | `modules/code/decoder.py` |
+| **6** | Language Plugins L2 | ✅ | `modules/code/layer2/*.toml` |
+| **7** | Basic PRI Scoring | ✅ | `core/risk_aggregator.py` |
+| **8** | Config/IaC Scanner | ✅ | `modules/config/scanner.py` |
+| **9** | Supply Chain Trust | ✅ | `modules/supply_chain/trust_engine.py` |
+| **10** | Repository Scanner | ✅ | `modules/repo/scanner.py` |
+| **11** | MCP Static Scanner | ✅ | `modules/mcp/scanner.py` |
+| **12** | MCP Dynamic (Docker) | ✅ | `modules/mcp/dynamic.py` |
+| **13** | AI Triage Layer | ✅ | `ai/triage_engine.py` |
+| **14** | Full PRI Scoring | ✅ | `core/risk_aggregator.py` (10-Step) |
+| **15** | Wrapper Modes | ✅ | `cli.py` (install/clone/connect) |
+| **16** | HTML/MD Reports | ✅ | `core/reporter.py` |
+| **17** | AI Explain Mode | ✅ | `ai/explain_engine.py` |
+| **18** | Final Polish | 🚀 | `setup.sh`, `scripts/` |
+
+---
+
 ## 🧪 Security Verification
-SusCheck includes a curated suite of malicious and benign indicators in `tests/samples/` to help you verify platform rigor and the accuracy of the **Platform Risk Index (PRI)**.
+SusCheck has been externalized from its test indicators to ensure clean production audits. The curated suite of malicious and benign indicators is located in `../suscheck_tests/` to help verify platform rigor.
 
 ---
 

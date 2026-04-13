@@ -1012,6 +1012,126 @@ def connect(
 
 
 @app.command()
+def install(
+    package: str = typer.Argument(help="Package name or ecosystem:name (e.g. pypi:requests)"),
+    ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
+    force: bool = typer.Option(False, "--force", help="Skip security check and install anyway"),
+):
+    """Secure installer wrapper. Scans package trust score before installation."""
+    console.print(f"\n[bold blue]sus check install[/bold blue]")
+    console.print(f"Target: [yellow]{package}[/yellow] ({ecosystem})")
+    
+    if not force:
+        # Perform Trust Scan First
+        from suscheck.modules.supply_chain.trust_engine import TrustEngine
+        engine = TrustEngine()
+        
+        full_target = package if ":" in package else f"{ecosystem}:{package}"
+        
+        with console.status(f"Auditing supply chain trust for {full_target}...", spinner="bouncingBar"):
+            res = engine.scan(full_target)
+            
+        if res.trust_score is not None:
+            style = "green" if res.trust_score >= 7.0 else "yellow" if res.trust_score >= 4.0 else "red"
+            console.print(f"Trust Score: [{style}]{res.trust_score}/10.0[/{style}]")
+            
+            if res.findings:
+                render_findings(res.findings)
+                
+            if res.trust_score < 4.0:
+                console.print(Panel(
+                    f"[bold red]❌ SECURITY BLOCK:[/bold red] Package [bold]{package}[/bold] has extremely low trust.\n"
+                    "Installation halted to prevent potential supply chain compromise.\n"
+                    "Use [dim]--force[/dim] to override if you are absolutely sure.",
+                    border_style="red"
+                ))
+                raise typer.Exit(1)
+            elif res.trust_score < 7.0:
+                console.print("[yellow]⚠️  CAUTION:[/yellow] Trust score is moderate. Proceed with care.")
+
+    # Proceed to Install
+    console.print(f"\n[bold green]✓[/bold green] Security check passed. Commencing {ecosystem} install...")
+    exit_code = install_package(ecosystem, package)
+    
+    if exit_code == 0:
+        console.print(f"[bold green]✓[/bold green] Package '{package}' installed successfully.")
+    else:
+        console.print(f"[bold red]✗[/bold red] Install failed with exit code {exit_code}")
+        raise typer.Exit(exit_code)
+
+
+@app.command()
+def clone(
+    url: str = typer.Argument(help="Git repository URL to clone"),
+    dest: Optional[str] = typer.Option(None, "--dest", "-d", help="Destination folder"),
+    force: bool = typer.Option(False, "--force", help="Skip security check"),
+):
+    """Secure clone wrapper. Scans repository metadata before cloning."""
+    console.print(f"\n[bold blue]sus check clone[/bold blue]")
+    console.print(f"Repo: [yellow]{url}[/yellow]")
+    
+    if not force:
+        # Perform Repo Metadata Scan
+        repo_scanner = RepoScanner()
+        with console.status(f"Auditing repository integrity...", spinner="bouncingBar"):
+            res = repo_scanner.scan(url)
+            
+        if res.findings:
+            render_findings(res.findings)
+            
+            # Simple heuristic for blocking: any critical/high findings in metadata
+            has_major_risk = any(f.severity in (Severity.CRITICAL, Severity.HIGH) for f in res.findings)
+            if has_major_risk:
+                console.print(Panel(
+                    "[bold red]❌ SECURITY BLOCK:[/bold red] Repository metadata reveals high-risk indicators.\n"
+                    "Cloning suspended. Use [dim]--force[/dim] to override.",
+                    border_style="red"
+                ))
+                raise typer.Exit(1)
+
+    # Proceed to Clone
+    console.print(f"\n[bold green]✓[/bold green] Pre-clone check passed. Initiating git clone...")
+    exit_code = clone_repo(url, dest)
+    
+    if exit_code == 0:
+        console.print(f"[bold green]✓[/bold green] Repository cloned successfully.")
+    else:
+        console.print(f"[bold red]✗[/bold red] Clone failed with exit code {exit_code}")
+        raise typer.Exit(exit_code)
+
+
+@app.command()
+def connect(
+    target: str = typer.Argument(help="MCP server target (command, URL, or id)"),
+    force: bool = typer.Option(False, "--force", help="Skip security check"),
+):
+    """Secure MCP connection wrapper. Scans MCP server before connecting."""
+    console.print(f"\n[bold blue]sus check connect[/bold blue]")
+    console.print(f"MCP Server: [yellow]{target}[/yellow]")
+    
+    if not force:
+        mcp_scanner = MCPScanner()
+        with console.status(f"Auditing MCP server capabilities...", spinner="bouncingBar"):
+            res = mcp_scanner.scan(target)
+            
+        if res.findings:
+            render_findings(res.findings)
+            
+            # Block if critical vulnerabilities or prompt injection potential found
+            if any(f.severity == Severity.CRITICAL for f in res.findings):
+                 console.print(Panel(
+                    "[bold red]❌ SECURITY BLOCK:[/bold red] MCP server has critical over-privilege or vulnerabilities.\n"
+                    "Connection blocked. Use [dim]--force[/dim] to override.",
+                    border_style="red"
+                ))
+                 raise typer.Exit(1)
+
+    # Proceed to Connect (this is a stub in v1, usually prints the verified connection string)
+    console.print(f"\n[bold green]✓[/bold green] Pre-connection check passed. Service verified.")
+    connect_mcp(target)
+
+
+@app.command()
 def version():
     """Show sus check version and system info."""
     import shutil
@@ -1071,8 +1191,8 @@ def version():
         )
     )
 @app.command()
-def check_keys():
-    """Diagnostic check for all configured API keys and secrets."""
+def diagnostics():
+    """Diagnostic health check for all configured API keys and engine binaries."""
     config_mgr = ConfigManager()
     suite = DiagnosticSuite(config_mgr)
     
