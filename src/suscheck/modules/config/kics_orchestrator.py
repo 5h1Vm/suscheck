@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +27,10 @@ class KicsOrchestrator:
 
     def __init__(self):
         configured_path = os.environ.get("SUSCHECK_KICS_PATH", "").strip()
-        resolved_configured = Path(configured_path).expanduser().resolve() if configured_path else None
-
-        if resolved_configured and resolved_configured.is_file() and os.access(resolved_configured, os.X_OK):
-            self.kics_path = str(resolved_configured)
-        else:
-            self.kics_path = shutil.which("kics")
+        registry = get_tool_registry()
+        status = registry.register_tool(ToolType.KICS, config_path=configured_path or None)
+        self.kics_path = status.path
+        self.missing_tool_message = status.suggestion or "Install from: https://docs.kicsinfra.com/gitbook/getting-started/installation"
 
         self.docker_path = shutil.which("docker")
         self.use_docker = self.kics_path is None and self.docker_path is not None
@@ -52,7 +51,11 @@ class KicsOrchestrator:
     def scan_file(self, file_path: str) -> KicsResult:
         """Scan a generic IaC configuration file with KICS."""
         if not self.is_installed:
-            return KicsResult(findings=[], errors=["KICS is not installed. Skip mapping."])
+            docker_hint = " Docker fallback unavailable (docker not found)." if not self.docker_path else ""
+            return KicsResult(
+                findings=[],
+                errors=[f"KICS is not installed. {self.missing_tool_message}{docker_hint}"],
+            )
 
         findings = []
         errors = []
@@ -94,7 +97,7 @@ class KicsOrchestrator:
                 ]
             
             try:
-                result = subprocess.run(
+                subprocess.run(
                     cmd, 
                     capture_output=True, 
                     text=True, 

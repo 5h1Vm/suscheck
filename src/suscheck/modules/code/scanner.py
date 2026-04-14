@@ -210,7 +210,10 @@ class CodeScanner:
                     result.findings.extend(shadow_findings)
                     result.detectors_ran.append("shadow_dependency_auditor")
             except Exception as e:
-                logger.debug(f"Shadow dependency audit failed: {e}")
+                logger.error(
+                    f"Shadow dependency audit failed: {e}",
+                    exc_info=True,
+                )
 
         # Deduplicate findings on the same line with the same module
         result.findings = self._deduplicate(result.findings)

@@ -16,7 +16,10 @@ from suscheck.services.analysis_service import execute_explain_indicator_phase
 def register_analysis_commands(app: typer.Typer, *, console: Console, detector, version: str) -> None:
     """Register explain command on shared Typer app."""
 
-    @app.command()
+    @app.command(
+        short_help="Analyze file behavior and explain potential security concerns.",
+        rich_help_panel="Analysis & Insights",
+    )
     def explain(file: str = typer.Argument(help="File to explain")):
         """Explain what a file does in plain English. AI-powered behavioral analysis."""
         from suscheck.ai.explain_engine import run_behavioral_analysis

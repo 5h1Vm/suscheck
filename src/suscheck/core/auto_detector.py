@@ -10,12 +10,17 @@ Detection order (most reliable first):
 
 from dataclasses import dataclass, field
 from enum import Enum
+import logging
 import os
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
+from suscheck.core.validators import validate_config_int, safe_file_size, ValidationError
+
 if TYPE_CHECKING:
     from suscheck.core.config_manager import ConfigManager
+
+logger = logging.getLogger(__name__)
 
 
 class ArtifactType(str, Enum):
@@ -168,21 +173,39 @@ class AutoDetector:
             
         # Check size limit from config (default 10MB)
         if path.is_file():
+            # ✅ FIX P0.2: Type-safe config conversion
             max_mb = 10
             if self.config:
-                max_mb = self.config.get("scanners.code.max_file_size_mb", 10)
+                try:
+                    max_mb = validate_config_int(
+                        self.config.get("scanners.code.max_file_size_mb", 10),
+                        key="scanners.code.max_file_size_mb",
+                        default=10,
+                        min_val=1
+                    )
+                except ValidationError as e:
+                    logger.warning(f"Invalid config value: {e}, using default max_mb=10")
+                    max_mb = 10
             
-            if path.stat().st_size > (max_mb * 1024 * 1024):
-                 return DetectionResult(
-                    artifact_type=ArtifactType.BINARY,
-                    language=Language.UNKNOWN,
-                    file_path=path,
-                    detection_method="size_limit_exceeded",
-                    confidence=1.0,
-                    magic_description=f"File exceeds {max_mb}MB limit set in config.",
-                    type_mismatch=True,
-                    mismatch_detail=f"File too large to scan ({path.stat().st_size / (1024*1024):.1f} MB)"
-                )
+            # ✅ FIX P0.1: TOCTOU race condition - handle file deletion safely
+            try:
+                file_size = safe_file_size(path)
+                if file_size > (max_mb * 1024 * 1024):
+                    size_mb = file_size / (1024 * 1024)
+                    return DetectionResult(
+                        artifact_type=ArtifactType.BINARY,
+                        language=Language.UNKNOWN,
+                        file_path=path,
+                        detection_method="size_limit_exceeded",
+                        confidence=1.0,
+                        magic_description=f"File exceeds {max_mb}MB limit set in config.",
+                        type_mismatch=True,
+                        mismatch_detail=f"File too large to scan ({size_mb:.1f} MB)"
+                    )
+            except ValidationError as e:
+                # File deleted between check and stat, or permission denied
+                logger.warning(f"Cannot determine file size for {path}: {e}")
+                return self._handle_non_file_target(str(path))
 
         if path.is_dir():
             return self._detect_directory(path)
@@ -352,7 +375,7 @@ class AutoDetector:
         else:
             is_polyglot = len(all_detected) > 1 and not type_mismatch
             
-        secondary = [l for l in all_detected if l != detected_lang]
+        secondary = [lang for lang in all_detected if lang != detected_lang]
 
         return DetectionResult(
             artifact_type=artifact_type,

@@ -84,6 +84,8 @@ class VirusTotalClient:
         self._session = requests.Session()
         if self.api_key:
             self._session.headers.update({"x-apikey": self.api_key})
+        else:
+            logger.debug("VirusTotal: No API key configured (SUSCHECK_VT_KEY). File reputation lookup disabled.")
 
     @property
     def available(self) -> bool:

@@ -74,6 +74,23 @@ cd suscheck
 bash setup.sh
 ```
 
+### 1.1 KICS Local Binary (Script-Only)
+`setup.sh` now attempts all of the following automatically:
+1. Use `SUSCHECK_KICS_ARCHIVE` if you provide an archive path.
+2. Auto-download the latest compatible KICS release binary and install it into `.venv/bin/kics`.
+3. Persist `SUSCHECK_KICS_PATH` in `.env` for stable discovery.
+4. Only then fall back to Docker runtime if local binary install is not possible.
+
+Manual one-liner (still script-only):
+```bash
+bash setup.sh
+```
+
+Optional explicit archive mode:
+```bash
+SUSCHECK_KICS_ARCHIVE=/path/to/kics-linux-amd64.tar.gz bash setup.sh
+```
+
 ### 2. Mandatory Engines
 To reach full orchestration potential, ensure the following are installed (handled by `setup.sh`):
 - **Bandit**: Python SAST

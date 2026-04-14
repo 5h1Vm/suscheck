@@ -90,7 +90,6 @@ class TrustEngine(ScannerModule):
                 error=f"Ecosystem {ecosystem} not supported yet in v1. Available: pypi"
             )
 
-        trust_score = 10.0  # Start fully trusted
         score_components = {
             "typosquat": 1.0, "maintainer": 1.0, "takeover": 1.0,
             "abandoned": 1.0, "delta": 1.0, "confusion": 1.0,
@@ -288,7 +287,8 @@ class TrustEngine(ScannerModule):
                 for edge in deps_result.edges:
                     src = edge.get("fromNode")
                     dst = edge.get("toNode")
-                    if src not in adj: adj[src] = []
+                    if src not in adj:
+                        adj[src] = []
                     adj[src].append(dst)
                 
                 def get_path_to(target_idx: int) -> str:

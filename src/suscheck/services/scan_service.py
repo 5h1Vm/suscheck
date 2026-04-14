@@ -12,8 +12,16 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from suscheck.core.errors import (
+    RepositoryCloneError,
+    ScannerExecutionError,
+    ToolNotFoundError,
+    build_error_evidence,
+    get_error_code,
+)
 from suscheck.core.finding import Finding, ScanSummary, Severity, FindingType
 from suscheck.core.risk_aggregator import RiskAggregator
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.scanner import MCPScanner
@@ -32,6 +40,7 @@ class Tier0PhaseResult:
     findings: list[Finding] = field(default_factory=list)
     vt_dict: dict | None = None
     modules_ran: list[str] = field(default_factory=list)
+    modules_failed: list[str] = field(default_factory=list)
     short_circuit_summary: ScanSummary | None = None
 
 
@@ -125,6 +134,7 @@ def execute_tier0_phase(
             findings=tier0_result.findings,
             vt_dict=tier0_result.vt_dict,
             modules_ran=["tier0"],
+            modules_failed=["tier0"] if (tier0_result.errors or []) else [],
             short_circuit_summary=summary,
         )
 
@@ -136,6 +146,7 @@ def execute_tier0_phase(
         findings=tier0_result.findings,
         vt_dict=tier0_result.vt_dict,
         modules_ran=["tier0"],
+        modules_failed=["tier0"] if (tier0_result.errors or []) else [],
         short_circuit_summary=None,
     )
 
@@ -146,11 +157,12 @@ def execute_local_file_tier1_phase(
     detection,
     modules_ran: list[str],
     console: Console,
-) -> tuple[list[Finding], list[str]]:
+) -> tuple[list[Finding], list[str], list[str]]:
     """Execute local-file Tier 1 static fan-out orchestration."""
     console.print("\n[bold]Tier 1: Static Analysis[/bold]")
 
     modules_updated = list(modules_ran)
+    modules_failed: list[str] = []
     try:
         config_scanner = ConfigScanner()
         repo_scanner = RepoScanner()
@@ -182,8 +194,10 @@ def execute_local_file_tier1_phase(
                 tier1_findings.extend(repo_secret_findings)
                 if "repo" not in modules_updated:
                     modules_updated.append("repo")
-        except Exception as e:
-            tier1_errors.append(f"repo secrets pass failed: {e}")
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
+            code = get_error_code(e, "TIER1_REPO_SECRETS_FAILED")
+            tier1_errors.append(f"[{code}] repo secrets pass failed: {e}")
+            modules_failed.append("repo")
 
         for module_name, result_obj in module_results:
             if module_name not in modules_updated:
@@ -202,10 +216,12 @@ def execute_local_file_tier1_phase(
             error_field = getattr(result_obj, "error", None)
             if error_field:
                 tier1_errors.append(str(error_field))
+                modules_failed.append(module_name)
 
             errors_field = getattr(result_obj, "errors", None)
             if errors_field:
                 tier1_errors.extend([str(err) for err in errors_field if err])
+                modules_failed.append(module_name)
 
         if tier1_findings:
             from suscheck.modules.external.virustotal import VirusTotalClient
@@ -255,16 +271,19 @@ def execute_local_file_tier1_phase(
             render_findings(tier1_findings)
         for err in tier1_errors:
             console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
-        return tier1_findings, modules_updated
-    except Exception as e:
-        console.print(f"  [red]Tier 1 static scan failed: {e}[/red]")
-        return [], modules_updated
+
+        return tier1_findings, modules_updated, sorted(set(modules_failed))
+    except (OSError, RuntimeError, ValueError, TypeError) as e:
+        code = get_error_code(e, "TIER1_STATIC_SCAN_FAILED")
+        console.print(f"  [red]Tier 1 static scan failed [{code}]: {e}[/red]")
+        return [], modules_updated, ["tier1"]
 
 
-def execute_semgrep_phase(*, file_path: str, console: Console) -> list[Finding]:
+def execute_semgrep_phase(*, file_path: str, console: Console) -> tuple[list[Finding], bool]:
     """Execute Tier 2 Semgrep phase for a single local file."""
     console.print("\n[bold]Tier 2: Advanced SAST (Semgrep)[/bold]")
     semgrep_findings: list[Finding] = []
+    semgrep_failed = False
     try:
         from suscheck.modules.semgrep_runner import SemgrepRunner
 
@@ -281,12 +300,15 @@ def execute_semgrep_phase(*, file_path: str, console: Console) -> list[Finding]:
 
             for err in semgrep_result.errors or []:
                 console.print(f"  [yellow]⚠️ Semgrep Warning: {err}[/yellow]")
+                semgrep_failed = True
         else:
             console.print("  [yellow]⚠️ Semgrep not installed. Skipping Layer 2 SAST.[/yellow]")
-    except Exception as e:
-        console.print(f"  [red]Semgrep orchestration failed: {e}[/red]")
+    except (ImportError, OSError, RuntimeError, ValueError, TypeError) as e:
+        code = get_error_code(e, "TIER2_SEMGREP_ORCHESTRATION_FAILED")
+        console.print(f"  [red]Semgrep orchestration failed [{code}]: {e}[/red]")
+        semgrep_failed = True
 
-    return semgrep_findings
+    return semgrep_findings, semgrep_failed
 
 
 def execute_remote_repository_tier1_phase(
@@ -295,34 +317,49 @@ def execute_remote_repository_tier1_phase(
     pipeline,
     modules_ran: list[str],
     console: Console,
-) -> tuple[list[Finding], list[str]]:
+) -> tuple[list[Finding], list[str], list[str]]:
     """Execute repository URL clone + directory scan phase."""
     modules_updated = list(modules_ran)
+    modules_failed: list[str] = []
     console.print("\n[bold]Tier 1: Repository Static Analysis[/bold]")
     console.print("  [dim]Remote repository detected. Cloning to a temporary workspace for scanning...[/dim]")
     try:
+        registry = get_tool_registry()
+        git_status = registry.register_tool(ToolType.GIT)
+        if not git_status.available:
+            raise ToolNotFoundError("git", git_status.suggestion or "https://git-scm.com/download")
+
         with tempfile.TemporaryDirectory(prefix="suscheck-repo-") as tmpdir:
             clone_cmd = ["git", "clone", "--depth", "1", target, tmpdir]
             clone_proc = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=180)
             if clone_proc.returncode != 0:
                 stderr = (clone_proc.stderr or "").strip()
-                raise RuntimeError(stderr or "git clone failed")
+                raise RepositoryCloneError(stderr or "git clone failed")
 
-            repo_findings = pipeline.scan_directory(tmpdir)
+            dir_result = pipeline.scan_directory_with_status(tmpdir)
+            repo_findings = dir_result.findings
 
-            inferred_modules = pipeline.get_modules_ran(repo_findings)
+            inferred_modules = dir_result.modules_ran or pipeline.get_modules_ran(repo_findings)
             for module_name in inferred_modules:
                 if module_name not in modules_updated:
                     modules_updated.append(module_name)
+            modules_failed.extend(dir_result.modules_failed)
 
             if repo_findings:
                 render_findings(repo_findings)
             else:
                 console.print("  [dim]No static findings from remote repository scan.[/dim]")
 
-            return repo_findings, modules_updated
-    except Exception as e:
-        console.print(f"  [yellow]Tier 1 repository scan skipped: {e}[/yellow]")
+            return repo_findings, modules_updated, modules_failed
+    except subprocess.TimeoutExpired as e:
+        timeout_error = ScannerExecutionError(
+            f"git clone timeout after {getattr(e, 'timeout', 'unknown')}s",
+            code="TIER1_REPO_CLONE_TIMEOUT",
+        )
+        console.print(
+            f"  [yellow]Tier 1 repository scan skipped [{timeout_error.code}]: {timeout_error}[/yellow]"
+        )
+        modules_failed.append("repo")
         return (
             [
                 Finding(
@@ -337,12 +374,39 @@ def execute_remote_repository_tier1_phase(
                     finding_type=FindingType.REVIEW_NEEDED,
                     confidence=0.95,
                     file_path=target,
-                    evidence={"error": str(e)[:500]},
+                    evidence=build_error_evidence(timeout_error, timeout_error.code),
                     needs_human_review=True,
                     review_reason="Tier 1 repository scan failed",
                 )
             ],
             modules_updated,
+            modules_failed,
+        )
+    except (RepositoryCloneError, ToolNotFoundError, OSError, RuntimeError, ValueError, TypeError) as e:
+        code = get_error_code(e, "TIER1_REPOSITORY_SCAN_FAILED")
+        console.print(f"  [yellow]Tier 1 repository scan skipped [{code}]: {e}[/yellow]")
+        modules_failed.append("repo")
+        return (
+            [
+                Finding(
+                    module="pipeline",
+                    finding_id="PIPELINE-REPO-SCAN-SKIPPED",
+                    title="Repository static scan could not be completed",
+                    description=(
+                        "Remote repository analysis failed before static scanners ran. "
+                        "Treat this result as partial and require manual review before trusting the target."
+                    ),
+                    severity=Severity.MEDIUM,
+                    finding_type=FindingType.REVIEW_NEEDED,
+                    confidence=0.95,
+                    file_path=target,
+                    evidence=build_error_evidence(e, code),
+                    needs_human_review=True,
+                    review_reason="Tier 1 repository scan failed",
+                )
+            ],
+            modules_updated,
+            modules_failed,
         )
 
 

@@ -30,7 +30,7 @@ class _DummySummary:
 def test_version_command_runs() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "sus check" in result.output.lower()
+    assert "suscheck" in result.output.lower()
 
 
 def test_connect_force_uses_scan_result(monkeypatch) -> None:

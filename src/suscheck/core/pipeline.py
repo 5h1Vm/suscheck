@@ -4,8 +4,10 @@ This is the 'Unified Forensic Brain' that coordinates industry-standard engines
 (Semgrep, Gitleaks, Checkov) into a single PRI verdict (Increment 18).
 """
 
+import logging
 import os
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
 
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
     from suscheck.core.config_manager import ConfigManager
 
 from suscheck.core.auto_detector import AutoDetector, ArtifactType, Language
+from suscheck.core.errors import build_error_evidence
 from suscheck.core.finding import Finding, Severity, FindingType
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
@@ -22,6 +25,34 @@ from suscheck.modules.repo.scanner import RepoScanner
 from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
 from suscheck.modules.external.engine import Tier0Engine
 from suscheck.ai.triage_engine import run_ai_triage
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DirectoryScanResult:
+    """Structured result for recursive directory scans.
+
+    This preserves explicit execution accounting so callers can report
+    what ran, what failed, and whether coverage is partial.
+    """
+
+    findings: List[Finding] = field(default_factory=list)
+    modules_ran: List[str] = field(default_factory=list)
+    modules_failed: List[str] = field(default_factory=list)
+    modules_skipped: List[str] = field(default_factory=list)
+    files_scanned: int = 0
+    files_total: int = 0
+
+    @property
+    def coverage_complete(self) -> bool:
+        return self.files_scanned == self.files_total
+
+    @property
+    def coverage_pct(self) -> float:
+        if self.files_total <= 0:
+            return 100.0
+        return round((self.files_scanned / self.files_total) * 100.0, 2)
 
 class ScanPipeline:
     """Orchestrates complex scan workflows like recursive directory traversal."""
@@ -52,13 +83,43 @@ class ScanPipeline:
             self.ignore_dirs = default_ignore
 
     def scan_directory(self, target_dir: str) -> List[Finding]:
-        """Recursive scan helper as expected by CLI."""
+        """Backward-compatible recursive scan helper returning findings only."""
+        return self.scan_directory_with_status(target_dir).findings
+
+    def scan_directory_with_status(self, target_dir: str) -> DirectoryScanResult:
+        """Recursive scan with explicit execution and coverage metadata."""
         target_path = Path(target_dir).resolve()
-        findings: List[Finding] = []
+        result = DirectoryScanResult()
+        
+        # ✅ FIX P0.3: Validate path before scanning
+        from suscheck.core.validators import validate_directory_exists, ValidationError
+        try:
+            target_path = validate_directory_exists(target_path, context="Scan target")
+        except ValidationError as e:
+            logger.error(f"Directory scan validation failed: {e}")
+            result.findings.append(
+                Finding(
+                    module="pipeline",
+                    finding_id="PIPELINE-PATH-INVALID",
+                    title="Scan target directory not found or inaccessible",
+                    description=str(e),
+                    severity=Severity.LOW,
+                    finding_type=FindingType.REVIEW_NEEDED,
+                    confidence=1.0,
+                    file_path=target_dir,
+                    needs_human_review=True,
+                    review_reason="PIPELINE_PATH_INVALID",
+                )
+            )
+            result.modules_failed.append("pipeline")
+            return result  # Early exit with clear error
         
         # --- Tier 1: Repository-Level Orchestration ---
         repo_res = self.repo_scanner.scan(str(target_path))
-        findings.extend(repo_res.findings)
+        result.modules_ran.append("repo")
+        result.findings.extend(repo_res.findings)
+        if getattr(repo_res, "error", None):
+            result.modules_failed.append("repo")
         
         # --- Tier 1: Recursive File Analysis ---
         files_to_scan = []
@@ -67,17 +128,36 @@ class ScanPipeline:
             for f in files:
                 files_to_scan.append(Path(root) / f)
 
+        result.files_total = len(files_to_scan)
+
         for p in files_to_scan:
             try:
+                det = self.detector.detect(str(p))
+
                 # Tier 0: Hash & Reputation
                 t0_res = self.tier0_engine.check_file(str(p))
-                findings.extend(t0_res.findings)
+                result.findings.extend(t0_res.findings)
+                if "tier0" not in result.modules_ran:
+                    result.modules_ran.append("tier0")
+                if t0_res.errors and "tier0" not in result.modules_failed:
+                    result.modules_failed.append("tier0")
+
+                if det.artifact_type in [ArtifactType.CODE, ArtifactType.UNKNOWN] or det.type_mismatch:
+                    if "code" not in result.modules_ran:
+                        result.modules_ran.append("code")
+                elif det.artifact_type == ArtifactType.CONFIG:
+                    if "config" not in result.modules_ran:
+                        result.modules_ran.append("config")
+                elif det.artifact_type == ArtifactType.MCP_SERVER:
+                    if "mcp" not in result.modules_ran:
+                        result.modules_ran.append("mcp")
                 
                 # Direct dispatch based on Auto-Detector
                 file_findings = self.scan_single_file(p)
-                findings.extend(file_findings)
-            except Exception as e:
-                findings.append(
+                result.findings.extend(file_findings)
+                result.files_scanned += 1
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
+                result.findings.append(
                     Finding(
                         module="pipeline",
                         finding_id="PIPELINE-FILE-SCAN-ERROR",
@@ -90,14 +170,44 @@ class ScanPipeline:
                         finding_type=FindingType.REVIEW_NEEDED,
                         confidence=0.9,
                         file_path=str(p),
-                        evidence={"error": str(e)[:500]},
+                        evidence=build_error_evidence(e, "PIPELINE_FILE_SCAN_ERROR"),
                         needs_human_review=True,
-                        review_reason="Per-file scanner exception",
+                        review_reason="PIPELINE_FILE_SCAN_ERROR: Per-file scanner exception",
                     )
                 )
+                if "pipeline" not in result.modules_failed:
+                    result.modules_failed.append("pipeline")
                 continue
-                
-        return findings
+
+        if not result.coverage_complete:
+            skipped_count = result.files_total - result.files_scanned
+            result.findings.append(
+                Finding(
+                    module="pipeline",
+                    finding_id="PIPELINE-PARTIAL-COVERAGE",
+                    title="Directory scan completed with partial coverage",
+                    description=(
+                        f"Only {result.files_scanned}/{result.files_total} files were fully scanned. "
+                        f"{skipped_count} files failed during processing."
+                    ),
+                    severity=Severity.MEDIUM,
+                    finding_type=FindingType.REVIEW_NEEDED,
+                    confidence=0.95,
+                    file_path=str(target_path),
+                    evidence={
+                        "files_scanned": result.files_scanned,
+                        "files_total": result.files_total,
+                        "coverage_pct": result.coverage_pct,
+                    },
+                    needs_human_review=True,
+                    review_reason="Directory coverage is partial; do not treat as complete verdict",
+                )
+            )
+
+        result.modules_ran = sorted(set(result.modules_ran))
+        result.modules_failed = sorted(set(result.modules_failed))
+        result.modules_skipped = sorted(set(result.modules_skipped))
+        return result
 
     def scan_project(self, target_dir: str, dynamic_mcp: bool = False, ai_triage: bool = True) -> Dict[str, Any]:
         """Performs a Unified Forensic Scan and returns a summary report."""

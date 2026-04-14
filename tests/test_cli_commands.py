@@ -81,12 +81,15 @@ def test_scan_repository_url_runs_temp_clone_path(monkeypatch) -> None:
             called["clone"] = True
         return _Proc()
 
-    def _fake_scan_directory(self, _target_dir):
+    def _fake_scan_directory_with_status(self, _target_dir):
         called["scan_directory"] = True
-        return []
+        return type("_DirResult", (), {"findings": [], "modules_ran": [], "modules_failed": []})()
 
     monkeypatch.setattr("suscheck.services.scan_service.subprocess.run", _fake_run)
-    monkeypatch.setattr("suscheck.commands.scan_commands.ScanPipeline.scan_directory", _fake_scan_directory)
+    monkeypatch.setattr(
+        "suscheck.commands.scan_commands.ScanPipeline.scan_directory_with_status",
+        _fake_scan_directory_with_status,
+    )
 
     result = runner.invoke(app, ["scan", "https://github.com/example/repo"])
 

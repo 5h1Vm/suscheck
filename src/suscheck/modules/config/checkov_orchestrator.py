@@ -3,10 +3,10 @@
 import json
 import logging
 import subprocess
-import shutil
 from dataclasses import dataclass
 
 from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ class CheckovOrchestrator:
     """Wraps the Checkov CLI for IaC security scanning."""
     
     def __init__(self):
-        # Checkov is installed via pip; it should be in the PATH of the venv
-        self.cmd = shutil.which("checkov")
-        self.is_installed = self.cmd is not None
+        status = get_tool_registry().register_tool(ToolType.CHECKOV)
+        self.cmd = status.path
+        self.is_installed = status.available
+        self.missing_tool_message = status.suggestion or "Install from: https://www.checkov.io/"
 
     def _map_severity(self, checkov_severity: str | None) -> Severity:
         """Map Checkov severity to SusCheck severity."""
@@ -41,7 +42,7 @@ class CheckovOrchestrator:
     def scan_file(self, file_path: str) -> CheckovResult:
         """Scan a configuration file with Checkov."""
         if not self.is_installed:
-            return CheckovResult(findings=[], errors=["Checkov is not installed."])
+            return CheckovResult(findings=[], errors=[f"Checkov is not installed. {self.missing_tool_message}"])
 
         findings = []
         errors = []

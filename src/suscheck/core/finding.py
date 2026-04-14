@@ -120,6 +120,7 @@ class ScanSummary:
     review_count: int
     scan_duration: float
     modules_ran: list[str]
+    modules_failed: list[str] = field(default_factory=list)
     modules_skipped: list[str] = field(default_factory=list)
     coverage_complete: bool = True
     coverage_notes: list[str] = field(default_factory=list)

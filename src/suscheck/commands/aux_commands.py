@@ -15,13 +15,17 @@ from rich.table import Table
 
 from suscheck.core.config_manager import ConfigManager
 from suscheck.core.diagnostics import DiagnosticSuite
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 from suscheck.modules.reporting.terminal import render_findings
 
 
 def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -> None:
     """Register trust/version/init commands on the shared Typer app."""
 
-    @app.command()
+    @app.command(
+        short_help="Check package trust signals before installation or upgrade.",
+        rich_help_panel="Core Workflow",
+    )
     def trust(
         package: str = typer.Argument(help="Package name to assess"),
         ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
@@ -57,7 +61,7 @@ def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -
         render_findings(res.findings)
 
     def version_cmd():
-        """Show sus check version and system info."""
+        """Show SusCheck version and system info."""
 
         def _key_status(env_var: str) -> str:
             val = os.environ.get(env_var, "")
@@ -91,7 +95,7 @@ def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -
 
         console.print(
             Panel(
-                f"[bold blue]sus check[/bold blue] v{version}\n"
+                f"[bold blue]SusCheck[/bold blue] v{version}\n"
                 f"Python {sys.version.split()[0]}\n"
                 f"\n[bold]API Keys:[/bold]\n"
                 f"  VirusTotal:    {_key_status('SUSCHECK_VT_KEY')}\n"
@@ -111,14 +115,21 @@ def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -
                 f"\n[dim]Load API keys from .env file or environment variables.\n"
                 f"Timestamped reports are saved to ./reports/ by default.\n"
                 f"Use --report-dir to customize report location.[/dim]",
-                title="sus check — System Info",
+                title="SusCheck — System Info",
                 border_style="blue",
             )
         )
 
-    app.command(name="version")(version_cmd)
+    app.command(
+        name="version",
+        short_help="Show SusCheck version, configured providers, and tool availability.",
+        rich_help_panel="Setup & Info",
+    )(version_cmd)
 
-    @app.command()
+    @app.command(
+        short_help="Create a starter SusCheck configuration file.",
+        rich_help_panel="Setup & Info",
+    )
     def init(
         config_path: Optional[Path] = typer.Option(
             None,
@@ -161,14 +172,38 @@ ai_key_env = \"SUSCHECK_AI_KEY\"
         path.write_text(template, encoding="utf-8")
         console.print(f"[green]✓[/green] Created starter config: [cyan]{path}[/cyan]")
 
-    @app.command()
+    @app.command(
+        short_help="Check external tools, API keys, and service connectivity.",
+        rich_help_panel="Analysis & Insights",
+    )
     def diagnostics():
         """Diagnostic health check for all configured API keys and engine binaries."""
         config_mgr = ConfigManager()
         suite = DiagnosticSuite(config_mgr)
+        registry = get_tool_registry()
 
         console.print(f"\n[bold blue]SusCheck Diagnostic Suite[/bold blue] v{version}")
-        console.print("Checking configured external services...\n")
+        console.print("Checking external tools, API keys, and service connectivity...\n")
+
+        tool_statuses, _ = registry.validate_tools(list(ToolType))
+
+        tools_table = Table(title="External Tool Preflight", box=None)
+        tools_table.add_column("Tool", style="bold")
+        tools_table.add_column("Status", justify="center")
+        tools_table.add_column("Message")
+
+        for status in tool_statuses:
+            if status.available:
+                tools_table.add_row(status.tool.value, "[green]OK[/green]", status.path or "found")
+            else:
+                tools_table.add_row(
+                    status.tool.value,
+                    "[red]MISSING[/red]",
+                    status.suggestion or status.error or "not found",
+                )
+
+        console.print(tools_table)
+        console.print()
 
         with console.status("Pinging services...", spinner="dots"):
             results = suite.run_all()

@@ -2,13 +2,13 @@
 
 import json
 import logging
-import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +24,17 @@ class GitleaksRunner:
     """Wraps the Gitleaks binary if available."""
 
     def __init__(self):
-        self.gitleaks_path = shutil.which("gitleaks")
-        self.is_installed = self.gitleaks_path is not None
+        status = get_tool_registry().register_tool(ToolType.GITLEAKS)
+        self.gitleaks_path = status.path
+        self.is_installed = status.available
+        self.missing_tool_message = status.suggestion or "Install from: https://github.com/gitleaks/gitleaks#installation"
 
     def scan_directory(self, target_dir: str) -> GitleaksResult:
         """Scan a repository or directory using Gitleaks."""
         if not self.is_installed:
             return GitleaksResult(
                 findings=[], 
-                errors=["Gitleaks is not installed on the system. Secret scanning skipped."]
+                errors=[f"Gitleaks is not installed on the system. Secret scanning skipped. {self.missing_tool_message}"]
             )
 
         findings = []
@@ -74,8 +76,17 @@ class GitleaksRunner:
                     return GitleaksResult(findings=findings, errors=errors)
 
                 if report_path.exists():
-                    with open(report_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+                    try:
+                        with open(report_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Gitleaks report JSON parsing failed: {e}", exc_info=True)
+                        errors.append(f"Failed to parse Gitleaks report: {e}")
+                        return GitleaksResult(findings=findings, errors=errors)
+                    except OSError as e:
+                        logger.error(f"Failed to read Gitleaks report: {e}", exc_info=True)
+                        errors.append(f"Failed to read Gitleaks report: {e}")
+                        return GitleaksResult(findings=findings, errors=errors)
                     
                     for leak in data:
                         description = leak.get("Description", "Exposed Secret Detected")

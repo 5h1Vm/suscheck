@@ -59,13 +59,13 @@ class SupplyChainAuditor:
         except Exception:
             return []
 
-        packages = set()
+        raw_candidates = set()
         if ext == ".py":
             # 1. 'from x ...' -> x
             matches = re.finditer(r'^\s*from\s+([a-zA-Z0-9_\-]+)', content, re.MULTILINE)
             for m in matches:
                 pkg = m.group(1).strip()
-                packages.add(pkg)
+                raw_candidates.add(pkg)
             # 2. 'import x' -> x
             # Stop at end of line or comment
             matches = re.finditer(r'^\s*import\s+([^#\n\r]+)', content, re.MULTILINE)
@@ -80,19 +80,30 @@ class SupplyChainAuditor:
                         p_clean = p_clean.split(" as ")[0].strip()
                     clean = p_clean.split(".")[0].strip()
                     if clean:
-                        packages.add(clean)
+                        raw_candidates.add(clean)
 
         elif ext in (".js", ".ts", ".jsx", ".tsx"):
             # require('x')
             # import x from 'y'
             matches = re.finditer(r'require\s*\(\s*["\']([^"\']+)["\']\s*\)', content)
             for m in matches:
-                packages.add(m.group(1).split("/")[0]) # node namespacing
+                raw_candidates.add(m.group(1).strip())
             matches = re.finditer(r'from\s+["\']([^"\']+)["\']', content)
             for m in matches:
-                packages.add(m.group(1).split("/")[0])
+                raw_candidates.add(m.group(1).strip())
 
-        logger.debug(f"Source Auditor found potential packages in {file_path}: {packages}")
+        logger.debug(f"Source Auditor raw candidates in {file_path}: {raw_candidates}")
+
+        ecosystem = "pypi" if ext == ".py" else "npm"
+        packages = set()
+        for raw in raw_candidates:
+            normalized = self._normalize_import_candidate(raw, ecosystem)
+            if normalized:
+                packages.add(normalized)
+            else:
+                logger.debug("Rejected malformed package candidate from source import: %r", raw)
+
+        logger.debug(f"Source Auditor normalized candidates in {file_path}: {packages}")
 
         # Filter out built-ins (simple v1 list)
         builtins = {"os", "sys", "time", "re", "json", "math", "random", "fs", "path", "http", "stream", "crypto"}
@@ -101,7 +112,6 @@ class SupplyChainAuditor:
         for pkg in packages:
             try:
                 # Check for typosquatting and trust on the extracted name
-                ecosystem = "pypi" if ext == ".py" else "npm"
                 result = self.trust_engine.scan(f"{ecosystem}:{pkg}")
                 
                 # Tag these as Shadow Dependencies
@@ -113,6 +123,31 @@ class SupplyChainAuditor:
                 continue
         
         return findings
+
+    def _normalize_import_candidate(self, raw: str, ecosystem: str) -> str | None:
+        """Normalize source import token into a safe package candidate."""
+        token = (raw or "").strip().strip("\"'")
+        if not token:
+            return None
+
+        if ecosystem == "npm":
+            token = token.split("?", 1)[0].split("#", 1)[0].strip()
+            if token.startswith("@"):
+                parts = [p for p in token.split("/") if p]
+                if len(parts) < 2:
+                    return None
+                token = f"@{parts[0].lstrip('@')}/{parts[1]}"
+                npm_pattern = r"^@[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$"
+            else:
+                token = token.split("/", 1)[0]
+                npm_pattern = r"^[a-z0-9][a-z0-9._-]*$"
+            return token if re.match(npm_pattern, token, re.IGNORECASE) else None
+
+        # pypi/python import candidates should be simple top-level names.
+        token = token.split(".", 1)[0]
+        if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$", token):
+            return None
+        return token
 
     def _parse_requirements(self, file_path: str) -> List[str]:
         """Extract packages from a requirements.txt file."""

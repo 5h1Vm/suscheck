@@ -8,20 +8,19 @@ Extracts network indicators from source code and classifies them:
 
 import logging
 import re
-from dataclasses import dataclass
-from typing import Optional
-
-from suscheck.core.finding import Finding, FindingType, Severity
-
-logger = logging.getLogger(__name__)
-
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
+
+from suscheck.core.finding import Finding, FindingType, Severity
+
+logger = logging.getLogger(__name__)
 
 # ── Dynamic Config Loading ─────────────────────────────────────────
 

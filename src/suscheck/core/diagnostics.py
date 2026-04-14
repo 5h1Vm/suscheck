@@ -4,7 +4,9 @@ import requests
 import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+
 from suscheck.core.config_manager import ConfigManager
+from suscheck.core.errors import DiagnosticCheckError
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +65,11 @@ class DiagnosticSuite:
                 self.results.append(DiagnosticResult("VirusTotal", "RATE_LIMITED", "Free tier limit reached or temporarily blocked"))
             else:
                 self.results.append(DiagnosticResult("VirusTotal", "FAILED", f"Status Code: {response.status_code}"))
-        except Exception as e:
-            self.results.append(DiagnosticResult("VirusTotal", "FAILED", str(e)))
+        except requests.RequestException as e:
+            err = DiagnosticCheckError(str(e), code="DIAG_VIRUSTOTAL_REQUEST_FAILED")
+            self.results.append(
+                DiagnosticResult("VirusTotal", "FAILED", str(err), details={"error_code": err.code})
+            )
 
     def _check_abuseipdb(self):
         key = self.config.get("api_keys.abuseipdb")
@@ -86,8 +91,11 @@ class DiagnosticSuite:
                 self.results.append(DiagnosticResult("AbuseIPDB", "RATE_LIMITED", "Daily limit reached"))
             else:
                 self.results.append(DiagnosticResult("AbuseIPDB", "FAILED", f"Status Code: {response.status_code}"))
-        except Exception as e:
-            self.results.append(DiagnosticResult("AbuseIPDB", "FAILED", str(e)))
+        except requests.RequestException as e:
+            err = DiagnosticCheckError(str(e), code="DIAG_ABUSEIPDB_REQUEST_FAILED")
+            self.results.append(
+                DiagnosticResult("AbuseIPDB", "FAILED", str(err), details={"error_code": err.code})
+            )
 
     def _check_github(self):
         key = self.config.get("api_keys.github_token")
@@ -108,8 +116,11 @@ class DiagnosticSuite:
                 self.results.append(DiagnosticResult("GitHub", "AUTH_ERROR", "Invalid or expired token"))
             else:
                 self.results.append(DiagnosticResult("GitHub", "FAILED", f"Status Code: {response.status_code}"))
-        except Exception as e:
-            self.results.append(DiagnosticResult("GitHub", "FAILED", str(e)))
+        except requests.RequestException as e:
+            err = DiagnosticCheckError(str(e), code="DIAG_GITHUB_REQUEST_FAILED")
+            self.results.append(
+                DiagnosticResult("GitHub", "FAILED", str(err), details={"error_code": err.code})
+            )
 
     def _check_nvd(self):
         key = self.config.get("api_keys.nvd")
@@ -130,8 +141,11 @@ class DiagnosticSuite:
                 self.results.append(DiagnosticResult("NVD", "AUTH_ERROR", "Invalid API key"))
             else:
                 self.results.append(DiagnosticResult("NVD", "FAILED", f"Status Code: {response.status_code}"))
-        except Exception as e:
-            self.results.append(DiagnosticResult("NVD", "FAILED", str(e)))
+        except requests.RequestException as e:
+            err = DiagnosticCheckError(str(e), code="DIAG_NVD_REQUEST_FAILED")
+            self.results.append(
+                DiagnosticResult("NVD", "FAILED", str(err), details={"error_code": err.code})
+            )
 
     def _check_ai_providers(self):
         """Checks the primary AI provider configured in the system."""
@@ -174,5 +188,8 @@ class DiagnosticSuite:
                 self.results.append(DiagnosticResult(f"AI ({provider})", "AUTH_ERROR", "Invalid API key"))
             else:
                 self.results.append(DiagnosticResult(f"AI ({provider})", "FAILED", f"Status Code: {response.status_code}"))
-        except Exception as e:
-            self.results.append(DiagnosticResult(f"AI ({provider})", "FAILED", str(e)))
+        except requests.RequestException as e:
+            err = DiagnosticCheckError(str(e), code="DIAG_AI_PROVIDER_REQUEST_FAILED")
+            self.results.append(
+                DiagnosticResult(f"AI ({provider})", "FAILED", str(err), details={"error_code": err.code})
+            )

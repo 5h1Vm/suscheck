@@ -54,6 +54,27 @@ def test_execute_package_trust_phase_non_package_target() -> None:
 	assert modules == ["tier0"]
 
 
+def test_execute_package_trust_phase_handles_trust_exception(monkeypatch) -> None:
+	class _Engine:
+		def scan(self, _target):
+			raise RuntimeError("trust backend down")
+
+	monkeypatch.setattr("suscheck.modules.supply_chain.trust_engine.TrustEngine", _Engine)
+	console = Console(record=True)
+
+	trust_score, findings, modules = execute_package_trust_phase(
+		target="requests",
+		artifact_type="package",
+		modules_ran=["tier0"],
+		console=console,
+	)
+
+	assert trust_score is None
+	assert findings == []
+	assert modules == ["tier0"]
+	assert "ANALYSIS_PACKAGE_TRUST_FAILED" in console.export_text()
+
+
 def test_execute_ai_triage_phase_updates_modules(monkeypatch) -> None:
 	finding = Finding(
 		module="code",
@@ -101,6 +122,37 @@ def test_execute_ai_triage_phase_skips_when_disabled() -> None:
 
 	assert delta == 0.0
 	assert modules == ["tier0", "code"]
+
+
+def test_execute_ai_triage_phase_handles_exception(monkeypatch) -> None:
+	finding = Finding(
+		module="code",
+		finding_id="F-2",
+		title="finding",
+		description="desc",
+		severity=Severity.HIGH,
+		finding_type=FindingType.SUSPICIOUS_BEHAVIOR,
+		confidence=0.9,
+	)
+
+	def _raise(*_args, **_kwargs):
+		raise RuntimeError("triage unavailable")
+
+	monkeypatch.setattr("suscheck.ai.triage_engine.run_ai_triage", _raise)
+	console = Console(record=True)
+
+	delta, modules = execute_ai_triage_phase(
+		no_ai=False,
+		findings=[finding],
+		target="sample.py",
+		artifact_type="code",
+		modules_ran=["tier0", "code"],
+		console=console,
+	)
+
+	assert delta == 0.0
+	assert modules == ["tier0", "code"]
+	assert "ANALYSIS_AI_TRIAGE_FAILED" in console.export_text()
 
 
 def test_execute_explain_indicator_phase_collects_findings(monkeypatch) -> None:

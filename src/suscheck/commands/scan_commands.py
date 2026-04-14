@@ -46,7 +46,11 @@ from suscheck.services.summary_service import (
 def register_scan_command(app: typer.Typer, *, console: Console, version: str):
     """Register scan command and return callable for internal wrappers."""
 
-    @app.command(name="scan")
+    @app.command(
+        name="scan",
+        short_help="Scan a file, package, URL, or folder and generate a risk verdict.",
+        rich_help_panel="Core Workflow",
+    )
     def scan(
         target: str = typer.Argument(help="File, directory, URL, or package name to scan"),
         report_format: ReportFormat = typer.Option(
@@ -107,13 +111,28 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             console.print(f"\n[bold blue]Recursive directory scan initiated:[/bold blue] {target}")
 
             with console.status(f"Scanning directory {target}...", spinner="bouncingBar"):
-                all_findings = pipeline.scan_directory(target)
+                dir_result = pipeline.scan_directory_with_status(target)
 
-            modules_ran = pipeline.get_modules_ran(all_findings)
+            all_findings = dir_result.findings
+
+            modules_ran = dir_result.modules_ran or pipeline.get_modules_ran(all_findings)
             scan_duration = time.time() - scan_start
 
             aggregator = RiskAggregator("DIRECTORY")
             pri_result = aggregator.calculate(all_findings)
+
+            modules_skipped = derive_modules_skipped(
+                artifact_type="DIRECTORY",
+                modules_ran=modules_ran,
+                file_path=None,
+                mcp_dynamic_enabled=False,
+            )
+            coverage_complete, coverage_notes = derive_coverage_contract(all_findings, modules_skipped)
+            if not dir_result.coverage_complete:
+                coverage_complete = False
+                coverage_notes.append(
+                    f"Directory coverage: {dir_result.files_scanned}/{dir_result.files_total} files ({dir_result.coverage_pct}%)"
+                )
 
             summary = build_scan_summary(
                 target=target,
@@ -121,6 +140,10 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 findings=all_findings,
                 pri_score=pri_result.score,
                 modules_ran=list(modules_ran),
+                modules_failed=dir_result.modules_failed,
+                modules_skipped=modules_skipped,
+                coverage_complete=coverage_complete,
+                coverage_notes=coverage_notes,
                 scan_duration=scan_duration,
                 verdict=pri_result.verdict,
                 pri_breakdown=pri_result.breakdown,
@@ -163,7 +186,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             table.add_row("Magic Description", detection.magic_description)
 
         if detection.is_polyglot:
-            langs = ", ".join(l.value for l in detection.secondary_languages)
+            langs = ", ".join(lang.value for lang in detection.secondary_languages)
             table.add_row(
                 "[yellow]⚠️ Polyglot[/yellow]",
                 f"[yellow]Also detected as: {langs}[/yellow]",
@@ -175,6 +198,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         console.print(table)
 
         all_findings: list[Finding] = []
+        modules_failed: list[str] = []
 
         if detection.type_mismatch:
             all_findings.append(
@@ -200,7 +224,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             )
 
         if detection.is_polyglot:
-            secondary = ", ".join(l.value for l in detection.secondary_languages)
+            secondary = ", ".join(lang.value for lang in detection.secondary_languages)
             all_findings.append(
                 Finding(
                     module="auto_detector",
@@ -234,14 +258,16 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         all_findings.extend(tier0_phase.findings)
         vt_dict = tier0_phase.vt_dict
         modules_ran = tier0_phase.modules_ran
+        modules_failed.extend(tier0_phase.modules_failed)
 
         if file_path and os.path.isfile(str(file_path)):
-            tier1_findings, modules_ran = execute_local_file_tier1_phase(
+            tier1_findings, modules_ran, tier1_failed = execute_local_file_tier1_phase(
                 file_path=str(file_path),
                 detection=detection,
                 modules_ran=modules_ran,
                 console=console,
             )
+            modules_failed.extend(tier1_failed)
             if tier1_findings:
                 all_findings.extend(tier1_findings)
 
@@ -267,17 +293,20 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 except Exception as e:
                     console.print(f"  [yellow]MCP dynamic observation failed: {e}[/yellow]")
 
-            semgrep_findings = execute_semgrep_phase(file_path=str(file_path), console=console)
+            semgrep_findings, semgrep_failed = execute_semgrep_phase(file_path=str(file_path), console=console)
+            if semgrep_failed:
+                modules_failed.append("semgrep")
             if semgrep_findings:
                 all_findings.extend(semgrep_findings)
 
         elif detection.artifact_type.value == "repository" and target.startswith(("http://", "https://", "git@")):
-            repo_findings, modules_ran = execute_remote_repository_tier1_phase(
+            repo_findings, modules_ran, repo_failed = execute_remote_repository_tier1_phase(
                 target=target,
                 pipeline=pipeline,
                 modules_ran=modules_ran,
                 console=console,
             )
+            modules_failed.extend(repo_failed)
             all_findings.extend(repo_findings)
         else:
             console.print("\n[bold]Tier 1: Static Analysis[/bold]")
@@ -330,6 +359,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             findings=all_findings,
             pri_score=pri_result.score,
             modules_ran=modules_ran,
+            modules_failed=sorted(set(modules_failed)),
             modules_skipped=modules_skipped,
             coverage_complete=coverage_complete,
             coverage_notes=coverage_notes,

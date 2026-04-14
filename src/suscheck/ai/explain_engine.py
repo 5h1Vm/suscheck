@@ -60,7 +60,7 @@ def run_behavioral_analysis(
     if not provider.is_configured():
         return (
             "⚠️ AI Explanation is unavailable because no AI provider is configured. "
-            "Please set SUSCHECK_AI_PROVIDER and SUSCHECK_AI_API_KEY."
+            "Please set SUSCHECK_AI_PROVIDER and provider API key env vars (or SUSCHECK_AI_KEY)."
         )
 
     # Limit file content to prevent token overflow (~32k characters / 8k-10k tokens)

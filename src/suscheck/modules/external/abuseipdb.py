@@ -60,7 +60,7 @@ class AbuseIPDBClient:
             AbuseIPDBResult if successful, None on error or if not configured.
         """
         if not self.is_configured:
-            logger.debug("AbuseIPDB API key not configured, skipping lookup.")
+            logger.info("AbuseIPDB: No API key configured (SUSCHECK_ABUSEIPDB_KEY). Lookup skipped.")
             return None
 
         headers = {

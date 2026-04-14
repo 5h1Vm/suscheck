@@ -7,12 +7,15 @@ Orchestrates KICS and uses custom heuristics for malicious CI deployments.
 import re
 import time
 import os
+import logging
 from pathlib import Path
 
 from suscheck.core.finding import Finding, FindingType, Severity
 from suscheck.modules.base import ModuleResult, ScannerModule
 from suscheck.modules.config.kics_orchestrator import KicsOrchestrator
 from suscheck.modules.config.checkov_orchestrator import CheckovOrchestrator
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigScanner(ScannerModule):
@@ -98,7 +101,8 @@ class ConfigScanner(ScannerModule):
         findings = []
         try:
             content = file_path.read_text(errors="ignore")
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to read config file {file_path}: {e}")
             return []
 
         # Rule 1: Malicious shell drops inside Docker/CI config

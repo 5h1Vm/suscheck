@@ -7,6 +7,91 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_BIN="$ROOT_DIR/.venv/bin"
 
+persist_kics_env() {
+    local kics_bin="$VENV_BIN/kics"
+    local env_file="$ROOT_DIR/.env"
+
+    if [[ ! -x "$kics_bin" ]]; then
+        return 0
+    fi
+
+    if [[ -f "$env_file" ]] && grep -q '^SUSCHECK_KICS_PATH=' "$env_file"; then
+        return 0
+    fi
+
+    {
+        echo ""
+        echo "# Auto-configured by setup.sh"
+        echo "SUSCHECK_KICS_PATH=$kics_bin"
+    } >> "$env_file"
+
+    echo "      ✓ Persisted SUSCHECK_KICS_PATH in .env"
+}
+
+download_kics_archive() {
+    local out_archive="$1"
+
+    python3 - "$out_archive" <<'PY'
+import json
+import platform
+import re
+import sys
+import urllib.request
+from pathlib import Path
+
+out_archive = Path(sys.argv[1])
+
+machine = platform.machine().lower()
+system = platform.system().lower()
+
+if system.startswith("linux"):
+    os_tag = "linux"
+elif system.startswith("darwin"):
+    os_tag = "darwin"
+else:
+    raise SystemExit(3)
+
+if machine in {"x86_64", "amd64"}:
+    arch_tags = ["amd64", "x64", "x86_64"]
+elif machine in {"aarch64", "arm64"}:
+    arch_tags = ["arm64", "aarch64"]
+else:
+    raise SystemExit(4)
+
+api = "https://api.github.com/repos/Checkmarx/kics/releases/latest"
+req = urllib.request.Request(api, headers={"User-Agent": "suscheck-setup"})
+with urllib.request.urlopen(req, timeout=30) as resp:
+    rel = json.loads(resp.read().decode())
+
+assets = rel.get("assets", [])
+download_url = None
+asset_name = None
+for asset in assets:
+    name = (asset.get("name") or "").lower()
+    if os_tag not in name:
+        continue
+    if not any(tag in name for tag in arch_tags):
+        continue
+    if not (name.endswith(".tar.gz") or name.endswith(".tgz") or name.endswith(".zip")):
+        continue
+    if "checksums" in name or "sha" in name:
+        continue
+    download_url = asset.get("browser_download_url")
+    asset_name = asset.get("name")
+    break
+
+if not download_url:
+    raise SystemExit(5)
+
+out_archive.parent.mkdir(parents=True, exist_ok=True)
+req_asset = urllib.request.Request(download_url, headers={"User-Agent": "suscheck-setup"})
+with urllib.request.urlopen(req_asset, timeout=120) as resp:
+    out_archive.write_bytes(resp.read())
+
+print(asset_name or out_archive.name)
+PY
+}
+
 provision_kics() {
     local archive_path="${1:-}"
     local install_dir="$VENV_BIN"
@@ -95,11 +180,26 @@ PY
 
         echo "      ✓ Installed KICS binary: $install_dir/kics"
         "$install_dir/kics" version >/dev/null 2>&1 || true
+        persist_kics_env
         return 0
     }
 
     if install_from_archive "$archive_path"; then
         return 0
+    fi
+
+    echo "      • Attempting automatic KICS binary download for local install..."
+    local dl_archive
+    dl_archive="$(mktemp -u)/kics-download"
+    if download_kics_archive "$dl_archive" >/dev/null 2>&1; then
+        if install_from_archive "$dl_archive"; then
+            rm -f "$dl_archive"
+            return 0
+        fi
+        rm -f "$dl_archive"
+        echo "      ⚠️  Download succeeded, but archive extraction failed."
+    else
+        echo "      ⚠️  Automatic KICS download failed (network/asset resolution issue)."
     fi
 
     if [[ -n "$archive_path" ]]; then

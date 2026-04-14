@@ -6,12 +6,12 @@ into standardized SusCheck Findings.
 
 import json
 import logging
-import shutil
 import subprocess
 from dataclasses import dataclass, field
 from typing import Optional
 
 from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.core.tool_registry import ToolType, get_tool_registry
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,10 @@ class BanditRunner:
     """Orchestrates Bandit CLI executions for Python SAST tier."""
 
     def __init__(self):
-        self.bandit_path = shutil.which("bandit")
-        self.is_installed = bool(self.bandit_path)
+        status = get_tool_registry().register_tool(ToolType.BANDIT)
+        self.bandit_path = status.path
+        self.is_installed = status.available
+        self.missing_tool_message = status.suggestion or "Install from: https://github.com/PyCQA/bandit#setup-and-installation"
 
     def scan_file(self, file_path: str) -> BanditResult:
         """Run Bandit against a single Python file.
@@ -45,7 +47,8 @@ class BanditRunner:
 
         if not self.is_installed:
             result.skipped_reason = "bandit_not_installed"
-            logger.debug("Bandit is not installed. Python SAST skipped.")
+            result.errors.append(f"Bandit is not installed. {self.missing_tool_message}")
+            logger.warning("Bandit is not installed. Python SAST skipped.")
             return result
 
         try:

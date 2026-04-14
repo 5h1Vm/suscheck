@@ -32,23 +32,49 @@ load_dotenv()  # current directory .env (override)
 
 app = typer.Typer(
     name="suscheck",
-    help="SusCheck | Zero-Trust Pre-Execution Orchestrator. Audit before you execute.",
-    epilog=(
-        "Quick tips:\n"
-        "  suscheck scan <target> -v\n"
-        "  suscheck scan <target> --format html --output report.html\n"
-        "  suscheck install pip <pkg> --force\n"
-        "  suscheck diagnostics"
-    ),
+    help=(
+    "[bold]SusCheck — Zero-Trust Security Scanner[/bold]\n"
+    "Audit code, packages, and repositories BEFORE execution.\n\n"
+
+    "[bold cyan]USAGE[/bold cyan]\n"
+    "  suscheck <command> [options]\n\n"
+
+    "[bold cyan]WORKFLOW[/bold cyan]\n"
+    "  scan        Analyze any target (file, repo, package, URL)\n"
+    "  trust       Quick supply-chain risk check\n\n"
+
+    "[bold cyan]SAFE EXECUTION[/bold cyan]\n"
+    "  install     Scan → then install safely\n"
+    "  clone       Scan → then clone safely\n"
+    "  connect     Scan → then connect safely\n\n"
+
+    "[bold cyan]INSIGHTS[/bold cyan]\n"
+    "  explain     Explain file behavior (AI)\n"
+    "  diagnostics Check tools, APIs, environment\n\n"
+
+    "[bold cyan]SETUP[/bold cyan]\n"
+    "  init        Initialize config\n"
+    "  version     Show system info\n\n"
+
+    "[bold cyan]QUICK START[/bold cyan]\n"
+    "  suscheck scan requests\n"
+    "  suscheck scan ./project/\n"
+    "  suscheck scan https://github.com/user/repo\n\n"
+
+    "Use 'suscheck <command> --help' for more details.\n"
+),
     no_args_is_help=True,
     rich_markup_mode="rich",
-    context_settings={"help_option_names": ["-h", "--help", "-help"]},
+    context_settings={"help_option_names": ["-h", "--help", "-help"], "max_content_width": 110},
 )
 console = Console()
 detector = AutoDetector()
 scan = register_scan_command(app, console=console, version=__version__)
 
-@app.command()
+@app.command(
+    short_help="Analyze a package and install it only if it passes security checks.",
+    rich_help_panel="Safe Execution",
+)
 def install(
     ecosystem: str = typer.Argument(help="Package manager: pip, npm"),
     package: str = typer.Argument(help="Package to scan and install"),
@@ -89,7 +115,7 @@ def install(
                     "[bold red]Installation blocked by SusCheck.[/bold red]\n\n"
                     "Scan coverage is partial, so install is blocked by policy.\n"
                     "Review coverage notes and findings before trusting this package.\n\n"
-                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                    "Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
                 ),
                 title="🚫 Install Blocked (Partial Coverage)",
                 border_style="red",
@@ -139,7 +165,10 @@ def install(
         raise typer.Exit(return_code)
 
 
-@app.command()
+@app.command(
+    short_help="Analyze a repository and clone it only if it passes security checks.",
+    rich_help_panel="Safe Execution",
+)
 def clone(
     url: str = typer.Argument(help="Repository URL to scan and clone"),
     dest: str = typer.Option(None, "--dest", "-d", help="Clone destination"),
@@ -170,7 +199,7 @@ def clone(
                     "[bold red]Clone blocked by SusCheck.[/bold red]\n\n"
                     "Scan coverage is partial, so clone is blocked by policy.\n"
                     "Review coverage notes and findings before cloning this repository.\n\n"
-                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                    "Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
                 ),
                 title="🚫 Clone Blocked (Partial Coverage)",
                 border_style="red",
@@ -220,7 +249,10 @@ def clone(
         raise typer.Exit(return_code)
 
 
-@app.command()
+@app.command(
+    short_help="Analyze an MCP endpoint and connect only if it passes security checks.",
+    rich_help_panel="Safe Execution",
+)
 def connect(
     server: str = typer.Argument(help="MCP server URL or manifest path"),
     force: bool = typer.Option(False, "--force", help="Connect even if scan finds issues"),
@@ -250,7 +282,7 @@ def connect(
                     "[bold red]Connection blocked by SusCheck.[/bold red]\n\n"
                     "Scan coverage is partial, so MCP connection is blocked by policy.\n"
                     "Review coverage notes and findings before connecting this server.\n\n"
-                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                    "Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
                 ),
                 title="🚫 Connect Blocked (Partial Coverage)",
                 border_style="red",

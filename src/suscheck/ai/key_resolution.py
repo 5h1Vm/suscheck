@@ -1,4 +1,4 @@
-"""Resolve API keys: prefer ``SUSCHECK_AI_KEY``, then common provider-specific env names."""
+"""Resolve API keys: prefer provider-specific env names, then ``SUSCHECK_AI_KEY`` fallback."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def first_env(*names: str) -> str:
 def api_key_for_provider(provider_id: str) -> str:
     """Unified key lookup so users can use either SusCheck names or upstream SDK names."""
     p = provider_id.lower().strip()
-    # (SUSCHECK_AI_KEY first everywhere, then ecosystem conventions)
+    # Provider-specific key first, then SUSCHECK_AI_KEY fallback.
     chains: dict[str, tuple[str, ...]] = {
         "openai": ("OPENAI_API_KEY", "SUSCHECK_AI_KEY"),
         "groq": ("GROQ_API_KEY", "SUSCHECK_AI_KEY"),

@@ -69,7 +69,8 @@ class ConfigManager:
             if val.lower() in ("true", "false"):
                 return val.lower() == "true"
             try:
-                if "." in val: return float(val)
+                if "." in val:
+                    return float(val)
                 return int(val)
             except ValueError:
                 return val

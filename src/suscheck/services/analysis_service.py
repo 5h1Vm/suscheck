@@ -5,6 +5,7 @@ from __future__ import annotations
 from rich.console import Console
 from rich.panel import Panel
 
+from suscheck.core.errors import AnalysisPhaseError, get_error_code
 from suscheck.core.finding import Finding, FindingType, Severity
 from suscheck.modules.reporting.terminal import render_findings
 
@@ -33,7 +34,15 @@ def execute_package_trust_phase(
         f"Querying supply chain trust for {full_target}...",
         spinner="dots",
     ):
-        trust_res = trust_engine.scan(full_target)
+        try:
+            trust_res = trust_engine.scan(full_target)
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
+            err = AnalysisPhaseError(
+                f"Supply chain trust lookup failed for {full_target}: {e}",
+                code="ANALYSIS_PACKAGE_TRUST_FAILED",
+            )
+            console.print(f"[yellow]Supply chain trust scan skipped [{err.code}]:[/yellow] {err}")
+            return None, [], modules_updated
 
     if trust_res.error:
         console.print(f"[yellow]Supply chain trust scan skipped:[/yellow] {trust_res.error}")
@@ -61,12 +70,20 @@ def execute_ai_triage_phase(
 
     from suscheck.ai.triage_engine import run_ai_triage
 
-    tres = run_ai_triage(
-        findings,
-        target=target,
-        artifact_type=artifact_type,
-        console=console,
-    )
+    try:
+        tres = run_ai_triage(
+            findings,
+            target=target,
+            artifact_type=artifact_type,
+            console=console,
+        )
+    except (OSError, RuntimeError, ValueError, TypeError) as e:
+        err = AnalysisPhaseError(
+            f"AI triage execution failed for {target}: {e}",
+            code="ANALYSIS_AI_TRIAGE_FAILED",
+        )
+        console.print(f"[yellow]AI triage skipped [{err.code}]:[/yellow] {err}")
+        return 0.0, modules_updated
 
     if tres.ran and "ai_triage" not in modules_updated:
         modules_updated.append("ai_triage")
@@ -140,8 +157,9 @@ def execute_explain_indicator_phase(*, file: str, detection, console: Console) -
             if semgrep.is_installed:
                 s_res = semgrep.scan_file(file)
                 findings.extend(s_res.findings)
-        except Exception:
-            pass
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError) as e:
+            code = get_error_code(e, "ANALYSIS_SEMGREP_ORCHESTRATION_FAILED")
+            console.print(f"[dim]Semgrep indicator phase skipped [{code}]: {e}[/dim]")
 
     if findings:
         console.print(
