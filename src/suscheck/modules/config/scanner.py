@@ -40,6 +40,7 @@ class ConfigScanner(ScannerModule):
         start_time = time.time()
         findings = []
         errors = []
+        metadata: dict[str, str] = {}
 
         try:
             target_path = Path(target)
@@ -69,6 +70,7 @@ class ConfigScanner(ScannerModule):
             if run_checkov:
                 checkov = CheckovOrchestrator()
                 if checkov.is_installed:
+                    metadata["checkov_backend"] = checkov.cmd or "unknown"
                     ch_res = checkov.scan_file(str(target_path))
                     findings.extend(ch_res.findings)
                     errors.extend(ch_res.errors)
@@ -78,6 +80,9 @@ class ConfigScanner(ScannerModule):
             if run_kics:
                 orchestrator = KicsOrchestrator()
                 if orchestrator.is_installed:
+                    metadata["kics_backend"] = (
+                        orchestrator.kics_path if orchestrator.kics_path else "docker://checkmarx/kics:latest"
+                    )
                     kics_res = orchestrator.scan_file(str(target_path))
                     if kics_res.findings:
                         findings.extend(kics_res.findings)
@@ -92,6 +97,7 @@ class ConfigScanner(ScannerModule):
         return ModuleResult(
             module_name=self.name,
             findings=findings,
+            metadata=metadata,
             scan_duration=time.time() - start_time,
             error="; ".join(errors) if errors else None
         )

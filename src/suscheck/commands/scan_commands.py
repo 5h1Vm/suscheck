@@ -61,6 +61,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         ),
         output: Optional[Path] = typer.Option(None, "--output", "-o", help="File to save the report to"),
         no_ai: bool = typer.Option(False, "--no-ai", help="Skip AI triage, rules-only mode"),
+        no_vt: bool = typer.Option(False, "--no-vt", help="Skip VirusTotal lookups for this scan execution"),
         upload_vt: bool = typer.Option(
             False,
             "--upload-vt",
@@ -71,6 +72,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             False,
             "--mcp-dynamic",
             help="After static MCP scan, run optional Docker observation (requires docker package + daemon).",
+        ),
+        mcp_only: bool = typer.Option(
+            False,
+            "--mcp-only",
+            help="Run only MCP static scan logic for local file targets.",
         ),
         report_dir: Optional[Path] = typer.Option(
             None,
@@ -85,6 +91,15 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             logging.basicConfig(level=logging.WARNING)
 
         scan_start = time.time()
+
+        if no_vt:
+            os.environ["SUSCHECK_NO_VT"] = "1"
+            os.environ.pop("SUSCHECK_VT_KEY", None)
+            if upload_vt:
+                console.print("[yellow]--upload-vt ignored because --no-vt is set.[/yellow]")
+                upload_vt = False
+        else:
+            os.environ.pop("SUSCHECK_NO_VT", None)
 
         target_path = Path(target).resolve()
         config_mgr = ConfigManager()
@@ -248,6 +263,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         tier0_phase = execute_tier0_phase(
             target=target,
             detection=detection,
+            no_vt=no_vt,
             upload_vt=upload_vt,
             scan_start=scan_start,
             console=console,
@@ -265,6 +281,8 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 file_path=str(file_path),
                 detection=detection,
                 modules_ran=modules_ran,
+                no_vt=no_vt,
+                mcp_only=mcp_only,
                 console=console,
             )
             modules_failed.extend(tier1_failed)

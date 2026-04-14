@@ -29,11 +29,13 @@ class KicsOrchestrator:
         configured_path = os.environ.get("SUSCHECK_KICS_PATH", "").strip()
         registry = get_tool_registry()
         status = registry.register_tool(ToolType.KICS, config_path=configured_path or None)
-        self.kics_path = status.path
+        self.kics_path = status.path if (status.path and not status.path.startswith("docker://")) else None
         self.missing_tool_message = status.suggestion or "Install from: https://docs.kicsinfra.com/gitbook/getting-started/installation"
 
         self.docker_path = shutil.which("docker")
-        self.use_docker = self.kics_path is None and self.docker_path is not None
+        self.use_docker = status.path == "docker://checkmarx/kics:latest" or (
+            self.kics_path is None and self.docker_path is not None
+        )
         self.is_installed = self.kics_path is not None or self.use_docker
 
     def _map_severity(self, kics_severity: str) -> Severity:

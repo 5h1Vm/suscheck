@@ -48,6 +48,7 @@ def execute_tier0_phase(
     *,
     target: str,
     detection,
+    no_vt: bool,
     upload_vt: bool,
     scan_start: float,
     console: Console,
@@ -56,7 +57,9 @@ def execute_tier0_phase(
     console.print("\n[bold]Tier 0: Hash & Reputation[/bold]")
 
     vt_key = os.environ.get("SUSCHECK_VT_KEY", "")
-    if vt_key:
+    if no_vt:
+        console.print("  [yellow]○[/yellow] VirusTotal: disabled via [dim]--no-vt[/dim]")
+    elif vt_key:
         console.print("  [green]✓[/green] VirusTotal API key configured")
     else:
         console.print("  [yellow]○[/yellow] VirusTotal: no API key — [dim]set SUSCHECK_VT_KEY or add to .env[/dim]")
@@ -156,6 +159,8 @@ def execute_local_file_tier1_phase(
     file_path: str,
     detection,
     modules_ran: list[str],
+    no_vt: bool,
+    mcp_only: bool,
     console: Console,
 ) -> tuple[list[Finding], list[str], list[str]]:
     """Execute local-file Tier 1 static fan-out orchestration."""
@@ -172,32 +177,37 @@ def execute_local_file_tier1_phase(
         tier1_errors: list[str] = []
         module_results: list[tuple[str, object]] = []
 
-        if mcp_scanner.can_handle(detection.artifact_type.value, file_path):
+        mcp_can_handle = mcp_scanner.can_handle(detection.artifact_type.value, file_path)
+        if mcp_can_handle:
             module_results.append(("mcp", mcp_scanner.scan(file_path)))
 
-        if config_scanner.can_handle(detection.artifact_type.value, file_path):
-            module_results.append(("config", config_scanner.scan(file_path)))
+        if not mcp_only:
+            if config_scanner.can_handle(detection.artifact_type.value, file_path):
+                module_results.append(("config", config_scanner.scan(file_path)))
 
-        run_code = (
-            detection.artifact_type.value in {"code", "unknown"}
-            or detection.type_mismatch
-            or detection.is_polyglot
-            or not module_results
-        )
-        if run_code:
-            code_scanner = CodeScanner()
-            module_results.append(("code", code_scanner.scan_file(file_path, language=detection.language.value)))
+            run_code = (
+                detection.artifact_type.value in {"code", "unknown"}
+                or detection.type_mismatch
+                or detection.is_polyglot
+                or not module_results
+            )
+            if run_code:
+                code_scanner = CodeScanner()
+                module_results.append(("code", code_scanner.scan_file(file_path, language=detection.language.value)))
+        elif not mcp_can_handle:
+            console.print("  [yellow]MCP-only mode requested, but target does not look like an MCP manifest.[/yellow]")
 
-        try:
-            repo_secret_findings = repo_scanner.scan_file_secrets(file_path)
-            if repo_secret_findings:
-                tier1_findings.extend(repo_secret_findings)
-                if "repo" not in modules_updated:
-                    modules_updated.append("repo")
-        except (OSError, RuntimeError, ValueError, TypeError) as e:
-            code = get_error_code(e, "TIER1_REPO_SECRETS_FAILED")
-            tier1_errors.append(f"[{code}] repo secrets pass failed: {e}")
-            modules_failed.append("repo")
+        if not mcp_only:
+            try:
+                repo_secret_findings = repo_scanner.scan_file_secrets(file_path)
+                if repo_secret_findings:
+                    tier1_findings.extend(repo_secret_findings)
+                    if "repo" not in modules_updated:
+                        modules_updated.append("repo")
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
+                code = get_error_code(e, "TIER1_REPO_SECRETS_FAILED")
+                tier1_errors.append(f"[{code}] repo secrets pass failed: {e}")
+                modules_failed.append("repo")
 
         for module_name, result_obj in module_results:
             if module_name not in modules_updated:
@@ -223,7 +233,16 @@ def execute_local_file_tier1_phase(
                 tier1_errors.extend([str(err) for err in errors_field if err])
                 modules_failed.append(module_name)
 
-        if tier1_findings:
+            if module_name == "config":
+                metadata = getattr(result_obj, "metadata", {}) or {}
+                checkov_backend = metadata.get("checkov_backend")
+                kics_backend = metadata.get("kics_backend")
+                if checkov_backend:
+                    console.print(f"  [dim]Checkov backend: {checkov_backend}[/dim]")
+                if kics_backend:
+                    console.print(f"  [dim]KICS backend: {kics_backend}[/dim]")
+
+        if tier1_findings and (not mcp_only):
             from suscheck.modules.external.virustotal import VirusTotalClient
             from suscheck.modules.external.abuseipdb import AbuseIPDBClient
 
@@ -239,7 +258,7 @@ def execute_local_file_tier1_phase(
                 elif finding.evidence.get("type") == "ipv4":
                     unique_ips.add(finding.evidence.get("value"))
 
-            if unique_urls and vt_client.available:
+            if (not no_vt) and unique_urls and vt_client.available:
                 console.print(f"  [dim]Querying VirusTotal for {min(3, len(unique_urls))} URLs...[/dim]")
                 for url in list(unique_urls)[:3]:
                     vt_res = vt_client.lookup_url(url)

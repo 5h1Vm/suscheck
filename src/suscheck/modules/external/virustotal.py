@@ -79,8 +79,13 @@ class VirusTotalClient:
             print(f"Detections: {result.detection_count}/{result.total_engines}")
     """
 
+    # Runtime-wide guard for the current process: once VT is repeatedly 429,
+    # disable further VT requests to avoid stalling the same scan execution.
+    _runtime_rate_limited = False
+
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("SUSCHECK_VT_KEY")
+        no_vt = os.environ.get("SUSCHECK_NO_VT", "").strip() == "1"
+        self.api_key = None if no_vt else (api_key or os.environ.get("SUSCHECK_VT_KEY"))
         self._session = requests.Session()
         if self.api_key:
             self._session.headers.update({"x-apikey": self.api_key})
@@ -90,7 +95,7 @@ class VirusTotalClient:
     @property
     def available(self) -> bool:
         """Whether the client has an API key configured."""
-        return bool(self.api_key)
+        return bool(self.api_key) and (not self.__class__._runtime_rate_limited)
 
     def lookup_hash(self, file_hash: str) -> Optional[VirusTotalResult]:
         """Look up a file hash on VirusTotal.
@@ -331,6 +336,10 @@ class VirusTotalClient:
             Parsed JSON data dict, or None on error/not-found.
         """
         try:
+            if self.__class__._runtime_rate_limited:
+                logger.info("VirusTotal lookup skipped: runtime temporarily rate-limited")
+                return None
+
             response = self._session.get(url, timeout=REQUEST_TIMEOUT)
 
             # Rate limited — wait and retry once
@@ -342,7 +351,10 @@ class VirusTotalClient:
                 response = self._session.get(url, timeout=REQUEST_TIMEOUT)
 
                 if response.status_code == 429:
-                    logger.warning("VirusTotal rate limit persists. Skipping lookup.")
+                    self.__class__._runtime_rate_limited = True
+                    logger.warning(
+                        "VirusTotal rate limit persists. Disabling VT lookups for current execution."
+                    )
                     return None
 
             # Not found — hash/url/ip/domain not in VT database
