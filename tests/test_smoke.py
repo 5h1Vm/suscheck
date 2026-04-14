@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+from rich.panel import Panel
 from typer.testing import CliRunner
 
 from suscheck.ai.triage_engine import check_provider_health
@@ -39,18 +40,18 @@ def test_connect_force_uses_scan_result(monkeypatch) -> None:
         called["scan_kwargs"] = kwargs
         return _DummySummary(pri_score=20, verdict_value="HOLD")
 
-    def fake_connect_mcp(target: str, pri_score: float, force: bool = False):
-        called["connect_args"] = (target, pri_score, force)
-        return {"target": target, "pri_score": pri_score, "can_proceed": True}
+    def fake_build_connect_result_panel(*, server: str, pri_score: float, verdict_label: str, force: bool):
+        called["connect_args"] = (server, pri_score, verdict_label, force)
+        return Panel("ok")
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.connect_mcp", fake_connect_mcp)
+    monkeypatch.setattr("suscheck.cli.build_connect_result_panel", fake_build_connect_result_panel)
 
     result = runner.invoke(app, ["connect", "foo", "--force"])
 
     assert result.exit_code == 0
     assert called["scan_kwargs"]["target"] == "foo"
-    assert called["connect_args"] == ("foo", 20, True)
+    assert called["connect_args"] == ("foo", 20, "HOLD", True)
 
 
 def test_install_force_uses_scan_result(monkeypatch) -> None:
@@ -60,18 +61,18 @@ def test_install_force_uses_scan_result(monkeypatch) -> None:
         called["scan_kwargs"] = kwargs
         return _DummySummary(pri_score=0, verdict_value="CLEAR")
 
-    def fake_install_package(ecosystem: str, package: str, force: bool = False):
-        called["install_args"] = (ecosystem, package, force)
+    def fake_execute_install_wrapper(*, trust_ecosystem: str, package: str):
+        called["install_args"] = (trust_ecosystem, package)
         return 0
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.install_package", fake_install_package)
+    monkeypatch.setattr("suscheck.cli.execute_install_wrapper", fake_execute_install_wrapper)
 
     result = runner.invoke(app, ["install", "pip", "requests", "--force"])
 
     assert result.exit_code == 0
     assert called["scan_kwargs"]["target"] == "pypi:requests"
-    assert called["install_args"] == ("pypi", "requests", False)
+    assert called["install_args"] == ("pypi", "requests")
 
 
 def test_clone_force_uses_scan_result(monkeypatch) -> None:
@@ -81,12 +82,12 @@ def test_clone_force_uses_scan_result(monkeypatch) -> None:
         called["scan_kwargs"] = kwargs
         return _DummySummary(pri_score=0, verdict_value="CLEAR")
 
-    def fake_clone_repo(url: str, dest=None):
+    def fake_execute_clone_wrapper(*, url: str, dest=None):
         called["clone_args"] = (url, dest)
         return 0
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.clone_repo", fake_clone_repo)
+    monkeypatch.setattr("suscheck.cli.execute_clone_wrapper", fake_execute_clone_wrapper)
 
     result = runner.invoke(app, ["clone", "https://github.com/example/example", "--force"])
 
@@ -125,12 +126,12 @@ def test_install_blocks_on_partial_coverage_without_force(monkeypatch) -> None:
             coverage_notes=["PIPELINE-PACKAGE-STATIC-SKIPPED: Package static Tier 1 scanners were not executed"],
         )
 
-    def fake_install_package(ecosystem: str, package: str, force: bool = False):
+    def fake_execute_install_wrapper(*, trust_ecosystem: str, package: str):
         called["install_called"] = True
         return 0
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.install_package", fake_install_package)
+    monkeypatch.setattr("suscheck.cli.execute_install_wrapper", fake_execute_install_wrapper)
 
     result = runner.invoke(app, ["install", "pip", "requests"])
 
@@ -151,12 +152,12 @@ def test_clone_blocks_on_partial_coverage_without_force(monkeypatch) -> None:
             coverage_notes=["PIPELINE-REPO-SCAN-SKIPPED: Repository static scan could not be completed"],
         )
 
-    def fake_clone_repo(url: str, dest=None):
+    def fake_execute_clone_wrapper(*, url: str, dest=None):
         called["clone_called"] = True
         return 0
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.clone_repo", fake_clone_repo)
+    monkeypatch.setattr("suscheck.cli.execute_clone_wrapper", fake_execute_clone_wrapper)
 
     result = runner.invoke(app, ["clone", "https://github.com/example/example"])
 
@@ -177,12 +178,12 @@ def test_connect_blocks_on_partial_coverage_without_force(monkeypatch) -> None:
             coverage_notes=["PIPELINE-MCP-SCAN-SKIPPED: MCP scan did not fully execute"],
         )
 
-    def fake_connect_mcp(target: str, pri_score: float, force: bool = False):
+    def fake_build_connect_result_panel(*, server: str, pri_score: float, verdict_label: str, force: bool):
         called["connect_called"] = True
-        return {"target": target, "pri_score": pri_score, "can_proceed": True}
+        return Panel("ok")
 
     monkeypatch.setattr("suscheck.cli.scan", fake_scan)
-    monkeypatch.setattr("suscheck.cli.connect_mcp", fake_connect_mcp)
+    monkeypatch.setattr("suscheck.cli.build_connect_result_panel", fake_build_connect_result_panel)
 
     result = runner.invoke(app, ["connect", "mcp://example.local"])
 

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from suscheck.core.finding import Finding, FindingType, Severity, Verdict
 from suscheck.core.risk_aggregator import PRIScore
-from suscheck.services.policy_service import apply_partial_scan_safety_floor, should_block_on_partial_coverage
+from suscheck.services.policy_service import (
+    apply_partial_scan_safety_floor,
+    evaluate_wrapper_policy,
+    should_block_on_partial_coverage,
+)
 from suscheck.services.summary_service import (
     build_scan_summary,
     derive_coverage_contract,
@@ -83,3 +87,37 @@ def test_build_summary_and_partial_gate() -> None:
     assert summary.coverage_complete is False
     assert should_block_on_partial_coverage(summary, force=False) is True
     assert should_block_on_partial_coverage(summary, force=True) is False
+
+
+def test_evaluate_wrapper_policy_blocks_on_pri_without_force() -> None:
+    summary = build_scan_summary(
+        target="https://example.com/repo",
+        artifact_type="repository",
+        findings=[],
+        pri_score=52,
+        modules_ran=["repo"],
+        coverage_complete=True,
+    )
+
+    decision = evaluate_wrapper_policy(summary, force=False, allow_pri_max=15)
+
+    assert decision.block_partial_coverage is False
+    assert decision.block_on_pri_threshold is True
+    assert decision.warn_forced_override is False
+
+
+def test_evaluate_wrapper_policy_warns_when_forced() -> None:
+    summary = build_scan_summary(
+        target="pypi:requests",
+        artifact_type="package",
+        findings=[],
+        pri_score=61,
+        modules_ran=["supply_chain"],
+        coverage_complete=True,
+    )
+
+    decision = evaluate_wrapper_policy(summary, force=True, allow_pri_max=40)
+
+    assert decision.block_partial_coverage is False
+    assert decision.block_on_pri_threshold is False
+    assert decision.warn_forced_override is True

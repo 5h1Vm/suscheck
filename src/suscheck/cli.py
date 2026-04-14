@@ -17,14 +17,28 @@ from suscheck import __version__
 from suscheck.core.auto_detector import AutoDetector, Language
 from suscheck.core.finding import Finding, FindingType, Severity, ReportFormat
 from suscheck.core.risk_aggregator import RiskAggregator
-from suscheck.services.policy_service import apply_partial_scan_safety_floor, should_block_on_partial_coverage
+from suscheck.services.policy_service import (
+    apply_partial_scan_safety_floor,
+    evaluate_wrapper_policy,
+)
+from suscheck.services.wrapper_service import (
+    build_clone_failure_message,
+    build_connect_result_panel,
+    build_install_failure_message,
+    execute_clone_wrapper,
+    execute_install_wrapper,
+    normalize_install_ecosystem,
+)
 from suscheck.services.summary_service import (
     build_scan_summary,
     derive_coverage_contract,
     derive_modules_skipped,
 )
 from suscheck.services.report_service import export_report
-from suscheck.services.analysis_service import execute_ai_triage_phase, execute_package_trust_phase
+from suscheck.services.analysis_service import (
+    execute_ai_triage_phase,
+    execute_package_trust_phase,
+)
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
@@ -44,12 +58,9 @@ from suscheck.modules.reporting.terminal import (
     render_verdict,
 )
 from suscheck.core.pipeline import ScanPipeline
-import shutil
 from suscheck.core.config_manager import ConfigManager
-from suscheck.modules.wrappers.install import install_package
-from suscheck.modules.wrappers.clone import clone_repo
-from suscheck.modules.wrappers.connect import connect_mcp
-from suscheck.core.diagnostics import DiagnosticSuite
+from suscheck.commands.aux_commands import register_aux_commands
+from suscheck.commands.analysis_commands import register_analysis_commands
 
 # ── Load .env file ────────────────────────────────────────────
 # Searches for .env in the current directory and project root.
@@ -61,6 +72,13 @@ load_dotenv()  # current directory .env (override)
 app = typer.Typer(
     name="suscheck",
     help="SusCheck | Zero-Trust Pre-Execution Orchestrator. Audit before you execute.",
+    epilog=(
+        "Quick tips:\n"
+        "  suscheck scan <target> -v\n"
+        "  suscheck scan <target> --format html --output report.html\n"
+        "  suscheck install pip <pkg> --force\n"
+        "  suscheck diagnostics"
+    ),
     no_args_is_help=True,
     rich_markup_mode="rich",
     context_settings={"help_option_names": ["-h", "--help", "-help"]},
@@ -79,7 +97,7 @@ def scan(
         False, "--upload-vt",
         help="Upload file to VirusTotal if hash unknown. ⚠️  File becomes PUBLIC on VT.",
     ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", "-V", help="Verbose output"),
     mcp_dynamic: bool = typer.Option(
         False,
         "--mcp-dynamic",
@@ -402,144 +420,6 @@ def scan(
     return summary
 
 @app.command()
-def explain(file: str = typer.Argument(help="File to explain")):
-    """Explain what a file does in plain English. AI-powered behavioral analysis."""
-    from rich.markdown import Markdown
-    from suscheck.ai.explain_engine import run_behavioral_analysis
-    
-    path = Path(file)
-    if not path.exists():
-        console.print(f"[bold red]error:[/bold red] File not found: {file}")
-        raise typer.Exit(1)
-
-    render_scan_header(file, "analyzing behavior...", __version__)
-
-    # ── Step 1: Detect & Initial Scan ──
-    detection = detector.detect(file)
-    findings: list[Finding] = []
-    
-    # Run Tier 0 + Scanners (silent mode)
-    with console.status("[bold blue]Gathering scan indicators...[/bold blue]"):
-        # Auto-detector findings
-        if detection.type_mismatch:
-             findings.append(Finding(
-                module="auto_detector",
-                finding_id="DETECT-MISMATCH",
-                title="File type mismatch",
-                description=f"File extension mismatch: {detection.mismatch_detail}",
-                severity=Severity.HIGH,
-                finding_type=FindingType.FILE_MISMATCH,
-                confidence=0.9,
-                file_path=file
-            ))
-        
-        # Tier 0 Static Rules
-        from suscheck.modules.external.engine import Tier0Engine
-        tier0 = Tier0Engine()
-        t0_res = tier0.check_file(file)
-        findings.extend(t0_res.findings)
-
-        # Tier 1 Code Scanner (YARA/Regex)
-        if detection.artifact_type.value == "code":
-            from suscheck.modules.code.scanner import CodeScanner
-            code_scanner = CodeScanner()
-            c_res = code_scanner.scan_file(file)
-            findings.extend(c_res.findings)
-            
-        if detection.is_polyglot:
-            findings.append(Finding(
-                module="auto_detector",
-                finding_id="DETECT-POLYGLOT",
-                title="Polyglot file",
-                description="File is valid in multiple formats.",
-                severity=Severity.MEDIUM,
-                finding_type=FindingType.FILE_MISMATCH,
-                confidence=0.8,
-                file_path=file
-            ))
-
-        # Tier 2 Semgrep (if applicable)
-        try:
-            from suscheck.modules.semgrep_runner import SemgrepRunner
-            semgrep = SemgrepRunner()
-            if semgrep.is_installed:
-                s_res = semgrep.scan_file(file)
-                findings.extend(s_res.findings)
-        except:
-            pass
-
-    # ── Step 1.5: Render Static Indicators (Industry Engine Orchestration) ──
-    if findings:
-        from suscheck.modules.reporting.terminal import render_findings
-        console.print("[bold cyan]🔍 Investigative Brain: Gathered Security Indicators (Tier 0/1 Static Analysis):[/bold cyan]")
-        render_findings(findings)
-    else:
-        console.print("[dim]No static indicators (Tier 0/1) found in baseline scan.[/dim]")
-
-    # ── Step 2: Read Content ──
-    try:
-        content = path.read_text(encoding="utf-8", errors="replace")
-    except Exception as e:
-        console.print(f"[bold red]error:[/bold red] Could not read file content: {e}")
-        raise typer.Exit(1)
-
-    # ── Step 3: Run AI Explanation ──
-    explanation = run_behavioral_analysis(
-        target=file,
-        artifact_type=detection.artifact_type.value,
-        findings=findings,
-        file_content=content,
-        console=console
-    )
-
-    # ── Step 4: Display Result ──
-    console.print()
-    console.print(Panel(
-        Markdown(explanation),
-        title="🤖 Behavioral Analysis",
-        subtitle=f"Model-generated analysis of {path.name}",
-        border_style="magenta",
-        padding=(1, 2)
-    ))
-    console.print()
-
-
-@app.command()
-def trust(
-    package: str = typer.Argument(help="Package name to assess"),
-    ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
-):
-    """Quick supply chain trust assessment for a package."""
-    console.print("\n[bold blue]sus check trust[/bold blue]")
-    console.print(f"Package: [yellow]{package}[/yellow] ({ecosystem})")
-    
-    from suscheck.modules.supply_chain.trust_engine import TrustEngine
-    engine = TrustEngine()
-    
-    if ":" in package:
-        full_target = package
-    else:
-        full_target = f"{ecosystem}:{package}"
-    
-    with console.status(f"Querying {ecosystem} and deps.dev for {package}...", spinner="dots"):
-        res = engine.scan(full_target)
-        
-    if res.error:
-        console.print(f"\n[red]Trust scan failed:[/red] {res.error}")
-        raise typer.Exit(1)
-        
-    console.print(f"\n[bold]Supply Chain Trust Score:[/bold] {res.trust_score:.1f}/10")
-    if res.trust_score >= 8:
-        console.print("✅ Package Trust Level: [green]HIGH[/green]")
-    elif res.trust_score >= 5:
-        console.print("⚠️ Package Trust Level: [yellow]MEDIUM (Review needed)[/yellow]")
-    else:
-        console.print("🚨 Package Trust Level: [red]LOW (High Risk)[/red]")
-        
-    render_findings(res.findings)
-
-
-@app.command()
 def install(
     ecosystem: str = typer.Argument(help="Package manager: pip, npm"),
     package: str = typer.Argument(help="Package to scan and install"),
@@ -550,14 +430,8 @@ def install(
     console.print(f"Package: [yellow]{package}[/yellow] via {ecosystem}")
 
     # Normalize ecosystem for trust/scan target vs installer command.
-    eco = ecosystem.lower()
-    if eco in ("pip", "pypi"):
-        trust_ecosystem = "pypi"
-        installer = "pip"
-    elif eco == "npm":
-        trust_ecosystem = "npm"
-        installer = "npm"
-    else:
+    trust_ecosystem = normalize_install_ecosystem(ecosystem)
+    if trust_ecosystem is None:
         console.print(f"[red]Unsupported ecosystem:[/red] {ecosystem}")
         raise typer.Exit(1)
 
@@ -577,7 +451,9 @@ def install(
         report_dir=None,
     )
 
-    if should_block_on_partial_coverage(summary, force):
+    install_policy = evaluate_wrapper_policy(summary, force=force, allow_pri_max=40)
+
+    if install_policy.block_partial_coverage:
         console.print(
             Panel(
                 (
@@ -594,7 +470,7 @@ def install(
         raise typer.Exit(1)
 
     # Block installs when PRI is above the CAUTION band unless --force is used.
-    if summary.pri_score > 40 and not force:
+    if install_policy.block_on_pri_threshold:
         verdict_label = summary.verdict.value.upper()
         console.print(
             Panel(
@@ -612,7 +488,7 @@ def install(
         )
         raise typer.Exit(1)
 
-    if summary.pri_score > 40 and force:
+    if install_policy.warn_forced_override:
         console.print(
             Panel(
                 (
@@ -627,15 +503,10 @@ def install(
 
     # Execute the actual install command using modular wrapper.
     console.print("\n[bold]Executing installation...[/bold]\n")
-    return_code = install_package(trust_ecosystem, package)
+    return_code = execute_install_wrapper(trust_ecosystem=trust_ecosystem, package=package)
 
     if return_code != 0:
-        if return_code == 127:
-            console.print("[red]Failed to run installer command: installer not found.[/red]")
-        else:
-            console.print(
-                f"[red]Installer exited with non-zero status code {return_code}.[/red]"
-            )
+        console.print(f"[red]{build_install_failure_message(return_code)}[/red]")
         raise typer.Exit(return_code)
 
 
@@ -661,7 +532,9 @@ def clone(
         report_dir=None,
     )
 
-    if should_block_on_partial_coverage(summary, force):
+    clone_policy = evaluate_wrapper_policy(summary, force=force, allow_pri_max=15)
+
+    if clone_policy.block_partial_coverage:
         console.print(
             Panel(
                 (
@@ -678,7 +551,7 @@ def clone(
         raise typer.Exit(1)
 
     # Block clone when PRI indicates anything other than CLEAR, unless forced.
-    if summary.pri_score > 15 and not force:
+    if clone_policy.block_on_pri_threshold:
         verdict_label = summary.verdict.value.upper()
         console.print(
             Panel(
@@ -696,7 +569,7 @@ def clone(
         )
         raise typer.Exit(1)
 
-    if summary.pri_score > 15 and force:
+    if clone_policy.warn_forced_override:
         console.print(
             Panel(
                 (
@@ -711,15 +584,10 @@ def clone(
 
     # Execute `git clone` using modular wrapper.
     console.print("\n[bold]Executing git clone...[/bold]\n")
-    return_code = clone_repo(url, dest)
+    return_code = execute_clone_wrapper(url=url, dest=dest)
 
     if return_code != 0:
-        if return_code == 127:
-            console.print("[red]Failed to run git command: git not found.[/red]")
-        else:
-            console.print(
-                f"[red]git clone exited with non-zero status code {return_code}.[/red]"
-            )
+        console.print(f"[red]{build_clone_failure_message(return_code)}[/red]")
         raise typer.Exit(return_code)
 
 
@@ -744,7 +612,9 @@ def connect(
         report_dir=None,
     )
 
-    if should_block_on_partial_coverage(summary, force):
+    connect_policy = evaluate_wrapper_policy(summary, force=force, allow_pri_max=15)
+
+    if connect_policy.block_partial_coverage:
         console.print(
             Panel(
                 (
@@ -762,7 +632,7 @@ def connect(
 
     # For MCP connections we mirror the repo policy: only CLEAR is allowed
     # by default; anything higher requires explicit human override.
-    if summary.pri_score > 15 and not force:
+    if connect_policy.block_on_pri_threshold:
         verdict_label = summary.verdict.value.upper()
         console.print(
             Panel(
@@ -780,173 +650,18 @@ def connect(
         )
         raise typer.Exit(1)
 
-    if summary.pri_score > 15 and force:
-        res = connect_mcp(server, summary.pri_score, force=True)
-        console.print(
-            Panel(
-                (
-                    "[bold red]WARNING:[/bold red] Allowing MCP connection despite elevated PRI score "
-                    f"({res['pri_score']}/100, {summary.verdict.value.upper()}) "
-                    "because [yellow]--force[/yellow] was specified.\n\n"
-                    "[dim]suscheck does not perform the connection itself; configure your MCP client "
-                    "using the scan results above.[/dim]"
-                ),
-                border_style="red",
-                padding=(1, 2),
-            )
-        )
-    else:
-        console.print(
-            Panel(
-                (
-                    "[bold green]SusCheck did not block this MCP target.[/bold green]\n\n"
-                    f"PRI score: [bold]{summary.pri_score}/100[/bold] ({summary.verdict.value.upper()}).\n"
-                    "You may now add this server to your MCP client configuration.\n"
-                    "[dim]Note: suscheck does not create or modify client configs automatically.[/dim]"
-                ),
-                border_style="green",
-                padding=(1, 2),
-            )
-        )
-
-
-@app.command()
-def version():
-    """Show sus check version and system info."""
-    import sys
-
-    # Check which API keys are configured
-    def _key_status(env_var: str) -> str:
-        val = os.environ.get(env_var, "")
-        if val:
-            return f"✅ configured ({val[:8]}...)"
-        return "❌ not set"
-
-    _ai_key_names = (
-        "SUSCHECK_AI_KEY",
-        "OPENAI_API_KEY",
-        "GROQ_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "OPENROUTER_API_KEY",
-        "MISTRAL_API_KEY",
-        "CEREBRAS_API_KEY",
-        "SAMBANOVA_API_KEY",
-    )
-
-    def _ai_key_status() -> str:
-        for name in _ai_key_names:
-            val = os.environ.get(name, "")
-            if val:
-                return f"✅ via {name} ({val[:8]}...)"
-        return "❌ not set (see .env.example for provider-specific names)"
-
-    kics_bin = shutil.which("kics")
-    docker_bin = shutil.which("docker")
-    if kics_bin:
-        kics_status = "✅ found"
-    elif docker_bin:
-        kics_status = "✅ via docker"
-    else:
-        kics_status = "❌ not found"
-
     console.print(
-        Panel(
-            f"[bold blue]sus check[/bold blue] v{__version__}\n"
-            f"Python {sys.version.split()[0]}\n"
-            f"\n[bold]API Keys:[/bold]\n"
-            f"  VirusTotal:    {_key_status('SUSCHECK_VT_KEY')}\n"
-            f"  AbuseIPDB:     {_key_status('SUSCHECK_ABUSEIPDB_KEY')}\n"
-            f"  GitHub Token:  {_key_status('SUSCHECK_GITHUB_TOKEN')}\n"
-            f"  NVD:           {_key_status('SUSCHECK_NVD_KEY')}\n"
-            f"  AI Provider:   {os.environ.get('SUSCHECK_AI_PROVIDER', 'none')}\n"
-            f"  AI Health:     {'✅ Working (Verified: Groq Llama 3.3)' if os.environ.get('SUSCHECK_AI_PROVIDER') == 'groq' else '🔍 Untested (Run scan to verify)'}\n"
-            f"  AI Key:        {_ai_key_status()}\n"
-            f"\n[bold]External Tools:[/bold]\n"
-            f"  gitleaks:  {'✅ found' if shutil.which('gitleaks') else '❌ not found'}\n"
-            f"  semgrep:   {'✅ found' if shutil.which('semgrep') else '❌ not found'}\n"
-            f"  bandit:    {'✅ found' if shutil.which('bandit') else '❌ not found'}\n"
-            f"  checkov:   {'✅ found' if shutil.which('checkov') else '❌ not found'}\n"
-            f"  kics:      {kics_status}\n"
-            f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
-            f"\n[dim]Load API keys from .env file or environment variables.\n"
-            f"Timestamped reports are saved to ./reports/ by default.\n"
-            f"Use --report-dir to customize report location.[/dim]",
-            title="sus check — System Info",
-            border_style="blue",
+        build_connect_result_panel(
+            server=server,
+            pri_score=summary.pri_score,
+            verdict_label=summary.verdict.value.upper(),
+            force=connect_policy.warn_forced_override,
         )
     )
 
 
-@app.command()
-def init(
-    config_path: Optional[Path] = typer.Option(
-        None,
-        "--config-path",
-        help="Optional config file path (defaults to ~/.suscheck/config.toml)",
-    )
-):
-    """Create a starter configuration file for SusCheck."""
-    path = config_path or (Path.home() / ".suscheck" / "config.toml")
-    path = Path(path).expanduser().resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if path.exists():
-        console.print(f"[yellow]Config already exists:[/yellow] {path}")
-        raise typer.Exit(0)
-
-    template = """[general]
-verbosity = \"normal\"
-reporting_default_dir = \"reports\"
-
-[scanning]
-enable_ai_triage = true
-enable_mcp_dynamic = false
-
-[risk]
-block_install_pri = 40
-block_clone_pri = 15
-block_connect_pri = 15
-
-[apis]
-# Set real values in environment or .env where possible.
-virustotal_env = \"SUSCHECK_VT_KEY\"
-abuseipdb_env = \"SUSCHECK_ABUSEIPDB_KEY\"
-github_env = \"SUSCHECK_GITHUB_TOKEN\"
-nvd_env = \"SUSCHECK_NVD_KEY\"
-ai_provider_env = \"SUSCHECK_AI_PROVIDER\"
-ai_key_env = \"SUSCHECK_AI_KEY\"
-"""
-
-    path.write_text(template, encoding="utf-8")
-    console.print(f"[green]✓[/green] Created starter config: [cyan]{path}[/cyan]")
-
-
-@app.command()
-def diagnostics():
-    """Diagnostic health check for all configured API keys and engine binaries."""
-    config_mgr = ConfigManager()
-    suite = DiagnosticSuite(config_mgr)
-    
-    console.print(f"\n[bold blue]SusCheck Diagnostic Suite[/bold blue] v{__version__}")
-    console.print("Checking configured external services...\n")
-    
-    with console.status("Pinging services...", spinner="dots"):
-        results = suite.run_all()
-    
-    table = Table(title="Service Connectivity & Auth Status", box=None)
-    table.add_column("Service", style="bold")
-    table.add_column("Status", justify="center")
-    table.add_column("Message")
-
-    for res in results:
-        status_style = "green" if res.status == "OK" else "yellow" if res.status == "SKIPPED" else "red"
-        status_text = f"[{status_style}]{res.status}[/{status_style}]"
-        table.add_row(res.service, status_text, res.message)
-
-    console.print(table)
-    console.print("\n[dim]Note: API keys are now exclusively managed in your .env file.[/dim]\n")
+register_aux_commands(app, console=console, version=__version__)
+register_analysis_commands(app, console=console, detector=detector, version=__version__)
 
 
 if __name__ == "__main__":

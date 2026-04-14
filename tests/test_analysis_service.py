@@ -5,7 +5,11 @@ from types import SimpleNamespace
 from rich.console import Console
 
 from suscheck.core.finding import Finding, FindingType, Severity
-from suscheck.services.analysis_service import execute_ai_triage_phase, execute_package_trust_phase
+from suscheck.services.analysis_service import (
+	execute_ai_triage_phase,
+	execute_explain_indicator_phase,
+	execute_package_trust_phase,
+)
 
 
 def test_execute_package_trust_phase_for_package_target(monkeypatch) -> None:
@@ -97,3 +101,55 @@ def test_execute_ai_triage_phase_skips_when_disabled() -> None:
 
 	assert delta == 0.0
 	assert modules == ["tier0", "code"]
+
+
+def test_execute_explain_indicator_phase_collects_findings(monkeypatch) -> None:
+	def _finding(module: str, fid: str) -> Finding:
+		return Finding(
+			module=module,
+			finding_id=fid,
+			title="finding",
+			description="desc",
+			severity=Severity.LOW,
+			finding_type=FindingType.SUSPICIOUS_BEHAVIOR,
+			confidence=0.9,
+		)
+
+	class _Tier0:
+		def check_file(self, _file):
+			return SimpleNamespace(findings=[_finding("tier0", "T0-1")])
+
+	class _CodeScanner:
+		def scan_file(self, _file):
+			return SimpleNamespace(findings=[_finding("code", "C-1")])
+
+	class _Semgrep:
+		is_installed = True
+
+		def scan_file(self, _file):
+			return SimpleNamespace(findings=[_finding("semgrep", "S-1")])
+
+	monkeypatch.setattr("suscheck.modules.external.engine.Tier0Engine", _Tier0)
+	monkeypatch.setattr("suscheck.modules.code.scanner.CodeScanner", _CodeScanner)
+	monkeypatch.setattr("suscheck.modules.semgrep_runner.SemgrepRunner", _Semgrep)
+	monkeypatch.setattr("suscheck.services.analysis_service.render_findings", lambda _findings: None)
+
+	detection = SimpleNamespace(
+		type_mismatch=True,
+		mismatch_detail=".txt has script content",
+		artifact_type=SimpleNamespace(value="code"),
+		is_polyglot=True,
+	)
+
+	findings = execute_explain_indicator_phase(
+		file="demo.txt",
+		detection=detection,
+		console=Console(record=True),
+	)
+
+	finding_ids = {f.finding_id for f in findings}
+	assert "DETECT-MISMATCH" in finding_ids
+	assert "DETECT-POLYGLOT" in finding_ids
+	assert "T0-1" in finding_ids
+	assert "C-1" in finding_ids
+	assert "S-1" in finding_ids

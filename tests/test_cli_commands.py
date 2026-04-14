@@ -37,7 +37,7 @@ def test_diagnostics_command_runs_with_stubbed_suite(monkeypatch) -> None:
                 _Result("deps.dev", "SKIPPED", "no key needed"),
             ]
 
-    monkeypatch.setattr("suscheck.cli.DiagnosticSuite", _Suite)
+    monkeypatch.setattr("suscheck.commands.aux_commands.DiagnosticSuite", _Suite)
 
     result = runner.invoke(app, ["diagnostics"])
     assert result.exit_code == 0

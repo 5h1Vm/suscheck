@@ -5,7 +5,8 @@ from __future__ import annotations
 from rich.console import Console
 from rich.panel import Panel
 
-from suscheck.core.finding import Finding
+from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.modules.reporting.terminal import render_findings
 
 
 def execute_package_trust_phase(
@@ -84,3 +85,70 @@ def execute_ai_triage_phase(
             )
 
     return float(tres.pri_adjustment), modules_updated
+
+
+def execute_explain_indicator_phase(*, file: str, detection, console: Console) -> list[Finding]:
+    """Collect static indicators for `explain` command using the same baseline scan flow."""
+    findings: list[Finding] = []
+
+    with console.status("[bold blue]Gathering scan indicators...[/bold blue]"):
+        if detection.type_mismatch:
+            findings.append(
+                Finding(
+                    module="auto_detector",
+                    finding_id="DETECT-MISMATCH",
+                    title="File type mismatch",
+                    description=f"File extension mismatch: {detection.mismatch_detail}",
+                    severity=Severity.HIGH,
+                    finding_type=FindingType.FILE_MISMATCH,
+                    confidence=0.9,
+                    file_path=file,
+                )
+            )
+
+        from suscheck.modules.external.engine import Tier0Engine
+
+        tier0 = Tier0Engine()
+        t0_res = tier0.check_file(file)
+        findings.extend(t0_res.findings)
+
+        if detection.artifact_type.value == "code":
+            from suscheck.modules.code.scanner import CodeScanner
+
+            code_scanner = CodeScanner()
+            c_res = code_scanner.scan_file(file)
+            findings.extend(c_res.findings)
+
+        if detection.is_polyglot:
+            findings.append(
+                Finding(
+                    module="auto_detector",
+                    finding_id="DETECT-POLYGLOT",
+                    title="Polyglot file",
+                    description="File is valid in multiple formats.",
+                    severity=Severity.MEDIUM,
+                    finding_type=FindingType.FILE_MISMATCH,
+                    confidence=0.8,
+                    file_path=file,
+                )
+            )
+
+        try:
+            from suscheck.modules.semgrep_runner import SemgrepRunner
+
+            semgrep = SemgrepRunner()
+            if semgrep.is_installed:
+                s_res = semgrep.scan_file(file)
+                findings.extend(s_res.findings)
+        except Exception:
+            pass
+
+    if findings:
+        console.print(
+            "[bold cyan]🔍 Investigative Brain: Gathered Security Indicators (Tier 0/1 Static Analysis):[/bold cyan]"
+        )
+        render_findings(findings)
+    else:
+        console.print("[dim]No static indicators (Tier 0/1) found in baseline scan.[/dim]")
+
+    return findings

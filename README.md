@@ -2,7 +2,7 @@
 
 **Audit before you execute.** SusCheck is a professional-grade security utility designed to orchestrate deep forensic analysis of software artifacts (packages, scripts, binaries, and repositories) before they touch your production environment.
 
-[![Security: Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red)](registry/CORE_SECURITY_MODEL.md)
+![Security: Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red)
 [![Status: Gold Master](https://img.shields.io/badge/Status-Gold%20Master-gold)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)]()
 
@@ -65,14 +65,15 @@ SusCheck operates on a tiered forensic model derived from real-world adversarial
 | **2** | AI Triage | Threat Correlation, Behavioral Heuristics |
 | **3** | Aggregation | Weighted Scoring (PRI) & Hardened Verdicts |
 
-Read more in the [Core Security Model](registry/CORE_SECURITY_MODEL.md).
+Core model and governance artifacts are maintained in local project archives.
 
 ---
 
-## 📂 Registry & Documentation
-- [Quickstart Guide](docs/Quickstart.md): Deep dive into CLI usage and configuration.
-- [Developer Reference](docs/Developer_Reference.md): Architectural overview and per-module documentation.
-- [Registry](registry/): Core security logic and stress test reports.
+## 📂 Documentation Status
+- The GitHub ship unit is intentionally limited to runtime code and tests.
+- Historical docs, registry notes, and stress artifacts were moved to:
+	`/home/shivam/Minor02/archive/suscheck_nonship/`
+- A lightweight in-repo manual can be reintroduced later once structure freeze is complete.
 
 ---
 
