@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -84,7 +85,7 @@ def test_scan_repository_url_runs_temp_clone_path(monkeypatch) -> None:
         called["scan_directory"] = True
         return []
 
-    monkeypatch.setattr("suscheck.cli.subprocess.run", _fake_run)
+    monkeypatch.setattr("suscheck.services.scan_service.subprocess.run", _fake_run)
     monkeypatch.setattr("suscheck.cli.ScanPipeline.scan_directory", _fake_scan_directory)
 
     result = runner.invoke(app, ["scan", "https://github.com/example/repo"])
@@ -154,25 +155,25 @@ def test_scan_local_file_fans_out_tier1_scanners(monkeypatch, tmp_path: Path) ->
 
     monkeypatch.setattr("suscheck.cli.AutoDetector", _Detector)
 
-    monkeypatch.setattr("suscheck.cli.MCPScanner.can_handle", lambda self, _atype, _path: True)
+    monkeypatch.setattr("suscheck.services.scan_service.MCPScanner.can_handle", lambda self, _atype, _path: True)
     monkeypatch.setattr(
-        "suscheck.cli.MCPScanner.scan",
+        "suscheck.services.scan_service.MCPScanner.scan",
         lambda self, _path: called.__setitem__("mcp", True) or _Result([_finding("mcp", "MCP-1")]),
     )
 
-    monkeypatch.setattr("suscheck.cli.ConfigScanner.can_handle", lambda self, _atype, _path: True)
+    monkeypatch.setattr("suscheck.services.scan_service.ConfigScanner.can_handle", lambda self, _atype, _path: True)
     monkeypatch.setattr(
-        "suscheck.cli.ConfigScanner.scan",
+        "suscheck.services.scan_service.ConfigScanner.scan",
         lambda self, _path: called.__setitem__("config", True) or _Result([_finding("config", "CFG-1")]),
     )
 
     monkeypatch.setattr(
-        "suscheck.cli.CodeScanner.scan_file",
+        "suscheck.services.scan_service.CodeScanner.scan_file",
         lambda self, _path, language=None: called.__setitem__("code", True) or _Result([_finding("code", "CODE-1")]),
     )
 
     monkeypatch.setattr(
-        "suscheck.cli.RepoScanner.scan_file_secrets",
+        "suscheck.services.scan_service.RepoScanner.scan_file_secrets",
         lambda self, _path: called.__setitem__("repo", True) or [_finding("repo", "REPO-1")],
     )
 
@@ -186,3 +187,31 @@ def test_scan_local_file_fans_out_tier1_scanners(monkeypatch, tmp_path: Path) ->
     assert called["code"] is True
     assert called["repo"] is True
     assert sum(1 for was_called in called.values() if was_called) >= 3
+
+
+def test_scan_package_json_report_contains_coverage_contract(monkeypatch, tmp_path: Path) -> None:
+    class _TrustResult:
+        def __init__(self) -> None:
+            self.error = None
+            self.trust_score = 8.5
+            self.findings = []
+
+    class _TrustEngine:
+        def scan(self, _target):
+            return _TrustResult()
+
+    monkeypatch.setattr("suscheck.modules.supply_chain.trust_engine.TrustEngine", _TrustEngine)
+
+    report_path = tmp_path / "scan.json"
+    result = runner.invoke(
+        app,
+        ["scan", "requests", "--no-ai", "--format", "json", "--output", str(report_path)],
+    )
+
+    assert result.exit_code == 0
+    assert report_path.exists()
+
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["coverage_complete"] is False
+    assert isinstance(payload["coverage_notes"], list)
+    assert any("PIPELINE-PACKAGE-STATIC-SKIPPED" in note for note in payload["coverage_notes"])

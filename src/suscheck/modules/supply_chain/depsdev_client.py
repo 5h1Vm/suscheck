@@ -66,7 +66,7 @@ class DepsDevClient:
                 ))
 
             # Fetch security advisories specifically for this package version
-            advisories = self._get_advisories(system, package_name, version)
+            advisories = self.get_advisories(system, package_name, version)
 
             return DepsDevResult(
                 dependencies=dependencies,
@@ -77,7 +77,7 @@ class DepsDevClient:
             logger.debug(f"Deps.dev fetch failed: {e}")
             return None
 
-    def _get_advisories(self, system: str, package_name: str, version: str) -> list[dict]:
+    def get_advisories(self, system: str, package_name: str, version: str) -> list[dict]:
         """Fetch OSV security advisories for a specific package version."""
         url = f"{self.BASE_URL}/systems/{system}/packages/{package_name}/versions/{version}"
         try:

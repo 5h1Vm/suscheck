@@ -2,11 +2,8 @@
 
 import logging
 import os
-import subprocess
 import sys
-import tempfile
 import time
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -18,19 +15,32 @@ from rich.table import Table
 
 from suscheck import __version__
 from suscheck.core.auto_detector import AutoDetector, Language
-from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict, ReportFormat
+from suscheck.core.finding import Finding, FindingType, Severity, ReportFormat
 from suscheck.core.risk_aggregator import RiskAggregator
+from suscheck.services.policy_service import apply_partial_scan_safety_floor, should_block_on_partial_coverage
+from suscheck.services.summary_service import (
+    build_scan_summary,
+    derive_coverage_contract,
+    derive_modules_skipped,
+)
+from suscheck.services.report_service import export_report
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
 from suscheck.modules.mcp.scanner import MCPScanner
 from suscheck.modules.repo.scanner import RepoScanner
+from suscheck.services.scan_service import (
+    build_static_tier1_skip_findings,
+    execute_local_file_tier1_phase,
+    execute_remote_repository_tier1_phase,
+    execute_semgrep_phase,
+    execute_tier0_phase,
+)
 from suscheck.modules.reporting.terminal import (
     render_findings,
     render_scan_footer,
     render_scan_header,
     render_verdict,
-    render_vt_result,
 )
 from suscheck.core.pipeline import ScanPipeline
 import shutil
@@ -123,7 +133,7 @@ def scan(
         aggregator = RiskAggregator("DIRECTORY")
         pri_result = aggregator.calculate(all_findings)
         
-        summary = _build_summary(
+        summary = build_scan_summary(
             target=target,
             artifact_type="DIRECTORY",
             findings=all_findings,
@@ -139,31 +149,19 @@ def scan(
         render_verdict(summary)
         render_scan_footer(summary)
         
-        # Reporting logic
         if report_format != ReportFormat.TERMINAL:
-             config_mgr = ConfigManager()
-             from suscheck.core.reporter import ReportGenerator
-             
-             # Check if we should use timestamped folders from config
-             use_timestamp = config_mgr.get("reporting.timestamped", True)
-             
-             report_path = ReportGenerator.get_default_path(
-                 target, 
-                 report_format, 
-                 report_dir or config_mgr.get("reporting.default_dir"), 
-                 timestamped=use_timestamp
-             )
-             
-             content = ""
-             if report_format == ReportFormat.MARKDOWN: content = ReportGenerator.generate_markdown(summary)
-             elif report_format == ReportFormat.HTML: content = ReportGenerator.generate_html(summary)
-             elif report_format == ReportFormat.JSON:
-                import json
-                from dataclasses import asdict
-                content = json.dumps(asdict(summary), default=lambda o: o.value if isinstance(o, Enum) else str(o), indent=2)
-             
-             report_path.write_text(content, encoding="utf-8")
-             console.print(f"\n[bold green]✓[/bold green] Directory report saved: [cyan]{report_path}[/cyan]")
+            use_timestamp = config_mgr.get("reporting.timestamped", True)
+            report_path = export_report(
+                summary=summary,
+                target=target,
+                report_format=report_format,
+                output=output,
+                report_dir=report_dir,
+                default_report_dir=config_mgr.get("reporting.default_dir"),
+                use_timestamp=use_timestamp,
+            )
+            if report_path:
+                console.print(f"\n[bold green]✓[/bold green] Directory report saved: [cyan]{report_path}[/cyan]")
              
         return summary
 
@@ -239,241 +237,31 @@ def scan(
         ))
 
     # ── Step 2: Tier 0 — Hash & Reputation ────────────────────
-    console.print("\n[bold]Tier 0: Hash & Reputation[/bold]")
-
-    # Show what services are configured
-    vt_key = os.environ.get("SUSCHECK_VT_KEY", "")
-    if vt_key:
-        console.print("  [green]✓[/green] VirusTotal API key configured")
-    else:
-        console.print("  [yellow]○[/yellow] VirusTotal: no API key — [dim]set SUSCHECK_VT_KEY or add to .env[/dim]")
-
-    # Check if target is a file (Tier 0 only works on files)
     file_path = detection.file_path
-    if file_path and os.path.isfile(str(file_path)):
-        from suscheck.modules.external.engine import Tier0Engine
-        tier0 = Tier0Engine()
+    tier0_phase = execute_tier0_phase(
+        target=target,
+        detection=detection,
+        upload_vt=upload_vt,
+        scan_start=scan_start,
+        console=console,
+    )
+    if tier0_phase.short_circuit_summary is not None:
+        return tier0_phase.short_circuit_summary
 
-        if upload_vt:
-            console.print("  [yellow]⚠️  --upload-vt: file will be uploaded to VT (becomes PUBLIC)[/yellow]")
-
-        tier0_result = tier0.check_file(str(file_path), upload_vt=upload_vt)
-
-        # Show hash results
-        if tier0_result.hash_result:
-            hash_table = Table(border_style="dim", show_header=False, padding=(0, 1))
-            hash_table.add_column("Hash", style="dim bold", width=8)
-            hash_table.add_column("Value", style="dim")
-            hash_table.add_row("SHA-256", tier0_result.hash_result.sha256)
-            hash_table.add_row("MD5", tier0_result.hash_result.md5)
-            hash_table.add_row("SHA-1", tier0_result.hash_result.sha1)
-            hash_table.add_row(
-                "Size",
-                f"{tier0_result.hash_result.file_size:,} bytes",
-            )
-            console.print(hash_table)
-
-        # Show VT results
-        render_vt_result(tier0_result.vt_dict)
-
-        # Show findings from Tier 0
-        if tier0_result.findings:
-            render_findings(tier0_result.findings)
-
-        # Handle short-circuit
-        if tier0_result.short_circuit:
-            console.print(
-                Panel(
-                    "[bold red]⚡ SHORT-CIRCUIT: Known malicious file detected.\n"
-                    "Scan terminated at Tier 0. No further analysis needed.[/bold red]",
-                    border_style="red",
-                    title="⚡ Short-Circuit",
-                )
-            )
-
-            # Build summary for short-circuit verdict
-            aggregator = RiskAggregator(detection.artifact_type.value)
-            pri_result = aggregator.calculate(tier0_result.findings, tier0_result.vt_dict)
-            
-            # Since it's a short circuit on malicious hash, we force score to 100
-            final_score = max(prior_score := pri_result.score, 100)
-            
-            # if we forcibly bumped the score to 100, add to the breakdown to explain why
-            if prior_score < 100:
-                pri_result.breakdown.insert(-1, "  [red]⚡ Tier 0 Short-Circuit[/red] (Known Malicious Hash) → bumped score to [bold]100/100[/bold]")
-                pri_result.breakdown[-1] = "  [bold]Total Score: 100/100[/bold]"
-
-            def print_unified_report(target: str, res: dict, console: Console):
-                """Print the final Security Trust Report with a detailed PRI breakdown."""
-                pri = res["pri"]
-                findings = res["findings"]
-                duration = res["duration"]
-                artifact = res["artifact_info"]
-
-                console.print()
-                console.print(Panel(
-                    f"[bold blue]SECURITY TRUST REPORT[/bold blue]\n"
-                    f"Target: [cyan]{artifact['path']}[/cyan]\n"
-                    f"Type: {artifact['type']} | Files: {artifact['file_count']} | Time: {duration:.2f}s",
-                    # Aligned with Checkpoint 1a Unified Context
-                    title="[bold white]SusCheck Analysis Summary[/bold white]",
-                    border_style="blue"
-                ))
-
-            summary = _build_summary(
-                target=target,
-                artifact_type=detection.artifact_type.value,
-                findings=tier0_result.findings,
-                pri_score=final_score,
-                modules_ran=["tier0"],
-                scan_duration=time.time() - scan_start,
-                vt_result=tier0_result.vt_dict,
-                pri_breakdown=pri_result.breakdown,
-            )
-            
-            console.print(Panel(
-                "\n".join(pri_result.breakdown),
-                title="Score Explanation",
-                border_style="dim",
-                padding=(0, 2),
-            ))
-            render_verdict(summary)
-            render_scan_footer(summary)
-            return summary
-
-        # Show Tier 0 timing
-        console.print(
-            f"[dim]Tier 0 completed in {tier0_result.scan_duration:.2f}s[/dim]"
-        )
-
-        if tier0_result.errors:
-            for error in tier0_result.errors:
-                console.print(f"[yellow]⚠️ {error}[/yellow]")
-
-        # Build partial summary (more modules will add to this later)
-        all_findings.extend(tier0_result.findings)
-        vt_dict = tier0_result.vt_dict
-        modules_ran = ["tier0"]
-    else:
-        console.print("[dim]Tier 0 skipped: target is not a local file[/dim]")
-        vt_dict = None
-        modules_ran = []
+    all_findings.extend(tier0_phase.findings)
+    vt_dict = tier0_phase.vt_dict
+    modules_ran = tier0_phase.modules_ran
 
     # ── Remaining modules (Tier 1, Tier 2) ────────────────────
     if file_path and os.path.isfile(str(file_path)):
-        console.print("\n[bold]Tier 1: Static Analysis[/bold]")
-        try:
-            config_scanner = ConfigScanner()
-            repo_scanner = RepoScanner()
-            mcp_scanner = MCPScanner()
-
-            tier1_findings: list[Finding] = []
-            tier1_errors: list[str] = []
-            module_results: list[tuple[str, object]] = []
-
-            if mcp_scanner.can_handle(detection.artifact_type.value, str(file_path)):
-                module_results.append(("mcp", mcp_scanner.scan(str(file_path))))
-
-            if config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
-                module_results.append(("config", config_scanner.scan(str(file_path))))
-
-            run_code = (
-                detection.artifact_type.value in {"code", "unknown"}
-                or detection.type_mismatch
-                or detection.is_polyglot
-                or not module_results
-            )
-            if run_code:
-                code_scanner = CodeScanner()
-                module_results.append(
-                    ("code", code_scanner.scan_file(str(file_path), language=detection.language.value))
-                )
-
-            # Supplemental single-file secret pass for broad Tier 1 coverage.
-            try:
-                repo_secret_findings = repo_scanner.scan_file_secrets(str(file_path))
-                if repo_secret_findings:
-                    tier1_findings.extend(repo_secret_findings)
-                    if "repo" not in modules_ran:
-                        modules_ran.append("repo")
-            except Exception as e:
-                tier1_errors.append(f"repo secrets pass failed: {e}")
-
-            for module_name, result_obj in module_results:
-                if module_name not in modules_ran:
-                    modules_ran.append(module_name)
-
-                findings = getattr(result_obj, "findings", None) or []
-                if findings:
-                    tier1_findings.extend(findings)
-
-                skipped_reason = getattr(result_obj, "skipped_reason", None)
-                if skipped_reason == "binary_file":
-                    console.print("  [dim]Skipped Scanner: Binary file[/dim]")
-                elif skipped_reason == "file_too_large":
-                    console.print("  [dim]Skipped Scanner: File too large (>5MB)[/dim]")
-
-                error_field = getattr(result_obj, "error", None)
-                if error_field:
-                    tier1_errors.append(str(error_field))
-
-                errors_field = getattr(result_obj, "errors", None)
-                if errors_field:
-                    tier1_errors.extend([str(err) for err in errors_field if err])
-
-            if tier1_findings:
-                from suscheck.modules.external.virustotal import VirusTotalClient
-                from suscheck.modules.external.abuseipdb import AbuseIPDBClient
-
-                vt_client = VirusTotalClient()
-                abuse_client = AbuseIPDBClient()
-
-                unique_urls = set()
-                unique_ips = set()
-
-                for finding in tier1_findings:
-                    if finding.evidence.get("type") == "url":
-                        unique_urls.add(finding.evidence.get("value"))
-                    elif finding.evidence.get("type") == "ipv4":
-                        unique_ips.add(finding.evidence.get("value"))
-
-                # Limit to 3 lookups per type to prevent rate limiting
-                if unique_urls and vt_client.available:
-                    console.print(f"  [dim]Querying VirusTotal for {min(3, len(unique_urls))} URLs...[/dim]")
-                    for url in list(unique_urls)[:3]:
-                        vt_res = vt_client.lookup_url(url)
-                        if vt_res and (vt_res.detection_count or 0) > 0:
-                            tier1_findings.append(
-                                Finding(
-                                    module="virustotal",
-                                    finding_id=f"VT-URL-{abs(hash(url)) % 10000}",
-                                    title=f"Malicious URL detected: {url[:30]}...",
-                                    description=f"URL flagged by {vt_res.detection_count}/{vt_res.total_engines} VirusTotal engines.",
-                                    severity=Severity.CRITICAL if vt_res.detection_count > 3 else Severity.HIGH,
-                                    finding_type=FindingType.C2_INDICATOR,
-                                    confidence=0.9,
-                                    mitre_ids=["T1071"],
-                                    evidence={"url": url, "detections": vt_res.detection_count},
-                                )
-                            )
-
-                if unique_ips and abuse_client.is_configured:
-                    console.print(f"  [dim]Querying AbuseIPDB for {min(3, len(unique_ips))} IP addresses...[/dim]")
-                    for ip in list(unique_ips)[:3]:
-                        abuse_res = abuse_client.lookup_ip(ip)
-                        if abuse_res and abuse_res.abuse_confidence_score > 0:
-                            abuse_finding = abuse_client.create_finding(abuse_res)
-                            if abuse_finding:
-                                tier1_findings.append(abuse_finding)
-
-            if tier1_findings:
-                all_findings.extend(tier1_findings)
-                render_findings(tier1_findings)
-
-            for err in tier1_errors:
-                console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
-        except Exception as e:
-            console.print(f"  [red]Tier 1 static scan failed: {e}[/red]")
+        tier1_findings, modules_ran = execute_local_file_tier1_phase(
+            file_path=str(file_path),
+            detection=detection,
+            modules_ran=modules_ran,
+            console=console,
+        )
+        if tier1_findings:
+            all_findings.extend(tier1_findings)
 
         if (
             mcp_dynamic
@@ -506,99 +294,24 @@ def scan(
             except Exception as e:
                 console.print(f"  [yellow]MCP dynamic observation failed: {e}[/yellow]")
 
-        # ==========================================
-        # Tier 2: Layer 2 SAST (Semgrep)
-        # ==========================================
-        console.print("\n[bold]Tier 2: Advanced SAST (Semgrep)[/bold]")
-        try:
-            from suscheck.modules.semgrep_runner import SemgrepRunner
-            semgrep_runner = SemgrepRunner()
-            
-            if semgrep_runner.is_installed:
-                console.print("  [dim]Running Semgrep rules...[/dim]")
-                semgrep_result = semgrep_runner.scan_file(str(file_path))
-                
-                if semgrep_result.findings:
-                    all_findings.extend(semgrep_result.findings)
-                    render_findings(semgrep_result.findings)
-                else:
-                    if not semgrep_result.errors:
-                        console.print("  [dim]No Semgrep vulnerabilities found.[/dim]")
-                    
-                if semgrep_result.errors:
-                    for err in semgrep_result.errors:
-                        console.print(f"  [yellow]⚠️ Semgrep Warning: {err}[/yellow]")
-            else:
-                console.print("  [yellow]⚠️ Semgrep not installed. Skipping Layer 2 SAST.[/yellow]")
-                
-        except Exception as e:
-            console.print(f"  [red]Semgrep orchestration failed: {e}[/red]")
+        semgrep_findings = execute_semgrep_phase(file_path=str(file_path), console=console)
+        if semgrep_findings:
+            all_findings.extend(semgrep_findings)
 
     elif detection.artifact_type.value == "repository" and target.startswith(("http://", "https://", "git@")):
-        console.print("\n[bold]Tier 1: Repository Static Analysis[/bold]")
-        console.print("  [dim]Remote repository detected. Cloning to a temporary workspace for scanning...[/dim]")
-        try:
-            with tempfile.TemporaryDirectory(prefix="suscheck-repo-") as tmpdir:
-                clone_cmd = ["git", "clone", "--depth", "1", target, tmpdir]
-                clone_proc = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=180)
-                if clone_proc.returncode != 0:
-                    stderr = (clone_proc.stderr or "").strip()
-                    raise RuntimeError(stderr or "git clone failed")
-
-                repo_findings = pipeline.scan_directory(tmpdir)
-                all_findings.extend(repo_findings)
-
-                inferred_modules = pipeline.get_modules_ran(repo_findings)
-                for module_name in inferred_modules:
-                    if module_name not in modules_ran:
-                        modules_ran.append(module_name)
-
-                if repo_findings:
-                    render_findings(repo_findings)
-                else:
-                    console.print("  [dim]No static findings from remote repository scan.[/dim]")
-        except Exception as e:
-            console.print(f"  [yellow]Tier 1 repository scan skipped: {e}[/yellow]")
-            all_findings.append(
-                Finding(
-                    module="pipeline",
-                    finding_id="PIPELINE-REPO-SCAN-SKIPPED",
-                    title="Repository static scan could not be completed",
-                    description=(
-                        "Remote repository analysis failed before static scanners ran. "
-                        "Treat this result as partial and require manual review before trusting the target."
-                    ),
-                    severity=Severity.MEDIUM,
-                    finding_type=FindingType.REVIEW_NEEDED,
-                    confidence=0.95,
-                    file_path=target,
-                    evidence={"error": str(e)[:500]},
-                    needs_human_review=True,
-                    review_reason="Tier 1 repository scan failed",
-                )
-            )
+        repo_findings, modules_ran = execute_remote_repository_tier1_phase(
+            target=target,
+            pipeline=pipeline,
+            modules_ran=modules_ran,
+            console=console,
+        )
+        all_findings.extend(repo_findings)
     else:
         console.print("\n[bold]Tier 1: Static Analysis[/bold]")
         console.print("  [dim]Tier 1 skipped: static scanners currently require a local file or repository target.[/dim]")
-        if detection.artifact_type.value == "package":
-            all_findings.append(
-                Finding(
-                    module="pipeline",
-                    finding_id="PIPELINE-PACKAGE-STATIC-SKIPPED",
-                    title="Package static Tier 1 scanners were not executed",
-                    description=(
-                        "Package trust checks ran, but static Tier 1 scanners did not run for this target type. "
-                        "Treat this as a partial scan and review manually before approval."
-                    ),
-                    severity=Severity.LOW,
-                    finding_type=FindingType.REVIEW_NEEDED,
-                    confidence=0.95,
-                    file_path=target,
-                    evidence={"artifact_type": detection.artifact_type.value},
-                    needs_human_review=True,
-                    review_reason="Package target missing static Tier 1 execution",
-                )
-            )
+        all_findings.extend(
+            build_static_tier1_skip_findings(target=target, artifact_type=detection.artifact_type.value)
+        )
 
 
     # ── Final verdict ─────────────────────────────────────────
@@ -673,43 +386,25 @@ def scan(
         trust_score=supply_chain_trust_score,
     )
 
-    partial_pipeline = any(
-        f.finding_id.startswith("PIPELINE-") and f.needs_human_review for f in all_findings
+    apply_partial_scan_safety_floor(pri_result, all_findings)
+
+    modules_skipped = derive_modules_skipped(
+        artifact_type=detection.artifact_type.value,
+        modules_ran=modules_ran,
+        file_path=str(file_path) if file_path else None,
+        mcp_dynamic_enabled=mcp_dynamic,
     )
-    if partial_pipeline and pri_result.score <= 15:
-        pri_result.score = 16
-        pri_result.verdict = Verdict.CAUTION
-        pri_result.breakdown.append(
-            "  [yellow]⚠ Partial Scan Safety Floor[/yellow] → raised minimum score to [bold]16/100[/bold]"
-        )
+    coverage_complete, coverage_notes = derive_coverage_contract(all_findings, modules_skipped)
 
-    modules_skipped: list[str] = []
-    if "package" in detection.artifact_type.value.lower() and "supply_chain" not in modules_ran:
-        modules_skipped.append("supply_chain")
-    if "package" in detection.artifact_type.value.lower():
-        for module_name in ["code", "config", "repo", "mcp"]:
-            if module_name not in modules_ran:
-                modules_skipped.append(module_name)
-    if "ai_triage" not in modules_ran:
-        modules_skipped.append("ai_triage")
-    if file_path and os.path.isfile(str(file_path)) and "mcp" not in modules_ran:
-        modules_skipped.append("mcp")
-    if (
-        file_path
-        and os.path.isfile(str(file_path))
-        and "mcp" in modules_ran
-        and "mcp_dynamic" not in modules_ran
-    ):
-        if not mcp_dynamic:
-            modules_skipped.append("mcp_dynamic")
-
-    summary = _build_summary(
+    summary = build_scan_summary(
         target=target,
         artifact_type=detection.artifact_type.value,
         findings=all_findings,
         pri_score=pri_result.score,
         modules_ran=modules_ran,
         modules_skipped=modules_skipped,
+        coverage_complete=coverage_complete,
+        coverage_notes=coverage_notes,
         scan_duration=scan_duration,
         vt_result=vt_dict,
         trust_score=supply_chain_trust_score,
@@ -730,100 +425,23 @@ def scan(
 
     # ── Step 11: Export Report ───────────────────────────────────────────
     if report_format != ReportFormat.TERMINAL:
-        from suscheck.core.reporter import ReportGenerator
-
-        content = ""
-        if report_format == ReportFormat.JSON:
-            import json
-            from dataclasses import asdict
-
-            def enum_converter(obj):
-                if isinstance(obj, Enum):
-                    return obj.value
-                raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-            content = json.dumps(asdict(summary), default=enum_converter, indent=2)
-        elif report_format == ReportFormat.MARKDOWN:
-            content = ReportGenerator.generate_markdown(summary)
-        elif report_format == ReportFormat.HTML:
-            content = ReportGenerator.generate_html(summary)
-
-        report_path = output
-        if not report_path and report_format != ReportFormat.TERMINAL:
-            config_mgr = ConfigManager()
-            from suscheck.core.reporter import ReportGenerator
-            
-            # Generate a default timestamped path if no output path provided
-            use_timestamp = config_mgr.get("reporting.timestamped", True)
-            report_path = ReportGenerator.get_default_path(
-                target, 
-                report_format, 
-                report_dir or config_mgr.get("reporting.default_dir"),
-                timestamped=use_timestamp
+        use_timestamp = config_mgr.get("reporting.timestamped", True)
+        try:
+            report_path = export_report(
+                summary=summary,
+                target=target,
+                report_format=report_format,
+                output=output,
+                report_dir=report_dir,
+                default_report_dir=config_mgr.get("reporting.default_dir"),
+                use_timestamp=use_timestamp,
             )
-
-        if report_path:
-            try:
-                report_path.write_text(content, encoding="utf-8")
+            if report_path:
                 console.print(f"\n[bold green]✓[/bold green] Report saved to: [cyan]{report_path}[/cyan]")
-            except Exception as e:
-                console.print(f"\n[bold red]✗[/bold red] Failed to save report: {e}")
-        else:
-            # If no output path, print to stdout (helpful for piping)
-            print(content)
+        except Exception as e:
+            console.print(f"\n[bold red]✗[/bold red] Failed to save report: {e}")
 
     return summary
-
-
-
-def _build_summary(
-    target: str,
-    artifact_type: str,
-    findings: list[Finding],
-    pri_score: int,
-    modules_ran: list[str],
-    modules_skipped: list[str] | None = None,
-    scan_duration: float = 0.0,
-    vt_result: dict | None = None,
-    trust_score: float | None = None,
-    verdict: Verdict | None = None,
-    pri_breakdown: list[str] | None = None,
-) -> ScanSummary:
-    """Build a ScanSummary from current scan state."""
-    # Prefer an explicit verdict (from RiskAggregator) when provided,
-    # but fall back to deriving it from the PRI score so callers that
-    # do not use RiskAggregator remain supported.
-    if verdict is None:
-        if pri_score <= 15:
-            verdict = Verdict.CLEAR
-        elif pri_score <= 40:
-            verdict = Verdict.CAUTION
-        elif pri_score <= 70:
-            verdict = Verdict.HOLD
-        else:
-            verdict = Verdict.ABORT
-
-    return ScanSummary(
-        target=target,
-        artifact_type=artifact_type,
-        pri_score=pri_score,
-        verdict=verdict,
-        findings=findings,
-        total_findings=len(findings),
-        critical_count=sum(1 for f in findings if f.severity == Severity.CRITICAL),
-        high_count=sum(1 for f in findings if f.severity == Severity.HIGH),
-        medium_count=sum(1 for f in findings if f.severity == Severity.MEDIUM),
-        low_count=sum(1 for f in findings if f.severity == Severity.LOW),
-        info_count=sum(1 for f in findings if f.severity == Severity.INFO),
-        review_count=sum(1 for f in findings if f.needs_human_review),
-        scan_duration=scan_duration,
-        modules_ran=modules_ran,
-        modules_skipped=modules_skipped or [],
-        vt_result=vt_result,
-        trust_score=trust_score,
-        pri_breakdown=pri_breakdown or [],
-    )
-
 
 @app.command()
 def explain(file: str = typer.Argument(help="File to explain")):
@@ -1001,6 +619,22 @@ def install(
         report_dir=None,
     )
 
+    if should_block_on_partial_coverage(summary, force):
+        console.print(
+            Panel(
+                (
+                    "[bold red]Installation blocked by SusCheck.[/bold red]\n\n"
+                    "Scan coverage is partial, so install is blocked by policy.\n"
+                    "Review coverage notes and findings before trusting this package.\n\n"
+                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                ),
+                title="🚫 Install Blocked (Partial Coverage)",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
     # Block installs when PRI is above the CAUTION band unless --force is used.
     if summary.pri_score > 40 and not force:
         verdict_label = summary.verdict.value.upper()
@@ -1069,6 +703,22 @@ def clone(
         report_dir=None,
     )
 
+    if should_block_on_partial_coverage(summary, force):
+        console.print(
+            Panel(
+                (
+                    "[bold red]Clone blocked by SusCheck.[/bold red]\n\n"
+                    "Scan coverage is partial, so clone is blocked by policy.\n"
+                    "Review coverage notes and findings before cloning this repository.\n\n"
+                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                ),
+                title="🚫 Clone Blocked (Partial Coverage)",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
     # Block clone when PRI indicates anything other than CLEAR, unless forced.
     if summary.pri_score > 15 and not force:
         verdict_label = summary.verdict.value.upper()
@@ -1136,6 +786,22 @@ def connect(
         report_dir=None,
     )
 
+    if should_block_on_partial_coverage(summary, force):
+        console.print(
+            Panel(
+                (
+                    "[bold red]Connection blocked by SusCheck.[/bold red]\n\n"
+                    "Scan coverage is partial, so MCP connection is blocked by policy.\n"
+                    "Review coverage notes and findings before connecting this server.\n\n"
+                    f"Coverage notes:\n- " + "\n- ".join(summary.coverage_notes)
+                ),
+                title="🚫 Connect Blocked (Partial Coverage)",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        raise typer.Exit(1)
+
     # For MCP connections we mirror the repo policy: only CLEAR is allowed
     # by default; anything higher requires explicit human override.
     if summary.pri_score > 15 and not force:
@@ -1184,6 +850,7 @@ def connect(
                 padding=(1, 2),
             )
         )
+
 
 @app.command()
 def version():

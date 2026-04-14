@@ -24,6 +24,39 @@ class TrustEngine(ScannerModule):
         "matplotlib", "scipy", "scikit-learn", "tensorflow", "pytorch"
     }
 
+    def _extract_cvss_score(self, advisory: dict) -> float | None:
+        """Best-effort CVSS extraction from deps.dev advisory payloads."""
+        candidates = [
+            advisory.get("cvss"),
+            advisory.get("cvssScore"),
+            advisory.get("severityScore"),
+        ]
+        for value in candidates:
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                try:
+                    return float(value)
+                except ValueError:
+                    continue
+        return None
+
+    def _severity_for_advisory(self, advisory: dict, advisory_type: str, path_depth: int) -> Severity:
+        """Map advisory impact using CVSS first, then depth-aware defaults."""
+        cvss = self._extract_cvss_score(advisory)
+        if cvss is not None:
+            if cvss >= 9.0:
+                return Severity.CRITICAL
+            if cvss >= 7.0:
+                return Severity.HIGH
+            if cvss >= 4.0:
+                return Severity.MEDIUM
+            return Severity.LOW
+
+        if advisory_type == "TRANSITIVE" and path_depth >= 3:
+            return Severity.MEDIUM
+        return Severity.HIGH
+
     @property
     def name(self) -> str:
         return "supply_chain"
@@ -274,34 +307,78 @@ class TrustEngine(ScannerModule):
                     return "unknown path"
 
                 # 9. CVEs & Transitive Deps (10% + weighting)
-                cve_count = 0
                 advisories_found = []
-                
-                # Check root advisories
-                if deps_result.advisories:
-                    for adv in deps_result.advisories:
-                        advisories_found.append({
+                seen_adv_keys = set()
+
+                # Root package advisories from dependency API response.
+                for adv in deps_result.advisories or []:
+                    adv_key = f"root::{adv.get('sourceID') or adv.get('id') or repr(adv)}"
+                    if adv_key in seen_adv_keys:
+                        continue
+                    seen_adv_keys.add(adv_key)
+                    advisories_found.append(
+                        {
                             "cve": adv,
                             "path": pkg_name,
-                            "type": "DIRECT"
-                        })
-                
-                # Check Transitive advisories (Note: v1 checks nodes returned in the graph)
-                # In a production tool, we'd batch-check all transitive nodes via OSV API.
-                # For now, we report what deps.dev provides in the root context.
-                
+                            "type": "DIRECT",
+                            "depth": 1,
+                        }
+                    )
+
+                # Expand to dependency nodes (direct + transitive) with capped lookups.
+                max_nodes = 30
+                nodes_scanned = 0
+                for dep in deps_result.dependencies:
+                    if dep.package_name == pkg_name:
+                        continue
+                    if dep.version in {"", "unknown", None}:
+                        continue
+                    if nodes_scanned >= max_nodes:
+                        break
+
+                    dep_advisories = deps_client.get_advisories("pypi", dep.package_name, dep.version)
+                    nodes_scanned += 1
+                    if not dep_advisories:
+                        continue
+
+                    path = get_path_to(dep.node_id)
+                    depth = len(path.split(" -> ")) if path != "unknown path" else 0
+                    adv_type = "DIRECT" if dep.is_direct else "TRANSITIVE"
+                    for adv in dep_advisories:
+                        adv_identifier = adv.get("sourceID") or adv.get("id") or repr(adv)
+                        adv_key = f"{dep.package_name}@{dep.version}::{adv_identifier}"
+                        if adv_key in seen_adv_keys:
+                            continue
+                        seen_adv_keys.add(adv_key)
+                        advisories_found.append(
+                            {
+                                "cve": adv,
+                                "path": path,
+                                "type": adv_type,
+                                "depth": depth,
+                                "package": dep.package_name,
+                                "version": dep.version,
+                            }
+                        )
+
                 cve_count = len(advisories_found)
                 if cve_count > 0:
                     score_components["cves"] = max(0.0, 1.0 - (cve_count * 0.4))
                     for adv_item in advisories_found:
                         cve = adv_item["cve"]
                         path = adv_item["path"]
+                        adv_type = adv_item["type"]
+                        path_depth = adv_item.get("depth", 0)
+                        severity = self._severity_for_advisory(cve, adv_type, path_depth)
                         
                         finding_title = f"Known CVE: {cve.get('sourceID')}"
                         finding_desc = cve.get("title", "Stability/Security vulnerability")
                         
                         # Forensic Chain Reconstruction (Checkpoint 1a Section 8)
-                        finding_desc = f"Vulnerability chain: {path}\nDetails: {finding_desc}"
+                        finding_desc = (
+                            f"Vulnerability chain ({adv_type}, depth {path_depth}): {path}\n"
+                            f"Details: {finding_desc}"
+                        )
                             
                         findings.append(
                             Finding(
@@ -309,16 +386,39 @@ class TrustEngine(ScannerModule):
                                 finding_id=f"TRUST-CVE-{cve.get('sourceID')}",
                                 title=finding_title,
                                 description=finding_desc,
-                                severity=Severity.HIGH,
+                                severity=severity,
                                 finding_type=FindingType.CVE,
                                 confidence=1.0,
                                 evidence={
                                     "transitive_path": path,
+                                    "advisory_type": adv_type,
+                                    "path_depth": path_depth,
+                                    "package": adv_item.get("package", pkg_name),
+                                    "version": adv_item.get("version", meta.version),
                                     "cve_id": cve.get('sourceID'),
                                     "cvss": cve.get('cvss')
                                 }
                             )
                         )
+
+                if nodes_scanned >= max_nodes and len(deps_result.dependencies) > max_nodes:
+                    findings.append(
+                        Finding(
+                            module="trust_engine",
+                            finding_id="TRUST-TRANSITIVE-SCAN-CAPPED",
+                            title="Transitive advisory lookup capped",
+                            description=(
+                                f"Scanned {max_nodes} dependency nodes out of "
+                                f"{len(deps_result.dependencies)} to control lookup cost."
+                            ),
+                            severity=Severity.LOW,
+                            finding_type=FindingType.REVIEW_NEEDED,
+                            confidence=0.9,
+                            evidence={"scanned_nodes": max_nodes, "total_nodes": len(deps_result.dependencies)},
+                            needs_human_review=True,
+                            review_reason="Partial transitive advisory lookup due to lookup cap",
+                        )
+                    )
                 
                 # Signal depth of transitive mapping
                 if deps_result.dependencies:
@@ -332,11 +432,15 @@ class TrustEngine(ScannerModule):
                             module="trust_engine",
                             finding_id="TRUST-TRANSITIVE-INDEX",
                             title=f"Indexed {len(deps_result.dependencies)} transitive dependencies",
-                            description=f"Full graph analyzed. Root package chain depth: {depth} levels.",
+                            description=f"Dependency graph analyzed. Root package chain depth: {depth} levels.",
                             severity=Severity.INFO,
                             finding_type=FindingType.TRANSITIVE_DEPENDENCY,
                             confidence=1.0,
-                            evidence={"dependency_count": len(deps_result.dependencies), "max_depth": depth}
+                            evidence={
+                                "dependency_count": len(deps_result.dependencies),
+                                "max_depth": depth,
+                                "advisory_nodes_scanned": nodes_scanned,
+                            }
                         )
                     )
 

@@ -121,6 +121,8 @@ class ScanSummary:
     scan_duration: float
     modules_ran: list[str]
     modules_skipped: list[str] = field(default_factory=list)
+    coverage_complete: bool = True
+    coverage_notes: list[str] = field(default_factory=list)
     vt_result: Optional[dict] = None
     trust_score: Optional[float] = None
     pri_breakdown: list[str] = field(default_factory=list)

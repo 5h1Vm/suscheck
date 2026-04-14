@@ -237,11 +237,16 @@ def render_scan_footer(summary: ScanSummary) -> None:
     """Render scan footer with timing and module info."""
     modules = ", ".join(summary.modules_ran) if summary.modules_ran else "none"
     skipped = ", ".join(summary.modules_skipped) if summary.modules_skipped else "none"
+    coverage = "complete" if summary.coverage_complete else "partial"
 
     console.print(
         f"\n[dim]Scan completed in {summary.scan_duration:.2f}s | "
-        f"Modules: {modules} | Skipped: {skipped}[/dim]\n"
+        f"Modules: {modules} | Skipped: {skipped} | Coverage: {coverage}[/dim]\n"
     )
+
+    if summary.coverage_notes:
+        notes = "\n".join(f"- {note}" for note in summary.coverage_notes)
+        console.print(Panel(notes, title="Coverage Notes", border_style="yellow", padding=(0, 1)))
 
 
 def _build_score_bar(score: int, width: int = 30) -> str:
