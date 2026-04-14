@@ -1,80 +1,94 @@
 # SusCheck: Zero-Trust Pre-Execution Orchestrator
 
-**Audit before you execute.** SusCheck is a professional-grade security utility designed to orchestrate deep forensic analysis of software artifacts (packages, scripts, binaries, and repositories) before they touch your production environment.
+**SusCheck** is a modular, high-fidelity security orchestration platform designed to audit code, configurations, and supply chains *before* execution. High-performance security for modern DevOps workflows.
 
-![Security: Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red)
-[![Status: Gold Master](https://img.shields.io/badge/Status-Gold%20Master-gold)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-green)]()
+> "Don't execute what you haven't audited. Zero-trust starts at the command line."
 
 ---
 
-## 🛠️ The Mission
-Modern software supply chains are compromised by default. From dependency confusion to polyglot masquerading, static analysis is no longer enough. SusCheck provides a **Unified Forensic Brain** that aggregates industry-standard engines (Semgrep, Gitleaks, Checkov) and AI-driven triage to produce a definitive **Platform Risk Index (PRI)**.
+## 🚀 The Core Vision
 
-## 🚀 Key Forensic Capabilities
-- **Multi-Engine Orchestration**: Simultaneous scanning for secrets, vulnerabilities, and IaC misconfigurations.
-- **Polyglot & Masquerading Detection**: Identification of MITRE T1036.008 threats (file header/extension mismatches).
-- **AI Triage Layer**: Automated indicator correlation and false-positive reduction using fallback-resilient LLM orchestration.
-- **Tier 0 Reputation**: Real-time VirusTotal integration and hash reputation checks.
-- **Zero-Trust Verdicts**: Hardened deployment recommendations (Clear, Caution, Hold, Abort) based on a weighted 18-step security model.
+SusCheck moves security to the **point of intent**. Whether you are cloning a repository, installing a package, or connecting an MCP server, SusCheck acts as an intelligent gatekeeper, calculating a real-time **Platform Risk Index (PRI)** to prevent supply chain compromise and execution of malicious code.
 
----
-
-## ⚡ Quickstart
-
-### 1. Initialize Environment
-```bash
-bash setup.sh
-source .venv/bin/activate
-```
-
-### 2. Configure Indicators
-Configure your `.env` with API keys for enhanced intelligence:
-```bash
-# AI Provider (SambaNova/Groq/OpenRouter fallback supported)
-SUSCHECK_AI_API_KEY=your_key_here
-
-# Threat Intelligence
-SUSCHECK_VT_API_KEY=your_key_here
-
-# Scanning Constraints
-SUSCHECK_SCANNING_MAX_FILE_SIZE_MB=50
-```
-
-### 3. Execute Forensic Scan
-```bash
-# Scan a local repository
-suscheck scan ./target-repo
-
-# Scan a specific file
-suscheck scan malware.py
-
-# Explain a specific finding
-suscheck explain FINDING_ID
-```
+### Platform Key Pillars
+1. **Multi-Engine Orchestration**: Unified interface for Semgrep, Bandit, Checkov, Gitleaks, and KICS.
+2. **AI-Driven Triage**: Context-aware risk adjustment using advanced LLM analysis (Groq, Anthropic, Gemini).
+3. **9-Category Supply Chain Trust**: Deep auditing of package metadata, typosquatting, and registry health.
+4. **Recursive Decoding**: Intelligent unwrapping of obfuscated payloads and multi-stage droppers.
+5. **Transitive Dependency Chain**: Automated tracking of the entire 'phantom' supply chain.
 
 ---
 
-## 🧠 The Core Security Model
-SusCheck operates on a tiered forensic model derived from real-world adversarial tactics.
+## 🛡️ The 3-Tier Pipeline
 
-| Tier | Name | Focus |
+SusCheck executes a deterministic 10-step algorithm to derive the PRI:
+
+1.  **Tier 0 (Reputation)**: VirusTotal, AbuseIPDB, and registry-level health checks.
+2.  **Tier 1 (Static Analysis)**: Deep scan using Semgrep, Bandit, and Checkov.
+3.  **Tier 2 (AI Adjustment)**: Intelligent triage to reduce false positives and identify complex logic bombs.
+
+---
+
+## 🛠️ Usage
+
+### Quick Scan
+```bash
+# Scan a local directory or file
+suscheck scan ./my-project
+
+# Scan a remote repository URL
+suscheck scan https://github.com/user/repo
+```
+
+### Proactive Installation (Wrapper Mode)
+Audit packages before they touch your system.
+```bash
+suscheck install pip requests
+suscheck install npm lodash
+```
+
+### Safe Cloning
+```bash
+suscheck clone https://github.com/unsafe/exploit-poc
+```
+
+---
+
+## 📊 Platform Risk Index (PRI)
+
+| Score | Verdict | Action Required |
 | :--- | :--- | :--- |
-| **0** | Reputation | Hashes, VT Detections, Known IoCs |
-| **1** | Static Audit | Secrets, CVEs, Misconfigurations, Masquerading |
-| **2** | AI Triage | Threat Correlation, Behavioral Heuristics |
-| **3** | Aggregation | Weighted Scoring (PRI) & Hardened Verdicts |
-
-Core model and governance artifacts are maintained in local project archives.
+| **0 - 15** | [green]SECURE[/green] | Safe to proceed. |
+| **16 - 40** | [yellow]CAUTION[/yellow] | Minor findings. Manual review recommended. |
+| **41 - 70** | [orange]HOLD[/orange] | Significant risks detected. Wrapper blocks execution. |
+| **71 - 100** | [red]ABORT[/red] | Malicious intent or critical vulnerabilities found. |
 
 ---
 
-## 📂 Documentation Status
-- The GitHub ship unit is intentionally limited to runtime code and tests.
-- Historical docs, registry notes, and stress artifacts were moved to:
-	`/home/shivam/Minor02/archive/suscheck_nonship/`
-- A lightweight in-repo manual can be reintroduced later once structure freeze is complete.
+## ⚙️ Setup & Requirements
+
+### 1. Installation
+```bash
+git clone https://github.com/shivam/suscheck
+cd suscheck
+bash setup.sh
+```
+
+### 2. Mandatory Engines
+To reach full orchestration potential, ensure the following are installed (handled by `setup.sh`):
+- **Bandit**: Python SAST
+- **Checkov**: Infrastructure as Code (IaC) Security
+- **Semgrep**: General-purpose static analysis
+- **Gitleaks**: Secret detection
+
+### 3. API Keys (optional but recommended)
+Add these to your `.env` for Tier 0 and Tier 2 capabilities:
+- `SUSCHECK_AI_API_KEY`: For AI Triage
+- `SUSCHECK_VT_API_KEY`: For VirusTotal Reputation
 
 ---
 
-**SusCheck** | Developed for the community. Stay paranoid.
+## 🤝 Contributing
+SusCheck is built for the security community. We prioritize accuracy, speed, and transparency.
+
+**Note**: This project is strictly for security research and pre-execution auditing. Always use in compliance with local regulations.

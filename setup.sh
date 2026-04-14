@@ -2,7 +2,119 @@
 # SusCheck (v1.0.0 Gold) — Universal Setup Script
 # Automated environment initialization for Forensic Pre-execution Security Platform
 
-set -e
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_BIN="$ROOT_DIR/.venv/bin"
+
+provision_kics() {
+    local archive_path="${1:-}"
+    local install_dir="$VENV_BIN"
+
+    if [[ ! -d "$install_dir" ]]; then
+        echo "ERROR: Virtual environment bin not found at: $install_dir"
+        return 1
+    fi
+
+    if command -v kics >/dev/null 2>&1; then
+        echo "      ✓ Found local KICS binary: $(command -v kics)"
+        return 0
+    fi
+
+    install_from_archive() {
+        local archive="$1"
+        if [[ -z "$archive" || ! -f "$archive" ]]; then
+            return 1
+        fi
+
+        local tmp_dir
+        tmp_dir="$(mktemp -d)"
+
+        set +e
+        python3 - "$archive" "$tmp_dir" <<'PY'
+import stat
+import sys
+import tarfile
+import zipfile
+from pathlib import Path
+
+archive = Path(sys.argv[1])
+out_dir = Path(sys.argv[2])
+
+def is_candidate(name: str) -> bool:
+    return Path(name).name == "kics"
+
+def extract_candidate_from_zip(path: Path, dst: Path) -> bool:
+    with zipfile.ZipFile(path) as zf:
+        for member in zf.infolist():
+            if member.is_dir() or not is_candidate(member.filename):
+                continue
+            zf.extract(member, dst)
+            extracted = dst / member.filename
+            target = dst / "kics"
+            target.write_bytes(extracted.read_bytes())
+            return True
+    return False
+
+def extract_candidate_from_tar(path: Path, dst: Path) -> bool:
+    with tarfile.open(path) as tf:
+        for member in tf.getmembers():
+            if member.isdir() or not is_candidate(member.name):
+                continue
+            extracted = tf.extractfile(member)
+            if extracted is None:
+                continue
+            (dst / "kics").write_bytes(extracted.read())
+            return True
+    return False
+
+ok = False
+name = archive.name.lower()
+if name.endswith(".zip"):
+    ok = extract_candidate_from_zip(archive, out_dir)
+elif name.endswith(".tar.gz") or name.endswith(".tgz") or name.endswith(".tar"):
+    ok = extract_candidate_from_tar(archive, out_dir)
+
+if not ok:
+    raise SystemExit(2)
+
+target = out_dir / "kics"
+target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+PY
+        local py_status=$?
+        set -e
+
+        if [[ $py_status -ne 0 || ! -f "$tmp_dir/kics" ]]; then
+            rm -rf "$tmp_dir"
+            return 2
+        fi
+
+        cp "$tmp_dir/kics" "$install_dir/kics"
+        chmod +x "$install_dir/kics"
+        rm -rf "$tmp_dir"
+
+        echo "      ✓ Installed KICS binary: $install_dir/kics"
+        "$install_dir/kics" version >/dev/null 2>&1 || true
+        return 0
+    }
+
+    if install_from_archive "$archive_path"; then
+        return 0
+    fi
+
+    if [[ -n "$archive_path" ]]; then
+        echo "      ⚠️  Provided archive did not include standalone 'kics' binary."
+    fi
+
+    if command -v docker >/dev/null 2>&1; then
+        docker pull checkmarx/kics:latest >/dev/null
+        echo "      ✓ Docker KICS runtime ready (checkmarx/kics:latest)"
+        return 0
+    fi
+
+    echo "      ✗ Could not provision KICS (no valid archive and Docker unavailable)."
+    return 3
+}
 
 echo "--------------------------------------------------"
 echo "   SusCheck: Forensic Pre-execution Orchestrator   "
@@ -34,10 +146,8 @@ echo "[3/5] Installing security engines and core dependencies..."
 echo "[4/5] Provisioning KICS runtime for IaC forensics..."
 # Optional local archive path can be provided through env
 # e.g. SUSCHECK_KICS_ARCHIVE=/path/to/kics-binary.zip bash setup.sh
-if [ -n "${SUSCHECK_KICS_ARCHIVE:-}" ]; then
-    bash scripts/install_kics.sh "$SUSCHECK_KICS_ARCHIVE" > /dev/null || echo "      ⚠️  KICS provisioning failed."
-else
-    bash scripts/install_kics.sh > /dev/null || echo "      ⚠️  KICS provisioning failed."
+if ! provision_kics "${SUSCHECK_KICS_ARCHIVE:-}"; then
+    echo "      ⚠️  KICS provisioning failed. You can still run scans without KICS."
 fi
 
 # 5. Final Diagnostic

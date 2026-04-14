@@ -86,7 +86,7 @@ def test_scan_repository_url_runs_temp_clone_path(monkeypatch) -> None:
         return []
 
     monkeypatch.setattr("suscheck.services.scan_service.subprocess.run", _fake_run)
-    monkeypatch.setattr("suscheck.cli.ScanPipeline.scan_directory", _fake_scan_directory)
+    monkeypatch.setattr("suscheck.commands.scan_commands.ScanPipeline.scan_directory", _fake_scan_directory)
 
     result = runner.invoke(app, ["scan", "https://github.com/example/repo"])
 
@@ -153,7 +153,7 @@ def test_scan_local_file_fans_out_tier1_scanners(monkeypatch, tmp_path: Path) ->
                 confidence=1.0,
             )
 
-    monkeypatch.setattr("suscheck.cli.AutoDetector", _Detector)
+    monkeypatch.setattr("suscheck.commands.scan_commands.AutoDetector", _Detector)
 
     monkeypatch.setattr("suscheck.services.scan_service.MCPScanner.can_handle", lambda self, _atype, _path: True)
     monkeypatch.setattr(
