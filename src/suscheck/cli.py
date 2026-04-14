@@ -24,6 +24,7 @@ from suscheck.services.summary_service import (
     derive_modules_skipped,
 )
 from suscheck.services.report_service import export_report
+from suscheck.services.analysis_service import execute_ai_triage_phase, execute_package_trust_phase
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
@@ -317,66 +318,23 @@ def scan(
     # ── Final verdict ─────────────────────────────────────────
     scan_duration = time.time() - scan_start
 
-    supply_chain_trust_score: float | None = None
+    supply_chain_trust_score, trust_findings, modules_ran = execute_package_trust_phase(
+        target=target,
+        artifact_type=detection.artifact_type.value,
+        modules_ran=modules_ran,
+        console=console,
+    )
+    if trust_findings:
+        all_findings.extend(trust_findings)
 
-    ai_pri_delta = 0.0
-    tres = None
-
-    # ── Supply chain trust (package targets only) ────────────────────────────
-    # Integrate TrustEngine into the main scan so that a low Trust Score
-    # meaningfully raises PRI and a very high Trust Score can slightly reduce it.
-    if "package" in detection.artifact_type.value.lower():
-        from suscheck.modules.supply_chain.trust_engine import TrustEngine
-
-        trust_engine = TrustEngine()
-        if ":" in target:
-            full_target = target
-        else:
-            ecosystem = "pypi"
-            full_target = f"{ecosystem}:{target}"
-
-        with console.status(
-            f"Querying supply chain trust for {full_target}...",
-            spinner="dots",
-        ):
-            trust_res = trust_engine.scan(full_target)
-
-        if trust_res.error:
-            console.print(
-                f"[yellow]Supply chain trust scan skipped:[/yellow] {trust_res.error}"
-            )
-        else:
-            supply_chain_trust_score = trust_res.trust_score
-            if trust_res.findings:
-                all_findings.extend(trust_res.findings)
-            if "supply_chain" not in modules_ran:
-                modules_ran.append("supply_chain")
-
-    if not no_ai and all_findings:
-        from suscheck.ai.triage_engine import run_ai_triage
-
-        tres = run_ai_triage(
-            all_findings,
-            target=target,
-            artifact_type=detection.artifact_type.value,
-            console=console,
-        )
-        ai_pri_delta = tres.pri_adjustment
-        if tres.ran:
-            modules_ran.append("ai_triage")
-            note_lines = [
-                f"[bold]{f.finding_id}[/bold]: {f.ai_explanation}"
-                for f in all_findings
-                if f.ai_explanation
-            ]
-            if note_lines:
-                console.print(
-                    Panel(
-                        "\n\n".join(note_lines[:24]),
-                        title="AI Triage",
-                        border_style="magenta",
-                    )
-                )
+    ai_pri_delta, modules_ran = execute_ai_triage_phase(
+        no_ai=no_ai,
+        findings=all_findings,
+        target=target,
+        artifact_type=detection.artifact_type.value,
+        modules_ran=modules_ran,
+        console=console,
+    )
 
     aggregator = RiskAggregator(detection.artifact_type.value)
     pri_result = aggregator.calculate(
