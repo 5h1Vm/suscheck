@@ -6,6 +6,7 @@ Orchestrates KICS and uses custom heuristics for malicious CI deployments.
 
 import re
 import time
+import os
 from pathlib import Path
 
 from suscheck.core.finding import Finding, FindingType, Severity
@@ -50,20 +51,37 @@ class ConfigScanner(ScannerModule):
             # 1. Custom Rules for Configuration Overreach
             findings.extend(self._scan_custom_rules(target_path))
 
-            # 2. Orchestrate IaC Tools (Checkov primary, KICS fallback)
-            checkov = CheckovOrchestrator()
-            if checkov.is_installed:
-                ch_res = checkov.scan_file(str(target_path))
-                findings.extend(ch_res.findings)
-                errors.extend(ch_res.errors)
+            # 2. Orchestrate IaC tools.
+            # SUSCHECK_IAC_SCANNERS controls behavior:
+            #   - both (default): run Checkov + KICS
+            #   - checkov: run only Checkov
+            #   - kics: run only KICS
+            mode = os.environ.get("SUSCHECK_IAC_SCANNERS", "both").strip().lower()
+            if mode not in {"both", "checkov", "kics"}:
+                mode = "both"
 
-            orchestrator = KicsOrchestrator()
-            if orchestrator.is_installed:
-                kics_res = orchestrator.scan_file(str(target_path))
-                if kics_res.findings:
-                    findings.extend(kics_res.findings)
-                if kics_res.errors:
-                    errors.extend(kics_res.errors)
+            run_checkov = mode in {"both", "checkov"}
+            run_kics = mode in {"both", "kics"}
+
+            if run_checkov:
+                checkov = CheckovOrchestrator()
+                if checkov.is_installed:
+                    ch_res = checkov.scan_file(str(target_path))
+                    findings.extend(ch_res.findings)
+                    errors.extend(ch_res.errors)
+                else:
+                    errors.append("Checkov not installed. Set SUSCHECK_IAC_SCANNERS=kics to skip this warning.")
+
+            if run_kics:
+                orchestrator = KicsOrchestrator()
+                if orchestrator.is_installed:
+                    kics_res = orchestrator.scan_file(str(target_path))
+                    if kics_res.findings:
+                        findings.extend(kics_res.findings)
+                    if kics_res.errors:
+                        errors.extend(kics_res.errors)
+                else:
+                    errors.append("KICS not installed. Use Docker fallback or set SUSCHECK_KICS_PATH.")
 
         except Exception as e:
             errors.append(f"Config scanner failed completely: {str(e)}")
@@ -157,7 +175,7 @@ class ConfigScanner(ScannerModule):
                             title="Potential Hardcoded Secret in Dockerfile",
                             description="Sensitive keyword found in ENV or ARG command. Secrets should be passed via mounts or secure providers, not baked into images.",
                             severity=Severity.HIGH,
-                            finding_type=FindingType.CREDENTIAL_EXPOSURE,
+                            finding_type=FindingType.SECRET_EXPOSURE,
                             confidence=0.85,
                             file_path=str(file_path),
                             line_number=i,

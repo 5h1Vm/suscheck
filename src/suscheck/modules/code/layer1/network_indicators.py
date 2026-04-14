@@ -8,7 +8,7 @@ Extracts network indicators from source code and classifies them:
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from suscheck.core.finding import Finding, FindingType, Severity

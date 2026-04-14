@@ -4,10 +4,11 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional
 
 import typer
 from dotenv import load_dotenv
@@ -24,7 +25,6 @@ from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
 from suscheck.modules.mcp.scanner import MCPScanner
 from suscheck.modules.repo.scanner import RepoScanner
-from suscheck.modules.supply_chain.auditor import SupplyChainAuditor
 from suscheck.modules.reporting.terminal import (
     render_findings,
     render_scan_footer,
@@ -33,12 +33,12 @@ from suscheck.modules.reporting.terminal import (
     render_vt_result,
 )
 from suscheck.core.pipeline import ScanPipeline
-from suscheck.modules.external import Tier0Engine
+import shutil
 from suscheck.core.config_manager import ConfigManager
 from suscheck.modules.wrappers.install import install_package
 from suscheck.modules.wrappers.clone import clone_repo
 from suscheck.modules.wrappers.connect import connect_mcp
-from suscheck.core.diagnostics import DiagnosticSuite, DiagnosticResult
+from suscheck.core.diagnostics import DiagnosticSuite
 
 # ── Load .env file ────────────────────────────────────────────
 # Searches for .env in the current directory and project root.
@@ -49,7 +49,7 @@ load_dotenv()  # current directory .env (override)
 
 app = typer.Typer(
     name="suscheck",
-    help="sus check — Pre-execution security scanning platform. Scan before you trust.",
+    help="SusCheck | Zero-Trust Pre-Execution Orchestrator. Audit before you execute.",
     no_args_is_help=True,
     rich_markup_mode="rich",
     context_settings={"help_option_names": ["-h", "--help", "-help"]},
@@ -87,12 +87,22 @@ def scan(
     scan_start = time.time()
 
     # --- Step 0: Auto-Detection (Immediate) ---
-    target_path = Path(target)
+    target_path = Path(target).resolve()
     config_mgr = ConfigManager()
+    
+    # Global Existence Check
+    if not target_path.exists() and not any(target.startswith(p) for p in ["http://", "https://"]):
+         # Check if it might be a package name (no dots, no slashes)
+         is_likely_package = "/" not in target and "\\" not in target and "." not in target
+         if not is_likely_package:
+             console.print(f"\n[bold red]FATAL: Artifact not found at source:[/bold red] {target}")
+             console.print("[dim]Ensure the path is correct or specify a valid package name.[/dim]")
+             sys.exit(1)
+
     detector = AutoDetector(config_mgr)
     detection = detector.detect(target)
     
-    # --- Step 1: Render Header with Real Info ---
+    # --- Step 1: Render Header ---
     type_display = f"{detection.artifact_type.value.upper()}"
     if detection.language != Language.UNKNOWN:
         type_display += f" ({detection.language.value.capitalize()})"
@@ -100,14 +110,6 @@ def scan(
     render_scan_header(target, type_display, __version__)
 
     pipeline = ScanPipeline(config_mgr)
-    target_path = Path(target).resolve()
-    
-    # Check if target is intended to be a local path and verify existence
-    is_explicit_local = any(target.startswith(p) for p in ["./", "../", "/"])
-    if is_explicit_local and not target_path.exists():
-        console.print(f"\n[bold red]CRITICAL: Target path not found:[/bold red] {target}")
-        console.print("[dim]If this is a package name, do not use path prefixes (e.g. use 'requests' instead of './requests')[/dim]")
-        sys.exit(1)
 
     if target_path.is_dir():
         console.print(f"\n[bold blue]Recursive directory scan initiated:[/bold blue] {target}")
@@ -132,7 +134,7 @@ def scan(
             pri_breakdown=pri_result.breakdown
         )
         
-        console.print(Panel("\n".join(pri_result.breakdown), title="Score Explanation", border_style="dim"))
+        console.print(Panel("\n".join(pri_result.breakdown), title="Heuristic Risk Vector Analysis", border_style="dim"))
         render_findings(all_findings)
         render_verdict(summary)
         render_scan_footer(summary)
@@ -202,9 +204,9 @@ def scan(
             finding_id="DETECT-MISMATCH",
             title=f"File type mismatch: {detection.mismatch_detail}",
             description=(
-                f"The file extension does not match the actual file type detected "
-                f"by magic bytes. This is a common malware evasion technique "
-                f"(e.g., renaming an EXE to .txt)."
+                "The file extension does not match the actual file type detected "
+                "by magic bytes. This is a common malware evasion technique "
+                "(e.g., renaming an EXE to .txt)."
             ),
             severity=Severity.HIGH,
             finding_type=FindingType.FILE_MISMATCH,
@@ -249,6 +251,7 @@ def scan(
     # Check if target is a file (Tier 0 only works on files)
     file_path = detection.file_path
     if file_path and os.path.isfile(str(file_path)):
+        from suscheck.modules.external.engine import Tier0Engine
         tier0 = Tier0Engine()
 
         if upload_vt:
@@ -364,71 +367,96 @@ def scan(
             repo_scanner = RepoScanner()
             mcp_scanner = MCPScanner()
 
+            tier1_findings: list[Finding] = []
+            tier1_errors: list[str] = []
+            module_results: list[tuple[str, object]] = []
+
             if mcp_scanner.can_handle(detection.artifact_type.value, str(file_path)):
-                scanner = mcp_scanner
-                code_result = scanner.scan(str(file_path))
-                modules_ran.append("mcp")
-            elif repo_scanner.can_handle(detection.artifact_type.value, str(file_path)):
-                scanner = repo_scanner
-                code_result = scanner.scan(str(file_path))
-                modules_ran.append("repo")
-            elif config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
-                scanner = config_scanner
-                code_result = scanner.scan(str(file_path))
-                modules_ran.append("config")
-            else:
-                scanner = CodeScanner()
-                code_result = scanner.scan_file(str(file_path), language=detection.language.value)
-                modules_ran.append("code")
+                module_results.append(("mcp", mcp_scanner.scan(str(file_path))))
 
-            all_findings.extend(code_result.findings)
+            if config_scanner.can_handle(detection.artifact_type.value, str(file_path)):
+                module_results.append(("config", config_scanner.scan(str(file_path))))
 
-            skipped = getattr(code_result, "skipped_reason", None)
-            if skipped:
-                if skipped == "binary_file":
-                    console.print(f"  [dim]Skipped Scanner: Binary file[/dim]")
-                elif skipped == "file_too_large":
-                    console.print(f"  [dim]Skipped Scanner: File too large (>5MB)[/dim]")
-            
-            err = getattr(code_result, "error", None)
-            if err:
-                console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
-            
+            run_code = (
+                detection.artifact_type.value in {"code", "unknown"}
+                or detection.type_mismatch
+                or detection.is_polyglot
+                or not module_results
+            )
+            if run_code:
+                code_scanner = CodeScanner()
+                module_results.append(
+                    ("code", code_scanner.scan_file(str(file_path), language=detection.language.value))
+                )
+
+            # Supplemental single-file secret pass for broad Tier 1 coverage.
+            try:
+                repo_secret_findings = repo_scanner.scan_file_secrets(str(file_path))
+                if repo_secret_findings:
+                    tier1_findings.extend(repo_secret_findings)
+                    if "repo" not in modules_ran:
+                        modules_ran.append("repo")
+            except Exception as e:
+                tier1_errors.append(f"repo secrets pass failed: {e}")
+
+            for module_name, result_obj in module_results:
+                if module_name not in modules_ran:
+                    modules_ran.append(module_name)
+
+                findings = getattr(result_obj, "findings", None) or []
+                if findings:
+                    tier1_findings.extend(findings)
+
+                skipped_reason = getattr(result_obj, "skipped_reason", None)
+                if skipped_reason == "binary_file":
+                    console.print("  [dim]Skipped Scanner: Binary file[/dim]")
+                elif skipped_reason == "file_too_large":
+                    console.print("  [dim]Skipped Scanner: File too large (>5MB)[/dim]")
+
+                error_field = getattr(result_obj, "error", None)
+                if error_field:
+                    tier1_errors.append(str(error_field))
+
+                errors_field = getattr(result_obj, "errors", None)
+                if errors_field:
+                    tier1_errors.extend([str(err) for err in errors_field if err])
+
+            if tier1_findings:
                 from suscheck.modules.external.virustotal import VirusTotalClient
                 from suscheck.modules.external.abuseipdb import AbuseIPDBClient
-                
+
                 vt_client = VirusTotalClient()
                 abuse_client = AbuseIPDBClient()
-                
+
                 unique_urls = set()
                 unique_ips = set()
-                
-                for f in code_result.findings:
-                    if f.evidence.get("type") == "url":
-                        unique_urls.add(f.evidence.get("value"))
-                    elif f.evidence.get("type") == "ipv4":
-                        unique_ips.add(f.evidence.get("value"))
-                
+
+                for finding in tier1_findings:
+                    if finding.evidence.get("type") == "url":
+                        unique_urls.add(finding.evidence.get("value"))
+                    elif finding.evidence.get("type") == "ipv4":
+                        unique_ips.add(finding.evidence.get("value"))
+
                 # Limit to 3 lookups per type to prevent rate limiting
                 if unique_urls and vt_client.available:
                     console.print(f"  [dim]Querying VirusTotal for {min(3, len(unique_urls))} URLs...[/dim]")
                     for url in list(unique_urls)[:3]:
                         vt_res = vt_client.lookup_url(url)
                         if vt_res and (vt_res.detection_count or 0) > 0:
-                            vt_finding = Finding(
-                                module="virustotal",
-                                finding_id=f"VT-URL-{abs(hash(url)) % 10000}",
-                                title=f"Malicious URL detected: {url[:30]}...",
-                                description=f"URL flagged by {vt_res.detection_count}/{vt_res.total_engines} VirusTotal engines.",
-                                severity=Severity.CRITICAL if vt_res.detection_count > 3 else Severity.HIGH,
-                                finding_type=FindingType.C2_INDICATOR,
-                                confidence=0.9,
-                                mitre_ids=["T1071"],
-                                evidence={"url": url, "detections": vt_res.detection_count}
+                            tier1_findings.append(
+                                Finding(
+                                    module="virustotal",
+                                    finding_id=f"VT-URL-{abs(hash(url)) % 10000}",
+                                    title=f"Malicious URL detected: {url[:30]}...",
+                                    description=f"URL flagged by {vt_res.detection_count}/{vt_res.total_engines} VirusTotal engines.",
+                                    severity=Severity.CRITICAL if vt_res.detection_count > 3 else Severity.HIGH,
+                                    finding_type=FindingType.C2_INDICATOR,
+                                    confidence=0.9,
+                                    mitre_ids=["T1071"],
+                                    evidence={"url": url, "detections": vt_res.detection_count},
+                                )
                             )
-                            code_result.findings.append(vt_finding)
-                            all_findings.append(vt_finding)
-                            
+
                 if unique_ips and abuse_client.is_configured:
                     console.print(f"  [dim]Querying AbuseIPDB for {min(3, len(unique_ips))} IP addresses...[/dim]")
                     for ip in list(unique_ips)[:3]:
@@ -436,10 +464,14 @@ def scan(
                         if abuse_res and abuse_res.abuse_confidence_score > 0:
                             abuse_finding = abuse_client.create_finding(abuse_res)
                             if abuse_finding:
-                                code_result.findings.append(abuse_finding)
-                                all_findings.append(abuse_finding)
+                                tier1_findings.append(abuse_finding)
 
-                render_findings(code_result.findings)
+            if tier1_findings:
+                all_findings.extend(tier1_findings)
+                render_findings(tier1_findings)
+
+            for err in tier1_errors:
+                console.print(f"  [dim]Scanner error/skipped: {err}[/dim]")
         except Exception as e:
             console.print(f"  [red]Tier 1 static scan failed: {e}[/red]")
 
@@ -501,6 +533,72 @@ def scan(
                 
         except Exception as e:
             console.print(f"  [red]Semgrep orchestration failed: {e}[/red]")
+
+    elif detection.artifact_type.value == "repository" and target.startswith(("http://", "https://", "git@")):
+        console.print("\n[bold]Tier 1: Repository Static Analysis[/bold]")
+        console.print("  [dim]Remote repository detected. Cloning to a temporary workspace for scanning...[/dim]")
+        try:
+            with tempfile.TemporaryDirectory(prefix="suscheck-repo-") as tmpdir:
+                clone_cmd = ["git", "clone", "--depth", "1", target, tmpdir]
+                clone_proc = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=180)
+                if clone_proc.returncode != 0:
+                    stderr = (clone_proc.stderr or "").strip()
+                    raise RuntimeError(stderr or "git clone failed")
+
+                repo_findings = pipeline.scan_directory(tmpdir)
+                all_findings.extend(repo_findings)
+
+                inferred_modules = pipeline.get_modules_ran(repo_findings)
+                for module_name in inferred_modules:
+                    if module_name not in modules_ran:
+                        modules_ran.append(module_name)
+
+                if repo_findings:
+                    render_findings(repo_findings)
+                else:
+                    console.print("  [dim]No static findings from remote repository scan.[/dim]")
+        except Exception as e:
+            console.print(f"  [yellow]Tier 1 repository scan skipped: {e}[/yellow]")
+            all_findings.append(
+                Finding(
+                    module="pipeline",
+                    finding_id="PIPELINE-REPO-SCAN-SKIPPED",
+                    title="Repository static scan could not be completed",
+                    description=(
+                        "Remote repository analysis failed before static scanners ran. "
+                        "Treat this result as partial and require manual review before trusting the target."
+                    ),
+                    severity=Severity.MEDIUM,
+                    finding_type=FindingType.REVIEW_NEEDED,
+                    confidence=0.95,
+                    file_path=target,
+                    evidence={"error": str(e)[:500]},
+                    needs_human_review=True,
+                    review_reason="Tier 1 repository scan failed",
+                )
+            )
+    else:
+        console.print("\n[bold]Tier 1: Static Analysis[/bold]")
+        console.print("  [dim]Tier 1 skipped: static scanners currently require a local file or repository target.[/dim]")
+        if detection.artifact_type.value == "package":
+            all_findings.append(
+                Finding(
+                    module="pipeline",
+                    finding_id="PIPELINE-PACKAGE-STATIC-SKIPPED",
+                    title="Package static Tier 1 scanners were not executed",
+                    description=(
+                        "Package trust checks ran, but static Tier 1 scanners did not run for this target type. "
+                        "Treat this as a partial scan and review manually before approval."
+                    ),
+                    severity=Severity.LOW,
+                    finding_type=FindingType.REVIEW_NEEDED,
+                    confidence=0.95,
+                    file_path=target,
+                    evidence={"artifact_type": detection.artifact_type.value},
+                    needs_human_review=True,
+                    review_reason="Package target missing static Tier 1 execution",
+                )
+            )
 
 
     # ── Final verdict ─────────────────────────────────────────
@@ -575,9 +673,23 @@ def scan(
         trust_score=supply_chain_trust_score,
     )
 
+    partial_pipeline = any(
+        f.finding_id.startswith("PIPELINE-") and f.needs_human_review for f in all_findings
+    )
+    if partial_pipeline and pri_result.score <= 15:
+        pri_result.score = 16
+        pri_result.verdict = Verdict.CAUTION
+        pri_result.breakdown.append(
+            "  [yellow]⚠ Partial Scan Safety Floor[/yellow] → raised minimum score to [bold]16/100[/bold]"
+        )
+
     modules_skipped: list[str] = []
     if "package" in detection.artifact_type.value.lower() and "supply_chain" not in modules_ran:
         modules_skipped.append("supply_chain")
+    if "package" in detection.artifact_type.value.lower():
+        for module_name in ["code", "config", "repo", "mcp"]:
+            if module_name not in modules_ran:
+                modules_skipped.append(module_name)
     if "ai_triage" not in modules_ran:
         modules_skipped.append("ai_triage")
     if file_path and os.path.isfile(str(file_path)) and "mcp" not in modules_ran:
@@ -780,13 +892,13 @@ def explain(file: str = typer.Argument(help="File to explain")):
         except:
             pass
 
-    # ── Step 1.5: Render Static Indicators ──
+    # ── Step 1.5: Render Static Indicators (Industry Engine Orchestration) ──
     if findings:
         from suscheck.modules.reporting.terminal import render_findings
-        console.print("[bold cyan]🔍 Forensic Indicators Gathered:[/bold cyan]")
+        console.print("[bold cyan]🔍 Investigative Brain: Gathered Security Indicators (Tier 0/1 Static Analysis):[/bold cyan]")
         render_findings(findings)
     else:
-        console.print("[dim]No static indicators found in baseline scan.[/dim]")
+        console.print("[dim]No static indicators (Tier 0/1) found in baseline scan.[/dim]")
 
     # ── Step 2: Read Content ──
     try:
@@ -822,7 +934,7 @@ def trust(
     ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
 ):
     """Quick supply chain trust assessment for a package."""
-    console.print(f"\n[bold blue]sus check trust[/bold blue]")
+    console.print("\n[bold blue]sus check trust[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] ({ecosystem})")
     
     from suscheck.modules.supply_chain.trust_engine import TrustEngine
@@ -858,7 +970,7 @@ def install(
     force: bool = typer.Option(False, "--force", help="Install even if scan finds issues"),
 ):
     """Scan a package, then install it if safe."""
-    console.print(f"\n[bold blue]sus check install[/bold blue]")
+    console.print("\n[bold blue]sus check install[/bold blue]")
     console.print(f"Package: [yellow]{package}[/yellow] via {ecosystem}")
 
     # Normalize ecosystem for trust/scan target vs installer command.
@@ -878,7 +990,16 @@ def install(
     scan_target = f"{trust_ecosystem}:{package}"
 
     console.print("\n[dim]Scanning package before install...[/dim]")
-    summary = scan(target=scan_target)
+    summary = scan(
+        target=scan_target,
+        report_format=ReportFormat.TERMINAL,
+        output=None,
+        no_ai=False,
+        upload_vt=False,
+        verbose=False,
+        mcp_dynamic=False,
+        report_dir=None,
+    )
 
     # Block installs when PRI is above the CAUTION band unless --force is used.
     if summary.pri_score > 40 and not force:
@@ -913,12 +1034,12 @@ def install(
         )
 
     # Execute the actual install command using modular wrapper.
-    console.print(f"\n[bold]Executing installation...[/bold]\n")
+    console.print("\n[bold]Executing installation...[/bold]\n")
     return_code = install_package(trust_ecosystem, package)
 
     if return_code != 0:
         if return_code == 127:
-            console.print(f"[red]Failed to run installer command: installer not found.[/red]")
+            console.print("[red]Failed to run installer command: installer not found.[/red]")
         else:
             console.print(
                 f"[red]Installer exited with non-zero status code {return_code}.[/red]"
@@ -933,11 +1054,20 @@ def clone(
     force: bool = typer.Option(False, "--force", help="Clone even if scan finds issues"),
 ):
     """Scan a repository, then clone it if safe."""
-    console.print(f"\n[bold blue]sus check clone[/bold blue]")
+    console.print("\n[bold blue]sus check clone[/bold blue]")
     console.print(f"Repository: [yellow]{url}[/yellow]")
 
     console.print("\n[dim]Scanning repository URL before clone...[/dim]")
-    summary = scan(target=url)
+    summary = scan(
+        target=url,
+        report_format=ReportFormat.TERMINAL,
+        output=None,
+        no_ai=False,
+        upload_vt=False,
+        verbose=False,
+        mcp_dynamic=False,
+        report_dir=None,
+    )
 
     # Block clone when PRI indicates anything other than CLEAR, unless forced.
     if summary.pri_score > 15 and not force:
@@ -972,12 +1102,12 @@ def clone(
         )
 
     # Execute `git clone` using modular wrapper.
-    console.print(f"\n[bold]Executing git clone...[/bold]\n")
+    console.print("\n[bold]Executing git clone...[/bold]\n")
     return_code = clone_repo(url, dest)
 
     if return_code != 0:
         if return_code == 127:
-            console.print(f"[red]Failed to run git command: git not found.[/red]")
+            console.print("[red]Failed to run git command: git not found.[/red]")
         else:
             console.print(
                 f"[red]git clone exited with non-zero status code {return_code}.[/red]"
@@ -991,11 +1121,20 @@ def connect(
     force: bool = typer.Option(False, "--force", help="Connect even if scan finds issues"),
 ):
     """Scan an MCP server, then provide connection config if safe."""
-    console.print(f"\n[bold blue]sus check connect[/bold blue]")
+    console.print("\n[bold blue]sus check connect[/bold blue]")
     console.print(f"MCP Server: [yellow]{server}[/yellow]")
 
     console.print("\n[dim]Scanning MCP server target before connection...[/dim]")
-    summary = scan(target=server)
+    summary = scan(
+        target=server,
+        report_format=ReportFormat.TERMINAL,
+        output=None,
+        no_ai=False,
+        upload_vt=False,
+        verbose=False,
+        mcp_dynamic=False,
+        report_dir=None,
+    )
 
     # For MCP connections we mirror the repo policy: only CLEAR is allowed
     # by default; anything higher requires explicit human override.
@@ -1046,131 +1185,9 @@ def connect(
             )
         )
 
-
-@app.command()
-def install(
-    package: str = typer.Argument(help="Package name or ecosystem:name (e.g. pypi:requests)"),
-    ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
-    force: bool = typer.Option(False, "--force", help="Skip security check and install anyway"),
-):
-    """Secure installer wrapper. Scans package trust score before installation."""
-    console.print(f"\n[bold blue]sus check install[/bold blue]")
-    console.print(f"Target: [yellow]{package}[/yellow] ({ecosystem})")
-    
-    if not force:
-        # Perform Trust Scan First
-        from suscheck.modules.supply_chain.trust_engine import TrustEngine
-        engine = TrustEngine()
-        
-        full_target = package if ":" in package else f"{ecosystem}:{package}"
-        
-        with console.status(f"Auditing supply chain trust for {full_target}...", spinner="bouncingBar"):
-            res = engine.scan(full_target)
-            
-        if res.trust_score is not None:
-            style = "green" if res.trust_score >= 7.0 else "yellow" if res.trust_score >= 4.0 else "red"
-            console.print(f"Trust Score: [{style}]{res.trust_score}/10.0[/{style}]")
-            
-            if res.findings:
-                render_findings(res.findings)
-                
-            if res.trust_score < 4.0:
-                console.print(Panel(
-                    f"[bold red]❌ SECURITY BLOCK:[/bold red] Package [bold]{package}[/bold] has extremely low trust.\n"
-                    "Installation halted to prevent potential supply chain compromise.\n"
-                    "Use [dim]--force[/dim] to override if you are absolutely sure.",
-                    border_style="red"
-                ))
-                raise typer.Exit(1)
-            elif res.trust_score < 7.0:
-                console.print("[yellow]⚠️  CAUTION:[/yellow] Trust score is moderate. Proceed with care.")
-
-    # Proceed to Install
-    console.print(f"\n[bold green]✓[/bold green] Security check passed. Commencing {ecosystem} install...")
-    exit_code = install_package(ecosystem, package)
-    
-    if exit_code == 0:
-        console.print(f"[bold green]✓[/bold green] Package '{package}' installed successfully.")
-    else:
-        console.print(f"[bold red]✗[/bold red] Install failed with exit code {exit_code}")
-        raise typer.Exit(exit_code)
-
-
-@app.command()
-def clone(
-    url: str = typer.Argument(help="Git repository URL to clone"),
-    dest: Optional[str] = typer.Option(None, "--dest", "-d", help="Destination folder"),
-    force: bool = typer.Option(False, "--force", help="Skip security check"),
-):
-    """Secure clone wrapper. Scans repository metadata before cloning."""
-    console.print(f"\n[bold blue]sus check clone[/bold blue]")
-    console.print(f"Repo: [yellow]{url}[/yellow]")
-    
-    if not force:
-        # Perform Repo Metadata Scan
-        repo_scanner = RepoScanner()
-        with console.status(f"Auditing repository integrity...", spinner="bouncingBar"):
-            res = repo_scanner.scan(url)
-            
-        if res.findings:
-            render_findings(res.findings)
-            
-            # Simple heuristic for blocking: any critical/high findings in metadata
-            has_major_risk = any(f.severity in (Severity.CRITICAL, Severity.HIGH) for f in res.findings)
-            if has_major_risk:
-                console.print(Panel(
-                    "[bold red]❌ SECURITY BLOCK:[/bold red] Repository metadata reveals high-risk indicators.\n"
-                    "Cloning suspended. Use [dim]--force[/dim] to override.",
-                    border_style="red"
-                ))
-                raise typer.Exit(1)
-
-    # Proceed to Clone
-    console.print(f"\n[bold green]✓[/bold green] Pre-clone check passed. Initiating git clone...")
-    exit_code = clone_repo(url, dest)
-    
-    if exit_code == 0:
-        console.print(f"[bold green]✓[/bold green] Repository cloned successfully.")
-    else:
-        console.print(f"[bold red]✗[/bold red] Clone failed with exit code {exit_code}")
-        raise typer.Exit(exit_code)
-
-
-@app.command()
-def connect(
-    target: str = typer.Argument(help="MCP server target (command, URL, or id)"),
-    force: bool = typer.Option(False, "--force", help="Skip security check"),
-):
-    """Secure MCP connection wrapper. Scans MCP server before connecting."""
-    console.print(f"\n[bold blue]sus check connect[/bold blue]")
-    console.print(f"MCP Server: [yellow]{target}[/yellow]")
-    
-    if not force:
-        mcp_scanner = MCPScanner()
-        with console.status(f"Auditing MCP server capabilities...", spinner="bouncingBar"):
-            res = mcp_scanner.scan(target)
-            
-        if res.findings:
-            render_findings(res.findings)
-            
-            # Block if critical vulnerabilities or prompt injection potential found
-            if any(f.severity == Severity.CRITICAL for f in res.findings):
-                 console.print(Panel(
-                    "[bold red]❌ SECURITY BLOCK:[/bold red] MCP server has critical over-privilege or vulnerabilities.\n"
-                    "Connection blocked. Use [dim]--force[/dim] to override.",
-                    border_style="red"
-                ))
-                 raise typer.Exit(1)
-
-    # Proceed to Connect (this is a stub in v1, usually prints the verified connection string)
-    console.print(f"\n[bold green]✓[/bold green] Pre-connection check passed. Service verified.")
-    connect_mcp(target)
-
-
 @app.command()
 def version():
     """Show sus check version and system info."""
-    import shutil
     import sys
 
     # Check which API keys are configured
@@ -1200,6 +1217,15 @@ def version():
                 return f"✅ via {name} ({val[:8]}...)"
         return "❌ not set (see .env.example for provider-specific names)"
 
+    kics_bin = shutil.which("kics")
+    docker_bin = shutil.which("docker")
+    if kics_bin:
+        kics_status = "✅ found"
+    elif docker_bin:
+        kics_status = "✅ via docker"
+    else:
+        kics_status = "❌ not found"
+
     console.print(
         Panel(
             f"[bold blue]sus check[/bold blue] v{__version__}\n"
@@ -1217,7 +1243,7 @@ def version():
             f"  semgrep:   {'✅ found' if shutil.which('semgrep') else '❌ not found'}\n"
             f"  bandit:    {'✅ found' if shutil.which('bandit') else '❌ not found'}\n"
             f"  checkov:   {'✅ found' if shutil.which('checkov') else '❌ not found'}\n"
-            f"  kics:      {'✅ found' if shutil.which('kics') else '❌ not found (Checkov used as primary)'}\n"
+            f"  kics:      {kics_status}\n"
             f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
             f"\n[dim]Load API keys from .env file or environment variables.\n"
             f"Timestamped reports are saved to ./reports/ by default.\n"
@@ -1226,6 +1252,52 @@ def version():
             border_style="blue",
         )
     )
+
+
+@app.command()
+def init(
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config-path",
+        help="Optional config file path (defaults to ~/.suscheck/config.toml)",
+    )
+):
+    """Create a starter configuration file for SusCheck."""
+    path = config_path or (Path.home() / ".suscheck" / "config.toml")
+    path = Path(path).expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.exists():
+        console.print(f"[yellow]Config already exists:[/yellow] {path}")
+        raise typer.Exit(0)
+
+    template = """[general]
+verbosity = \"normal\"
+reporting_default_dir = \"reports\"
+
+[scanning]
+enable_ai_triage = true
+enable_mcp_dynamic = false
+
+[risk]
+block_install_pri = 40
+block_clone_pri = 15
+block_connect_pri = 15
+
+[apis]
+# Set real values in environment or .env where possible.
+virustotal_env = \"SUSCHECK_VT_KEY\"
+abuseipdb_env = \"SUSCHECK_ABUSEIPDB_KEY\"
+github_env = \"SUSCHECK_GITHUB_TOKEN\"
+nvd_env = \"SUSCHECK_NVD_KEY\"
+ai_provider_env = \"SUSCHECK_AI_PROVIDER\"
+ai_key_env = \"SUSCHECK_AI_KEY\"
+"""
+
+    path.write_text(template, encoding="utf-8")
+    console.print(f"[green]✓[/green] Created starter config: [cyan]{path}[/cyan]")
+
+
 @app.command()
 def diagnostics():
     """Diagnostic health check for all configured API keys and engine binaries."""
@@ -1233,7 +1305,7 @@ def diagnostics():
     suite = DiagnosticSuite(config_mgr)
     
     console.print(f"\n[bold blue]SusCheck Diagnostic Suite[/bold blue] v{__version__}")
-    console.print(f"Checking configured external services...\n")
+    console.print("Checking configured external services...\n")
     
     with console.status("Pinging services...", spinner="dots"):
         results = suite.run_all()

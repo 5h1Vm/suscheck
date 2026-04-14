@@ -60,6 +60,6 @@ Isolated environment for testing.
 
 ---
 
-**Lead Researcher**: Shivam Kumar Singh (NFSU)  
+**Lead Researcher**: Shivam Kumar Singh   
 **Platform Version**: v1.0.0 (Gold)  
 **Ship Status**: PRODUCTION READY

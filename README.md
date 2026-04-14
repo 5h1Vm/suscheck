@@ -1,59 +1,79 @@
-# 🛡️ SusCheck: Dynamic Pre-Execution Trust Platform
+# SusCheck: Zero-Trust Pre-Execution Orchestrator
 
-[![Academic Context](https://img.shields.io/badge/NFSU-Minor%20Project-blue)](docs/PROFESSOR_GUIDE.md)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Safety Status](https://img.shields.io/badge/Security-Verified-blueviolet)](audit/18_STEP_AUDIT.md)
+**Audit before you execute.** SusCheck is a professional-grade security utility designed to orchestrate deep forensic analysis of software artifacts (packages, scripts, binaries, and repositories) before they touch your production environment.
 
-**SusCheck** is a high-fidelity security platform designed to audit code, packages, and repositories before execution. It calculates a comprehensive **Platform Risk Index (PRI)** to prevent software supply chain attacks and malicious code execution.
-
----
-
-## ✨ Key Features
-
-### 🔍 Unified Trust Engine
-Orchestrates multiple security layers (Static, Dynamic, and Reputation) into a single, normalized score.
-- **Shadow Dependency Detection**: Scans source imports to find undeclared or malicious packages.
-- **Typosquat Detection**: Audits package names against popular targets (e.g., `requesrs` vs `requests`).
-- **MCP behavioral Observation**: Sandbox-based dynamic analysis for MCP servers.
-
-### 🤖 AI Triage & Explanation
-Leverages LLMs (Groq/Ollama) to analyze the semantic context of security findings, drastically reducing false positives and providing human-readable risk summaries.
-
-### ⚖️ Platform Risk Index (PRI)
-A weighted scoring algorithm (0-100) that generates a clear verdict:
-- ✅ **CLEAR** (0-15): Safe to execute.
-- ⚠️ **CAUTION** (16-40): Non-critical issues found.
-- ⛔ **HOLD** (41-70): Potentially malicious; manual review required.
-- ❌ **ABORT** (71-100): High-confidence threat identified.
+[![Security: Zero-Trust](https://img.shields.io/badge/Security-Zero--Trust-red)](registry/CORE_SECURITY_MODEL.md)
+[![Status: Gold Master](https://img.shields.io/badge/Status-Gold%20Master-gold)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)]()
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ The Mission
+Modern software supply chains are compromised by default. From dependency confusion to polyglot masquerading, static analysis is no longer enough. SusCheck provides a **Unified Forensic Brain** that aggregates industry-standard engines (Semgrep, Gitleaks, Checkov) and AI-driven triage to produce a definitive **Platform Risk Index (PRI)**.
 
-### 1. Installation
+## 🚀 Key Forensic Capabilities
+- **Multi-Engine Orchestration**: Simultaneous scanning for secrets, vulnerabilities, and IaC misconfigurations.
+- **Polyglot & Masquerading Detection**: Identification of MITRE T1036.008 threats (file header/extension mismatches).
+- **AI Triage Layer**: Automated indicator correlation and false-positive reduction using fallback-resilient LLM orchestration.
+- **Tier 0 Reputation**: Real-time VirusTotal integration and hash reputation checks.
+- **Zero-Trust Verdicts**: Hardened deployment recommendations (Clear, Caution, Hold, Abort) based on a weighted 18-step security model.
+
+---
+
+## ⚡ Quickstart
+
+### 1. Initialize Environment
 ```bash
-./setup.sh
+bash setup.sh
 source .venv/bin/activate
 ```
 
-### 2. Basic Usage
-Scan a single file or a full repository:
+### 2. Configure Indicators
+Configure your `.env` with API keys for enhanced intelligence:
 ```bash
-suscheck scan path/to/your/code.py
+# AI Provider (SambaNova/Groq/OpenRouter fallback supported)
+SUSCHECK_AI_API_KEY=your_key_here
+
+# Threat Intelligence
+SUSCHECK_VT_API_KEY=your_key_here
+
+# Scanning Constraints
+SUSCHECK_SCANNING_MAX_FILE_SIZE_MB=50
 ```
 
-### 3. Comprehensive Audit
-Run with verbose output to see the full "Score Breakdown":
+### 3. Execute Forensic Scan
 ```bash
-suscheck scan path/to/project/ --verbose
+# Scan a local repository
+suscheck scan ./target-repo
+
+# Scan a specific file
+suscheck scan malware.py
+
+# Explain a specific finding
+suscheck explain FINDING_ID
 ```
 
 ---
 
-## 🎓 Academic Submission
-This project is submitted as the **Minor Project II** for **NFSU Delhi**.
-- **Professor's Guide**: [docs/PROFESSOR_GUIDE.md](docs/PROFESSOR_GUIDE.md)
-- **18-Step Audit Trail**: [audit/18_STEP_AUDIT.md](audit/18_STEP_AUDIT.md)
+## 🧠 The Core Security Model
+SusCheck operates on a tiered forensic model derived from real-world adversarial tactics.
+
+| Tier | Name | Focus |
+| :--- | :--- | :--- |
+| **0** | Reputation | Hashes, VT Detections, Known IoCs |
+| **1** | Static Audit | Secrets, CVEs, Misconfigurations, Masquerading |
+| **2** | AI Triage | Threat Correlation, Behavioral Heuristics |
+| **3** | Aggregation | Weighted Scoring (PRI) & Hardened Verdicts |
+
+Read more in the [Core Security Model](registry/CORE_SECURITY_MODEL.md).
 
 ---
-*Created with ❤️ by Shivam Kumar Singh*
+
+## 📂 Registry & Documentation
+- [Quickstart Guide](docs/Quickstart.md): Deep dive into CLI usage and configuration.
+- [Developer Reference](docs/Developer_Reference.md): Architectural overview and per-module documentation.
+- [Registry](registry/): Core security logic and stress test reports.
+
+---
+
+**SusCheck** | Developed for the community. Stay paranoid.

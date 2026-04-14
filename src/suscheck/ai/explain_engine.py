@@ -3,7 +3,7 @@
 import logging
 from typing import List, Optional
 from suscheck.ai.factory import create_ai_provider
-from suscheck.core.finding import Finding, Severity
+from suscheck.core.finding import Finding
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,6 @@ Artifact Type: {artifact_type}
 
     try:
         if console:
-            from rich.text import Text
             console.print(f"  [dim]Behavioral AI ({provider.name}) performing deep analysis...[/dim]")
 
         explanation = provider.complete_narrative(

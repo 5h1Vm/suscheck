@@ -9,7 +9,7 @@ import os
 import re
 from typing import List
 
-from suscheck.core.finding import Finding, FindingType, Severity
+from suscheck.core.finding import Finding
 from suscheck.modules.supply_chain.trust_engine import TrustEngine
 
 logger = logging.getLogger(__name__)

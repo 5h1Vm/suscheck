@@ -10,8 +10,12 @@ Detection order (most reliable first):
 
 from dataclasses import dataclass, field
 from enum import Enum
+import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from suscheck.core.config_manager import ConfigManager
 
 
 class ArtifactType(str, Enum):

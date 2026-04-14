@@ -1,9 +1,8 @@
 """Diagnostic Suite for SusCheck API Keys and Services."""
 
-import os
 import requests
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 from suscheck.core.config_manager import ConfigManager
 

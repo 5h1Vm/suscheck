@@ -1,6 +1,6 @@
 # SusCheck Production Walkthrough — v1.0.0 (Gold Master)
 
-This document summarizes the final state of the **SusCheck Platform** following the "Project Perfection" stabilization phase. The repository is now optimized for professional auditing and academic submission to **National Forensic Sciences University (NFSU)**.
+This document summarizes the final state of the **SusCheck Platform** following the "Project Perfection" stabilization phase. The repository is now optimized for professional auditing and academic submission to ****.
 
 ## 🏁 Final Accomplishments
 
@@ -40,5 +40,5 @@ The platform verified all external dependencies:
 
 **Shivam Kumar Singh**
 *Integrated B.Tech–M.Tech, CS & Cyber Security*
-*National Forensic Sciences University (NFSU)*
+**
 *Minor Project: SusCheck Security Platform*

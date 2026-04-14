@@ -173,7 +173,27 @@ def run_ai_triage(
             last_err = str(e)[:500]
             continue
             
-    # All failed
     if console and last_err:
-        console.print(f"  [red]AI triage failed for all configured providers. Proceeding with local risk engine only.[/red]")
+        console.print("  [red]AI triage failed for all configured providers. Proceeding with local risk engine only.[/red]")
     return TriageRunResult(0.0, False, "fallback_failed", last_err)
+
+
+async def check_provider_health() -> dict[str, bool]:
+    """Test connectivity for all configured AI providers."""
+    providers = get_available_providers()
+    results = {}
+    
+    for p_name in providers:
+        provider = create_ai_provider(p_name)
+        if not provider.is_configured():
+            results[p_name] = False
+            continue
+            
+        try:
+            # Simple ping/health check if provider supports it, otherwise a minimal completion
+            is_ok = await provider.verify_connectivity()
+            results[p_name] = is_ok
+        except Exception:
+            results[p_name] = False
+            
+    return results

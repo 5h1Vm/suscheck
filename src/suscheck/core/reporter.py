@@ -1,9 +1,9 @@
 """Reporting engine for generating Markdown and Premium HTML security audits."""
 
 import datetime
-from typing import List, Optional
+from typing import Optional
 from pathlib import Path
-from suscheck.core.finding import ScanSummary, Finding, Severity, Verdict, ReportFormat
+from suscheck.core.finding import ScanSummary, Severity, Verdict, ReportFormat
 
 class ReportGenerator:
     """Generates security reports in various formats based on scan summaries."""

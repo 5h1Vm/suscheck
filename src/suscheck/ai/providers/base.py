@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -18,6 +19,27 @@ class AIProvider(ABC):
     def is_configured(self) -> bool:
         """Return True if this provider can attempt a live API call."""
         return False
+
+    async def verify_connectivity(self) -> bool:
+        """Best-effort provider health probe.
+
+        Providers may override this, but the default implementation performs a minimal
+        triage call in a background thread so diagnostics and health checks can share
+        a common contract without requiring every backend to implement a separate ping.
+        """
+        if not self.is_configured():
+            return False
+
+        try:
+            await asyncio.to_thread(
+                self.complete_triage_json,
+                system_prompt='{"healthcheck": true}',
+                user_prompt='{"scan_target":"healthcheck","artifact_type":"diagnostic","findings":[]}',
+                timeout_sec=30,
+            )
+            return True
+        except Exception:
+            return False
 
     @abstractmethod
     def complete_triage_json(

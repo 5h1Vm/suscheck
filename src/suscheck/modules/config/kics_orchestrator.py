@@ -25,8 +25,17 @@ class KicsOrchestrator:
     """Wraps the Checkmarx KICS binary if available."""
 
     def __init__(self):
-        self.kics_path = shutil.which("kics")
-        self.is_installed = self.kics_path is not None
+        configured_path = os.environ.get("SUSCHECK_KICS_PATH", "").strip()
+        resolved_configured = Path(configured_path).expanduser().resolve() if configured_path else None
+
+        if resolved_configured and resolved_configured.is_file() and os.access(resolved_configured, os.X_OK):
+            self.kics_path = str(resolved_configured)
+        else:
+            self.kics_path = shutil.which("kics")
+
+        self.docker_path = shutil.which("docker")
+        self.use_docker = self.kics_path is None and self.docker_path is not None
+        self.is_installed = self.kics_path is not None or self.use_docker
 
     def _map_severity(self, kics_severity: str) -> Severity:
         """Map KICS severity to SusCheck severity."""
@@ -52,17 +61,37 @@ class KicsOrchestrator:
             temp_path = Path(temp_dir)
             report_path = temp_path / "kics_results.json"
             
-            # KICS command structure
-            cmd = [
-                self.kics_path,
-                "scan",
-                "-p", str(file_path),
-                "--output-path", str(temp_path),
-                "--output-name", "kics_results",
-                "--report-formats", "json",
-                "--no-progress",
-                "--ignore-on-exit", "all",  # Don't fail the command if vulnerabilites exist
-            ]
+            # KICS command structure (native binary preferred, Docker fallback)
+            if self.kics_path:
+                cmd = [
+                    self.kics_path,
+                    "scan",
+                    "-p", str(file_path),
+                    "--output-path", str(temp_path),
+                    "--output-name", "kics_results",
+                    "--report-formats", "json",
+                    "--no-progress",
+                    "--ignore-on-exit", "all",  # Don't fail if vulnerabilities exist
+                ]
+            else:
+                source_path = Path(file_path).resolve()
+                source_dir = source_path.parent
+                container_target = f"/scan/source/{source_path.name}"
+                cmd = [
+                    self.docker_path,
+                    "run",
+                    "--rm",
+                    "-v", f"{source_dir}:/scan/source:ro",
+                    "-v", f"{temp_path}:/scan/out",
+                    "checkmarx/kics:latest",
+                    "scan",
+                    "-p", container_target,
+                    "--output-path", "/scan/out",
+                    "--output-name", "kics_results",
+                    "--report-formats", "json",
+                    "--no-progress",
+                    "--ignore-on-exit", "all",
+                ]
             
             try:
                 result = subprocess.run(

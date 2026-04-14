@@ -5,7 +5,6 @@ import logging
 import subprocess
 import shutil
 from dataclasses import dataclass
-from pathlib import Path
 
 from suscheck.core.finding import Finding, FindingType, Severity
 

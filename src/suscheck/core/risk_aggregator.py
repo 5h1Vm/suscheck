@@ -6,7 +6,6 @@ and generating a final 0-100 score and verdict.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from suscheck.core.finding import Finding, FindingType, Severity, Verdict
 

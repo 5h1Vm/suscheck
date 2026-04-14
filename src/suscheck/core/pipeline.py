@@ -7,13 +7,13 @@ This is the 'Unified Forensic Brain' that coordinates industry-standard engines
 import os
 import time
 from pathlib import Path
-from typing import List, Set, Optional, TYPE_CHECKING, Dict, Any
+from typing import List, Optional, TYPE_CHECKING, Dict, Any
 
 if TYPE_CHECKING:
     from suscheck.core.config_manager import ConfigManager
 
 from suscheck.core.auto_detector import AutoDetector, ArtifactType, Language
-from suscheck.core.finding import Finding, ScanSummary, Verdict, Severity, FindingType
+from suscheck.core.finding import Finding, Severity, FindingType
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
@@ -34,7 +34,11 @@ class ScanPipeline:
         self.repo_scanner = RepoScanner()
         self.code_scanner = CodeScanner()
         self.config_scanner = ConfigScanner()
-        self.tier0_engine = Tier0Engine()
+        # Resolve max file size (MB -> bytes)
+        max_mb = self.config.get("scanning.max_file_size_mb", 50) if self.config else 50
+        max_bytes = int(max_mb) * 1024 * 1024
+        
+        self.tier0_engine = Tier0Engine(max_file_size=max_bytes)
         
         # Pull ignored directories from config or use defaults
         default_ignore = {
@@ -72,7 +76,25 @@ class ScanPipeline:
                 # Direct dispatch based on Auto-Detector
                 file_findings = self.scan_single_file(p)
                 findings.extend(file_findings)
-            except Exception:
+            except Exception as e:
+                findings.append(
+                    Finding(
+                        module="pipeline",
+                        finding_id="PIPELINE-FILE-SCAN-ERROR",
+                        title="File scan failed during directory traversal",
+                        description=(
+                            "A file could not be analyzed while scanning this directory. "
+                            "Results are partial; review required."
+                        ),
+                        severity=Severity.LOW,
+                        finding_type=FindingType.REVIEW_NEEDED,
+                        confidence=0.9,
+                        file_path=str(p),
+                        evidence={"error": str(e)[:500]},
+                        needs_human_review=True,
+                        review_reason="Per-file scanner exception",
+                    )
+                )
                 continue
                 
         return findings
@@ -157,3 +179,35 @@ class ScanPipeline:
             findings.extend(res.findings)
         
         return findings
+
+    def get_modules_ran(self, findings: List[Finding]) -> List[str]:
+        """Infer high-level modules that produced findings.
+
+        This keeps CLI summaries stable across both directory and one-off scans.
+        """
+        if not findings:
+            return []
+
+        seen: set[str] = set()
+        for finding in findings:
+            module = (finding.module or "").lower()
+
+            if any(k in module for k in ["virustotal", "abuseipdb", "tier0", "hash"]):
+                seen.add("tier0")
+            if any(k in module for k in ["semgrep"]):
+                seen.add("semgrep")
+            if any(k in module for k in ["bandit", "code", "layer1"]):
+                seen.add("code")
+            if any(k in module for k in ["config", "checkov", "kics"]):
+                seen.add("config")
+            if any(k in module for k in ["repo", "gitleaks"]):
+                seen.add("repo")
+            if "mcp" in module:
+                seen.add("mcp")
+            if any(k in module for k in ["supply_chain", "trust"]):
+                seen.add("supply_chain")
+            if "ai" in module:
+                seen.add("ai_triage")
+
+        order = ["tier0", "repo", "config", "code", "mcp", "semgrep", "supply_chain", "ai_triage"]
+        return [m for m in order if m in seen]

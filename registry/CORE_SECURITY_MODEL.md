@@ -1,9 +1,9 @@
 # Technical Audit: 18-Step Implementation Compliance
 
-This document maps the NFSU project requirements (18-step implementation) to the SusCheck codebase. Each step represents a forensic or detection layer implemented during the "Hardening" phase.
+This document maps industry forensic requirements (18-step implementation) to the SusCheck codebase. Each step represents a forensic or detection layer implemented during the "Hardening" phase.
 
 ## Phase 1: Artifact Detection & Tier 0 (Intelligence)
-1. **Intelligent Artifact Detection**: `core/auto_detector.py` automatically classifies targets as Python, Package, Repo, or MCP.
+1. **Intelligent Artifact Detection**: `core/auto_detector.py` automatically classifies targets (Python, Binary, etc.) and identifies **Masquerading (T1036.008)** and **Polyglot** threats through cross-format header verification.
 2. **Hash-Based Reputation**: `modules/reputation/vt_service.py` provides Tier 0 gating via VirusTotal.
 3. **Network Intelligence**: `modules/reputation/abuseip_service.py` identifies malicious endpoint connections.
 4. **Platform Risk Index (PRI) Base**: `core/risk_aggregator.py` initializes the 0-100 scoring baseline.

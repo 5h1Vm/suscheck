@@ -5,7 +5,6 @@ Handles package installation safely after scanning.
 
 import subprocess
 import sys
-from typing import Optional
 
 def install_package(ecosystem: str, package: str, force: bool = False) -> int:
     """Execute the actual install command."""

@@ -18,6 +18,7 @@ from .layer1.encoded_strings import detect_encoded_strings
 from .layer1.entropy import detect_high_entropy
 from .layer1.network_indicators import detect_network_indicators
 from .layer1.decoder import RecursiveDecoderEngine
+from .bandit_runner import BanditRunner
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,17 @@ class CodeScanner:
 
         # ── Run all detectors ─────────────────────────────
         result = self.scan_content(content, file_path=file_path, language=language)
+        
+        # --- Tier 2: Precision SAST (Bandit for Python) ---
+        if language == "python" or file_path.lower().endswith(".py"):
+            bandit = BanditRunner()
+            if bandit.is_installed:
+                b_res = bandit.scan_file(file_path)
+                result.findings.extend(b_res.findings)
+                result.detectors_ran.append("bandit")
+                if b_res.errors:
+                    result.errors.extend(b_res.errors)
+
         result.scan_duration = time.time() - start_time
         return result
 
@@ -182,7 +194,10 @@ class CodeScanner:
                     f"Detector {detector_name}: {len(detector_findings)} findings"
                 )
             except Exception as e:
-                logger.error(error_msg, exc_info=True)
+                logger.error(
+                    f"Detector {detector_name} failed: {e}",
+                    exc_info=True,
+                )
         
         # --- New: Shadow Dependency Extraction (Step 9 Expansion) ---
         # Identifies packages in code but missing from requirements.txt

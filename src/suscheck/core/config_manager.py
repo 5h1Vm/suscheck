@@ -29,6 +29,9 @@ class ConfigManager:
             "code": {
                 "max_file_size_mb": 5,
                 "recursive": True
+            },
+            "scanning": {
+                "max_file_size_mb": 50
             }
         }
     }

@@ -3,7 +3,6 @@
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 from rich import box
 
 from suscheck.core.finding import Finding, FindingType, ScanSummary, Severity, Verdict
@@ -27,16 +26,16 @@ SEVERITY_ICONS = {
 }
 
 VERDICT_DISPLAY = {
-    Verdict.CLEAR: ("✅ CLEAR", "bold green"),
-    Verdict.CAUTION: ("⚠️ CAUTION", "bold yellow"),
-    Verdict.HOLD: ("🔶 HOLD", "bold orange1"),
-    Verdict.ABORT: ("🚫 ABORT", "bold red"),
+    Verdict.CLEAR: ("✅ SECURE", "bold green"),
+    Verdict.CAUTION: ("⚠️ ELEVATED RISK", "bold yellow"),
+    Verdict.HOLD: ("🔶 QUARANTINE RECOMMENDED", "bold orange1"),
+    Verdict.ABORT: ("🚫 CRITICAL COMPROMISE", "bold red"),
 }
 
 
 def render_scan_header(target: str, artifact_type: str, version: str) -> None:
     """Render scan header."""
-    console.print(f"\n[bold blue]SusCheck[/bold blue] [dim]v{version}[/dim] [magenta]— Pre-execution Security Platform[/magenta]")
+    console.print(f"\n[bold blue]SusCheck[/bold blue] [dim]v{version}[/dim] [magenta]— Zero-Trust Pre-Execution Orchestrator[/magenta]")
     console.print(f"Target: [bold yellow]{target}[/bold yellow]")
     console.print(f"Type:   [cyan]{artifact_type}[/cyan]\n")
 
@@ -52,12 +51,12 @@ def render_verdict(summary: ScanSummary) -> None:
 
     content = (
         f"{badge}\n\n"
-        f"Platform Risk Index: [bold]{summary.pri_score}/100[/bold]\n"
+        f"Platform Risk Index (PRI): [bold]{summary.pri_score}/100[/bold]\n"
         f"{score_bar}\n\n"
-        f"Analysis Results:\n"
-        f"  - {summary.critical_count} Critical Threats Found\n"
-        f"  - {summary.high_count} High Risk Findings\n"
-        f"  - {summary.medium_count + summary.low_count} Moderate/Low Flags\n"
+        f"Threat Surface Mapping:\n"
+        f"  - {summary.critical_count} Critical Threat Vectors\n"
+        f"  - {summary.high_count} High-Impact Indicators\n"
+        f"  - {summary.medium_count + summary.low_count} Heuristic Flags\n"
         f"  - {summary.info_count} Informational Signals"
     )
 
@@ -74,7 +73,7 @@ def render_verdict(summary: ScanSummary) -> None:
         )
     )
 
-    console.print(Panel(content, title="[bold]Final Assessment[/bold]", border_style=border, padding=(1, 2), box=box.DOUBLE))
+    console.print(Panel(content, title="[bold white]Deployment Recommendation[/bold white]", border_style=border, padding=(1, 2), box=box.DOUBLE))
 
 
 def render_findings(findings: list[Finding]) -> None:
@@ -101,7 +100,7 @@ def render_findings(findings: list[Finding]) -> None:
 
     if primary:
         table = Table(
-            title="Findings",
+            title="Security Indicators (IoC)",
             box=box.ROUNDED,
             border_style="blue",
             show_lines=True,

