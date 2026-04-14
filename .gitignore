@@ -9,6 +9,7 @@ build/
 .pytest_cache/
 .ruff_cache/
 *.so
+*.log
 .env
 suscheck.yaml
 *.yaml
