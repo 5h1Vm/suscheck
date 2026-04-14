@@ -15,7 +15,7 @@ from rich.table import Table
 
 from suscheck.core.config_manager import ConfigManager
 from suscheck.core.diagnostics import DiagnosticSuite
-from suscheck.core.tool_registry import ToolType, get_tool_registry
+from suscheck.core.tool_registry import TOOL_INSTALLATION_URLS, ToolStatus, ToolType, get_tool_registry
 from suscheck.modules.reporting.terminal import render_findings
 
 
@@ -185,7 +185,31 @@ ai_key_env = \"SUSCHECK_AI_KEY\"
         console.print(f"\n[bold blue]SusCheck Diagnostic Suite[/bold blue] v{version}")
         console.print("Checking external tools, API keys, and service connectivity...\n")
 
-        tool_statuses, _ = registry.validate_tools(list(ToolType))
+        tool_types = [tool for tool in ToolType if tool is not ToolType.KICS]
+        tool_statuses, _ = registry.validate_tools(tool_types)
+
+        configured_kics = os.environ.get("SUSCHECK_KICS_PATH", "").strip()
+        configured_kics_path = Path(configured_kics) if configured_kics else None
+        if configured_kics_path and configured_kics_path.exists() and configured_kics_path.is_file():
+            tool_statuses.append(
+                ToolStatus(tool=ToolType.KICS, available=True, path=str(configured_kics_path))
+            )
+        elif shutil.which("kics"):
+            tool_statuses.append(
+                ToolStatus(tool=ToolType.KICS, available=True, path=shutil.which("kics"))
+            )
+        elif shutil.which("docker"):
+            tool_statuses.append(
+                ToolStatus(tool=ToolType.KICS, available=True, path="docker://checkmarx/kics:latest")
+            )
+        else:
+            tool_statuses.append(
+                ToolStatus(
+                    tool=ToolType.KICS,
+                    available=False,
+                    suggestion=f"Install from: {TOOL_INSTALLATION_URLS[ToolType.KICS]}",
+                )
+            )
 
         tools_table = Table(title="External Tool Preflight", box=None)
         tools_table.add_column("Tool", style="bold")

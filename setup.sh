@@ -6,6 +6,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_BIN="$ROOT_DIR/.venv/bin"
+LOG_FILE="$ROOT_DIR/setup.log"
+
+# Stream everything to terminal and log file for auditability.
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+if [[ "${SUSCHECK_SETUP_TRACE:-0}" == "1" ]]; then
+    set -x
+fi
 
 persist_kics_env() {
     local kics_bin="$VENV_BIN/kics"
@@ -34,9 +42,9 @@ download_kics_archive() {
     python3 - "$out_archive" <<'PY'
 import json
 import platform
-import re
 import sys
 import urllib.request
+import os
 from pathlib import Path
 
 out_archive = Path(sys.argv[1])
@@ -59,7 +67,14 @@ else:
     raise SystemExit(4)
 
 api = "https://api.github.com/repos/Checkmarx/kics/releases/latest"
-req = urllib.request.Request(api, headers={"User-Agent": "suscheck-setup"})
+headers = {
+    "User-Agent": "suscheck-setup",
+    "Accept": "application/vnd.github+json",
+}
+token = os.environ.get("SUSCHECK_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+if token:
+    headers["Authorization"] = f"Bearer {token}"
+req = urllib.request.Request(api, headers=headers)
 with urllib.request.urlopen(req, timeout=30) as resp:
     rel = json.loads(resp.read().decode())
 
@@ -81,10 +96,12 @@ for asset in assets:
     break
 
 if not download_url:
-    raise SystemExit(5)
+    raise SystemExit(
+        f"No compatible KICS release asset found for os={os_tag}, arch={machine}."
+    )
 
 out_archive.parent.mkdir(parents=True, exist_ok=True)
-req_asset = urllib.request.Request(download_url, headers={"User-Agent": "suscheck-setup"})
+req_asset = urllib.request.Request(download_url, headers=headers)
 with urllib.request.urlopen(req_asset, timeout=120) as resp:
     out_archive.write_bytes(resp.read())
 
@@ -190,8 +207,10 @@ PY
 
     echo "      • Attempting automatic KICS binary download for local install..."
     local dl_archive
+    local asset_name
     dl_archive="$(mktemp -u)/kics-download"
-    if download_kics_archive "$dl_archive" >/dev/null 2>&1; then
+    if asset_name="$(download_kics_archive "$dl_archive" 2>&1)"; then
+        echo "      • Downloaded KICS asset: $asset_name"
         if install_from_archive "$dl_archive"; then
             rm -f "$dl_archive"
             return 0
@@ -199,7 +218,7 @@ PY
         rm -f "$dl_archive"
         echo "      ⚠️  Download succeeded, but archive extraction failed."
     else
-        echo "      ⚠️  Automatic KICS download failed (network/asset resolution issue)."
+        echo "      ⚠️  Automatic KICS download failed: $asset_name"
     fi
 
     if [[ -n "$archive_path" ]]; then
@@ -220,6 +239,7 @@ echo "--------------------------------------------------"
 echo "   SusCheck: Forensic Pre-execution Orchestrator   "
 echo "   Single entrypoint: setup.sh                     "
 echo "--------------------------------------------------"
+echo "Log file: $LOG_FILE"
 
 # 1. Environment Check
 echo "[1/5] Checking environment dependencies..."
@@ -238,9 +258,21 @@ fi
 
 # 3. Core Dependency Installation
 echo "[3/5] Installing security engines and core dependencies..."
-.venv/bin/pip install --upgrade pip > /dev/null
-.venv/bin/pip install -r requirements.txt > /dev/null
-.venv/bin/pip install -e . > /dev/null
+echo "      • Upgrading pip in virtual environment"
+.venv/bin/pip install --upgrade pip
+
+echo "      • Installing requirements from requirements.txt"
+if ! .venv/bin/pip install -r requirements.txt; then
+    echo "ERROR: requirements installation failed."
+    echo "      • For deeper resolver details run: .venv/bin/pip install -v -r requirements.txt"
+    exit 1
+fi
+
+echo "      • Installing local package in editable mode"
+if ! .venv/bin/pip install -e .; then
+    echo "ERROR: editable install failed."
+    exit 1
+fi
 
 # 4. Tool Provisioning (KICS)
 echo "[4/5] Provisioning KICS runtime for IaC forensics..."
