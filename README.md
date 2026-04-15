@@ -11,7 +11,7 @@
 SusCheck moves security to the **point of intent**. Whether you are cloning a repository, installing a package, or connecting an MCP server, SusCheck acts as an intelligent gatekeeper, calculating a real-time **Platform Risk Index (PRI)** to prevent supply chain compromise and execution of malicious code.
 
 ### Platform Key Pillars
-1. **Multi-Engine Orchestration**: Unified interface for Semgrep, Bandit, Checkov, Gitleaks, and KICS.
+1. **Multi-Engine Orchestration**: Unified interface for Semgrep, Bandit, Checkov, KICS, Gitleaks, and OWASP Dependency-Check.
 2. **AI-Driven Triage**: Context-aware risk adjustment using advanced LLM analysis (Groq, Anthropic, Gemini).
 3. **9-Category Supply Chain Trust**: Deep auditing of package metadata, typosquatting, and registry health.
 4. **Recursive Decoding**: Intelligent unwrapping of obfuscated payloads and multi-stage droppers.
@@ -24,7 +24,7 @@ SusCheck moves security to the **point of intent**. Whether you are cloning a re
 SusCheck executes a deterministic 10-step algorithm to derive the PRI:
 
 1.  **Tier 0 (Reputation)**: VirusTotal, AbuseIPDB, and registry-level health checks.
-2.  **Tier 1 (Static Analysis)**: Deep scan using Semgrep, Bandit, and Checkov.
+2.  **Tier 1 (Static Analysis)**: Deep scan using Semgrep, Bandit, Checkov/KICS, and optional OWASP Dependency-Check.
 3.  **Tier 2 (AI Adjustment)**: Intelligent triage to reduce false positives and identify complex logic bombs.
 
 ---
@@ -91,12 +91,42 @@ Optional explicit archive mode:
 SUSCHECK_KICS_ARCHIVE=/path/to/kics-linux-amd64.tar.gz bash setup.sh
 ```
 
+### 1.2 OWASP Dependency-Check (Script-Only)
+`setup.sh` also attempts all of the following for Dependency-Check:
+1. Use `SUSCHECK_DEPCHECK_ARCHIVE` if you provide an archive path.
+2. Auto-download the latest Dependency-Check release zip.
+3. Install it under `.venv/tools/dependency-check/` and create a `.venv/bin/dependency-check` wrapper.
+
+Optional explicit archive mode:
+```bash
+SUSCHECK_DEPCHECK_ARCHIVE=/path/to/dependency-check-release.zip bash setup.sh
+```
+
 ### 2. Mandatory Engines
 To reach full orchestration potential, ensure the following are installed (handled by `setup.sh`):
 - **Bandit**: Python SAST
 - **Checkov**: Infrastructure as Code (IaC) Security
+- **OWASP Dependency-Check**: Third-party dependency CVE scanning
 - **Semgrep**: General-purpose static analysis
 - **Gitleaks**: Secret detection
+
+### 2.1 Dependency CVE Scan Mode
+Run repository-level dependency vulnerability checks with OWASP Dependency-Check:
+```bash
+suscheck scan ./my-project --dependency-check
+```
+
+Common combinations:
+```bash
+# Disable AI and VirusTotal noise, keep dependency CVE analysis
+suscheck scan ./my-project --dependency-check --no-ai --no-vt
+
+# MCP-only manifest scan
+suscheck scan ./mcp.json --mcp-only --no-ai --no-vt
+
+# MCP static + Docker dynamic observation
+suscheck scan ./mcp.json --mcp-only --mcp-dynamic --no-ai --no-vt
+```
 
 ### 3. API Keys (optional but recommended)
 Add these to your `.env` for Tier 0 and Tier 2 capabilities:

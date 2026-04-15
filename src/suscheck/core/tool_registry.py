@@ -26,6 +26,7 @@ class ToolType(str, Enum):
     CHECKOV = "checkov"
     KICS = "kics"
     GIT = "git"
+    DEPENDENCY_CHECK = "dependency-check"
 
 
 TOOL_INSTALLATION_URLS: Dict[ToolType, str] = {
@@ -35,6 +36,7 @@ TOOL_INSTALLATION_URLS: Dict[ToolType, str] = {
     ToolType.CHECKOV: "https://www.checkov.io/",
     ToolType.KICS: "https://docs.kicsinfra.com/gitbook/getting-started/installation",
     ToolType.GIT: "https://git-scm.com/download",
+    ToolType.DEPENDENCY_CHECK: "https://owasp.org/www-project-dependency-check/",
 }
 
 

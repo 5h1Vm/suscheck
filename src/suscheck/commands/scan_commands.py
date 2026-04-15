@@ -31,6 +31,7 @@ from suscheck.services.policy_service import apply_partial_scan_safety_floor
 from suscheck.services.report_service import export_report
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
+    execute_dependency_check_phase,
     execute_local_file_tier1_phase,
     execute_remote_repository_tier1_phase,
     execute_semgrep_phase,
@@ -77,6 +78,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             False,
             "--mcp-only",
             help="Run only MCP static scan logic for local file targets.",
+        ),
+        dependency_check: bool = typer.Option(
+            False,
+            "--dependency-check",
+            help="Run OWASP Dependency-Check for third-party dependency CVEs (directory targets).",
         ),
         report_dir: Optional[Path] = typer.Option(
             None,
@@ -129,8 +135,17 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 dir_result = pipeline.scan_directory_with_status(target)
 
             all_findings = dir_result.findings
+            modules_failed = list(dir_result.modules_failed)
+            modules_ran = list(dir_result.modules_ran or pipeline.get_modules_ran(all_findings))
 
-            modules_ran = dir_result.modules_ran or pipeline.get_modules_ran(all_findings)
+            if dependency_check:
+                dep_findings, dep_failed = execute_dependency_check_phase(target_dir=target, console=console)
+                if dep_findings:
+                    all_findings.extend(dep_findings)
+                if "dependency_check" not in modules_ran:
+                    modules_ran.append("dependency_check")
+                if dep_failed and "dependency_check" not in modules_failed:
+                    modules_failed.append("dependency_check")
             scan_duration = time.time() - scan_start
 
             aggregator = RiskAggregator("DIRECTORY")
@@ -155,7 +170,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 findings=all_findings,
                 pri_score=pri_result.score,
                 modules_ran=list(modules_ran),
-                modules_failed=dir_result.modules_failed,
+                modules_failed=sorted(set(modules_failed)),
                 modules_skipped=modules_skipped,
                 coverage_complete=coverage_complete,
                 coverage_notes=coverage_notes,

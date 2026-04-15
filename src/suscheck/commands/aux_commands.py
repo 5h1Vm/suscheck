@@ -111,6 +111,7 @@ def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -
                 f"  bandit:    {'✅ found' if shutil.which('bandit') else '❌ not found'}\n"
                 f"  checkov:   {'✅ found' if shutil.which('checkov') else '❌ not found'}\n"
                 f"  kics:      {kics_status}\n"
+                f"  dep-check: {'✅ found' if shutil.which('dependency-check') else '❌ not found'}\n"
                 f"  docker:    {'✅ found' if shutil.which('docker') else '❌ not found'}\n"
                 f"\n[dim]Load API keys from .env file or environment variables.\n"
                 f"Timestamped reports are saved to ./reports/ by default.\n"

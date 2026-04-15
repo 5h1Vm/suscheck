@@ -26,6 +26,7 @@ from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.scanner import MCPScanner
 from suscheck.modules.repo.scanner import RepoScanner
+from suscheck.modules.repo.dependency_check_runner import DependencyCheckRunner
 from suscheck.modules.reporting.terminal import (
     render_findings,
     render_scan_footer,
@@ -451,3 +452,30 @@ def build_static_tier1_skip_findings(*, target: str, artifact_type: str) -> list
             review_reason="Package target missing static Tier 1 execution",
         )
     ]
+
+
+def execute_dependency_check_phase(*, target_dir: str, console: Console) -> tuple[list[Finding], bool]:
+    """Run OWASP Dependency-Check for a local directory."""
+    console.print("\n[bold]Dependency Check: OWASP Dependency-Check[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = DependencyCheckRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        return findings, True
+
+    console.print("  [dim]Running dependency-check scan...[/dim]")
+    res = runner.scan_directory(target_dir)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No dependency vulnerabilities found by Dependency-Check.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ Dependency-Check Warning: {err}[/yellow]")
+
+    return findings, failed

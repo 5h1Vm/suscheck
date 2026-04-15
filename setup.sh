@@ -6,6 +6,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_BIN="$ROOT_DIR/.venv/bin"
+VENV_TOOLS_DIR="$ROOT_DIR/.venv/tools"
 LOG_FILE="$ROOT_DIR/setup.log"
 
 # Stream everything to terminal and log file for auditability.
@@ -235,6 +236,148 @@ PY
     return 3
 }
 
+download_dependency_check_archive() {
+    local out_archive="$1"
+
+    python3 - "$out_archive" <<'PY'
+import json
+import os
+import sys
+import urllib.request
+from pathlib import Path
+
+out_archive = Path(sys.argv[1])
+api = "https://api.github.com/repos/dependency-check/DependencyCheck/releases/latest"
+headers = {
+    "User-Agent": "suscheck-setup",
+    "Accept": "application/vnd.github+json",
+}
+token = os.environ.get("SUSCHECK_GITHUB_TOKEN") or os.environ.get("GITHUB_TOKEN")
+if token:
+    headers["Authorization"] = f"Bearer {token}"
+
+req = urllib.request.Request(api, headers=headers)
+with urllib.request.urlopen(req, timeout=30) as resp:
+    rel = json.loads(resp.read().decode())
+
+assets = rel.get("assets", [])
+download_url = None
+asset_name = None
+for asset in assets:
+    name = (asset.get("name") or "").lower()
+    if name.endswith("-release.zip"):
+        download_url = asset.get("browser_download_url")
+        asset_name = asset.get("name")
+        break
+
+if not download_url:
+    raise SystemExit("No dependency-check release zip asset found.")
+
+out_archive.parent.mkdir(parents=True, exist_ok=True)
+req_asset = urllib.request.Request(download_url, headers=headers)
+with urllib.request.urlopen(req_asset, timeout=180) as resp:
+    out_archive.write_bytes(resp.read())
+
+print(asset_name or out_archive.name)
+PY
+}
+
+provision_dependency_check() {
+    local archive_path="${1:-}"
+    local install_root="$VENV_TOOLS_DIR/dependency-check"
+    local wrapper_path="$VENV_BIN/dependency-check"
+
+    if command -v dependency-check >/dev/null 2>&1; then
+        echo "      ✓ Found dependency-check on PATH: $(command -v dependency-check)"
+        return 0
+    fi
+
+    install_from_archive() {
+        local archive="$1"
+        if [[ -z "$archive" || ! -f "$archive" ]]; then
+            return 1
+        fi
+
+        rm -rf "$install_root"
+        mkdir -p "$install_root"
+
+        set +e
+        python3 - "$archive" "$install_root" <<'PY'
+import shutil
+import sys
+import zipfile
+from pathlib import Path
+
+archive = Path(sys.argv[1])
+install_root = Path(sys.argv[2])
+
+if not archive.name.lower().endswith(".zip"):
+    raise SystemExit("Dependency-Check archive must be a .zip file")
+
+with zipfile.ZipFile(archive) as zf:
+    zf.extractall(install_root)
+
+candidate = None
+for path in install_root.rglob("dependency-check.sh"):
+    if path.name == "dependency-check.sh" and path.parent.name == "bin":
+        candidate = path
+        break
+
+if candidate is None:
+    raise SystemExit("dependency-check.sh not found in archive")
+
+# Normalize extracted tree to install_root/dependency-check
+target_root = install_root / "dependency-check"
+if target_root.exists():
+    shutil.rmtree(target_root)
+shutil.move(str(candidate.parent.parent), str(target_root))
+PY
+        local py_status=$?
+        set -e
+
+        if [[ $py_status -ne 0 || ! -x "$install_root/dependency-check/bin/dependency-check.sh" ]]; then
+            return 2
+        fi
+
+        cat > "$wrapper_path" <<EOF
+#!/usr/bin/env bash
+exec "$install_root/dependency-check/bin/dependency-check.sh" "\$@"
+EOF
+        chmod +x "$wrapper_path"
+
+        echo "      ✓ Installed dependency-check wrapper: $wrapper_path"
+        return 0
+    }
+
+    if install_from_archive "$archive_path"; then
+        return 0
+    fi
+
+    echo "      • Attempting automatic dependency-check download..."
+    local dl_archive
+    local asset_name
+    dl_archive="$(mktemp -u)/dependency-check-release.zip"
+    if asset_name="$(download_dependency_check_archive "$dl_archive" 2>&1)"; then
+        echo "      • Downloaded dependency-check asset: $asset_name"
+        if install_from_archive "$dl_archive"; then
+            rm -f "$dl_archive"
+            return 0
+        fi
+        rm -f "$dl_archive"
+        echo "      ⚠️  Download succeeded, but dependency-check archive extraction failed."
+    else
+        echo "      ⚠️  Automatic dependency-check download failed: $asset_name"
+    fi
+
+    if [[ -n "$archive_path" ]]; then
+        echo "      ⚠️  Provided dependency-check archive was not usable."
+    fi
+
+    echo "      ⚠️  Dependency-Check unavailable. Install manually from:"
+    echo "         https://owasp.org/www-project-dependency-check/"
+    return 3
+}
+
 echo "--------------------------------------------------"
 echo "   SusCheck: Forensic Pre-execution Orchestrator   "
 echo "   Single entrypoint: setup.sh                     "
@@ -274,12 +417,18 @@ if ! .venv/bin/pip install -e .; then
     exit 1
 fi
 
-# 4. Tool Provisioning (KICS)
-echo "[4/5] Provisioning KICS runtime for IaC forensics..."
+# 4. Tool Provisioning (KICS + Dependency-Check)
+echo "[4/5] Provisioning external security engines..."
 # Optional local archive path can be provided through env
 # e.g. SUSCHECK_KICS_ARCHIVE=/path/to/kics-binary.zip bash setup.sh
 if ! provision_kics "${SUSCHECK_KICS_ARCHIVE:-}"; then
     echo "      ⚠️  KICS provisioning failed. You can still run scans without KICS."
+fi
+
+# Optional local archive path can be provided through env
+# e.g. SUSCHECK_DEPCHECK_ARCHIVE=/path/to/dependency-check-release.zip bash setup.sh
+if ! provision_dependency_check "${SUSCHECK_DEPCHECK_ARCHIVE:-}"; then
+    echo "      ⚠️  Dependency-Check provisioning failed. CVE dependency scanning will be unavailable."
 fi
 
 # 5. Final Diagnostic
