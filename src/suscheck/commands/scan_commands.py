@@ -29,8 +29,9 @@ from suscheck.modules.reporting.terminal import (
     render_verdict,
 )
 from suscheck.services.analysis_service import execute_ai_triage_phase, execute_package_trust_phase
-from suscheck.services.policy_service import apply_partial_scan_safety_floor
+from suscheck.services.policy_service import apply_partial_scan_safety_floor, evaluate_scan_policy
 from suscheck.services.report_service import export_report
+from suscheck.services.suppression_service import evaluate_suppressions, load_suppressions
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
     execute_dependency_check_phase,
@@ -41,6 +42,7 @@ from suscheck.services.scan_service import (
 )
 from suscheck.services.summary_service import (
     build_scan_summary,
+    build_explainability_trace,
     derive_coverage_contract,
     derive_modules_skipped,
 )
@@ -251,6 +253,15 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                             review_reason="Dependency-Check phase failed",
                         )
                     )
+            suppressions = load_suppressions(os.environ.get("SUSCHECK_SUPPRESSIONS_FILE"))
+            suppression_trace: list[str] = []
+            if suppressions:
+                suppression_result = evaluate_suppressions(all_findings, suppressions)
+                if suppression_result.findings:
+                    all_findings.extend(suppression_result.findings)
+                suppression_trace = suppression_result.trace
+                if suppression_result.trace:
+                    console.print(f"[dim]Suppression governance entries loaded: {suppression_result.loaded_entries}[/dim]")
             scan_duration = time.time() - scan_start
 
             aggregator = RiskAggregator("DIRECTORY")
@@ -290,6 +301,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 verdict=pri_result.verdict,
                 pri_breakdown=pri_result.breakdown,
             )
+            summary.suppression_trace = suppression_trace
+            policy_decision = evaluate_scan_policy(summary)
+            summary.policy_action = policy_decision.action
+            summary.policy_trace = policy_decision.trace
+            summary.explainability_trace = build_explainability_trace(summary)
 
             console.print(Panel("\n".join(pri_result.breakdown), title="Heuristic Risk Vector Analysis", border_style="dim"))
             render_findings(all_findings)
@@ -523,6 +539,17 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
 
         scan_duration = time.time() - scan_start
 
+        suppressions = load_suppressions(os.environ.get("SUSCHECK_SUPPRESSIONS_FILE"))
+        if suppressions:
+            suppression_result = evaluate_suppressions(all_findings, suppressions)
+            if suppression_result.findings:
+                all_findings.extend(suppression_result.findings)
+            if suppression_result.trace:
+                console.print(f"[dim]Suppression governance entries loaded: {suppression_result.loaded_entries}[/dim]")
+            suppression_trace = suppression_result.trace
+        else:
+            suppression_trace = []
+
         supply_chain_trust_score, trust_findings, modules_ran = execute_package_trust_phase(
             target=target,
             artifact_type=detection.artifact_type.value,
@@ -582,6 +609,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             verdict=pri_result.verdict,
             pri_breakdown=pri_result.breakdown,
         )
+        summary.suppression_trace = suppression_trace
+        policy_decision = evaluate_scan_policy(summary)
+        summary.policy_action = policy_decision.action
+        summary.policy_trace = policy_decision.trace
+        summary.explainability_trace = build_explainability_trace(summary)
 
         console.print(
             Panel(

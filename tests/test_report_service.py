@@ -28,6 +28,48 @@ def test_render_report_content_json_contains_contract_fields() -> None:
     assert data["coverage_notes"] == ["Modules skipped: code"]
 
 
+def test_render_report_content_json_includes_policy_fields() -> None:
+    summary = _summary()
+    summary.policy_action = "warn"
+    summary.policy_trace = ["coverage: allow", "severity: warn (1 medium finding(s))", "pri: warn (16/100)"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["policy_action"] == "warn"
+    assert data["policy_trace"] == summary.policy_trace
+
+
+def test_render_report_content_json_includes_suppression_fields() -> None:
+    summary = _summary()
+    summary.suppression_trace = ["suppression: active scope for alice matched 1 finding(s)"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["suppression_trace"] == summary.suppression_trace
+
+
+def test_render_report_content_json_includes_explainability_fields() -> None:
+    summary = _summary()
+    summary.explainability_trace = ["Verdict: CAUTION at PRI 16/100", "PRI band: caution (16-40)"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["explainability_trace"] == summary.explainability_trace
+
+
+def test_render_report_content_json_includes_schema_version() -> None:
+    summary = _summary()
+    summary.schema_version = "1.0"
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["schema_version"] == "1.0"
+
+
 def test_export_report_writes_output_file(tmp_path) -> None:
     summary = _summary()
     out_file = tmp_path / "report.json"

@@ -8,6 +8,7 @@ and generating a final 0-100 score and verdict.
 from dataclasses import dataclass, field
 
 from suscheck.core.finding import Finding, FindingType, Severity, Verdict
+from suscheck.core.finding_normalizer import normalize_findings
 
 
 @dataclass
@@ -50,6 +51,17 @@ class RiskAggregator:
         score = 0.0
         breakdown = []
         breakdown.append("[bold]Score Breakdown:[/bold]")
+
+        normalized = normalize_findings(findings)
+        findings = normalized.findings
+        if normalized.deduplicated_count > 0:
+            breakdown.append(
+                f"  [dim]• Normalization:[/dim] deduplicated [bold]{normalized.deduplicated_count}[/bold] repeated finding(s)"
+            )
+        if normalized.correlated_indicators:
+            breakdown.append(
+                f"  [dim]• Normalization:[/dim] correlated [bold]{len(normalized.correlated_indicators)}[/bold] multi-module indicator cluster(s)"
+            )
 
         base_score = 0.0
         contributing_findings = []

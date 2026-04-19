@@ -127,3 +127,8 @@ class ScanSummary:
     vt_result: Optional[dict] = None
     trust_score: Optional[float] = None
     pri_breakdown: list[str] = field(default_factory=list)
+    policy_action: Optional[str] = None
+    policy_trace: list[str] = field(default_factory=list)
+    suppression_trace: list[str] = field(default_factory=list)
+    explainability_trace: list[str] = field(default_factory=list)
+    schema_version: str = "1.0"

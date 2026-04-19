@@ -42,6 +42,7 @@ class ReportGenerator:
         lines.append(f"**Date:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"**Verdict:** {summary.verdict.value.upper()}")
         lines.append(f"**Platform Risk Index:** {summary.pri_score}/100")
+        lines.append(f"**Schema Version:** {getattr(summary, 'schema_version', '1.0')}")
         lines.append("")
         
         lines.append("## Executive Summary")
@@ -60,6 +61,25 @@ class ReportGenerator:
             clean_step = tag_re.sub('', step)
             lines.append(f"- {clean_step}")
         lines.append("")
+
+        if getattr(summary, "policy_trace", None):
+            lines.append("## Policy Gate")
+            lines.append(f"- **Action:** {getattr(summary, 'policy_action', 'allow').upper()}")
+            for step in summary.policy_trace:
+                lines.append(f"- {step}")
+            lines.append("")
+
+        if getattr(summary, "suppression_trace", None):
+            lines.append("## Suppression Governance")
+            for step in summary.suppression_trace:
+                lines.append(f"- {step}")
+            lines.append("")
+
+        if getattr(summary, "explainability_trace", None):
+            lines.append("## Why This Verdict")
+            for step in summary.explainability_trace:
+                lines.append(f"- {step}")
+            lines.append("")
 
         if summary.findings:
             lines.append("## Findings Detail")
@@ -126,6 +146,37 @@ class ReportGenerator:
             if "total score" in clean_step.lower():
                 clean_step = f"<strong>{clean_step}</strong>"
             breakdown_html += f"<li>{clean_step}</li>"
+
+        policy_html = ""
+        if getattr(summary, "policy_trace", None):
+            policy_items = "".join(f"<li>{step}</li>" for step in summary.policy_trace)
+            policy_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Policy Gate</h2>
+                <div><strong>Action:</strong> {getattr(summary, 'policy_action', 'allow').upper()}</div>
+                <ul class="breakdown">{policy_items}</ul>
+            </div>
+            '''
+
+        suppression_html = ""
+        if getattr(summary, "suppression_trace", None):
+            suppression_items = "".join(f"<li>{step}</li>" for step in summary.suppression_trace)
+            suppression_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Suppression Governance</h2>
+                <ul class="breakdown">{suppression_items}</ul>
+            </div>
+            '''
+
+        explainability_html = ""
+        if getattr(summary, "explainability_trace", None):
+            explainability_items = "".join(f"<li>{step}</li>" for step in summary.explainability_trace)
+            explainability_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Why This Verdict</h2>
+                <ul class="breakdown">{explainability_items}</ul>
+            </div>
+            '''
 
         html_template = f'''
 <!DOCTYPE html>
@@ -286,6 +337,9 @@ class ReportGenerator:
                 <div style="margin-top: 0.5rem; opacity: 0.8;">
                     This artifact has been classified with a <strong>{summary.verdict.value.upper()}</strong> status after evaluating {summary.total_findings} security indicators.
                 </div>
+                <div style="margin-top: 0.75rem; color: var(--text-dim);">
+                    Schema Version: {getattr(summary, 'schema_version', '1.0')}
+                </div>
             </div>
         </div>
 
@@ -311,6 +365,12 @@ class ReportGenerator:
                 </div>
             </div>
         </div>
+
+        {policy_html}
+
+        {suppression_html}
+
+        {explainability_html}
 
         <div class="findings-list">
             <h2>Detailed Inventory</h2>

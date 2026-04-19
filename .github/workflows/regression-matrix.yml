@@ -1,0 +1,68 @@
+name: Regression Matrix
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        failure_mode: [baseline, timeout, missing_tool, malformed_output, partial_traversal, report_schema]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Run regression matrix case
+        shell: bash
+        run: |
+          set -e
+          case "${{ matrix.failure_mode }}" in
+            baseline)
+              pytest -q \
+                tests/test_regression_matrix.py \
+                tests/test_risk_aggregator.py
+              ;;
+            timeout)
+              pytest -q \
+                tests/test_scan_service.py::test_execute_remote_repository_tier1_phase_clone_timeout
+              ;;
+            missing_tool)
+              pytest -q \
+                tests/test_scan_service.py::test_execute_remote_repository_tier1_phase_when_git_missing \
+                tests/test_scan_service.py::test_execute_dependency_check_phase_when_tool_missing
+              ;;
+            malformed_output)
+              pytest -q \
+                tests/test_scan_service.py::test_execute_dependency_check_phase_with_runner_errors
+              ;;
+            partial_traversal)
+              pytest -q \
+                tests/test_smoke.py::test_install_blocks_on_partial_coverage_without_force \
+                tests/test_smoke.py::test_clone_blocks_on_partial_coverage_without_force \
+                tests/test_smoke.py::test_connect_blocks_on_partial_coverage_without_force
+              ;;
+            report_schema)
+              pytest -q \
+                tests/test_report_service.py::test_render_report_content_json_includes_schema_version
+              ;;
+            *)
+              echo "Unknown failure mode: ${{ matrix.failure_mode }}"
+              exit 1
+              ;;
+          esac

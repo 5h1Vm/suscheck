@@ -249,6 +249,15 @@ def render_scan_footer(summary: ScanSummary) -> None:
         notes = "\n".join(f"- {note}" for note in summary.coverage_notes)
         console.print(Panel(notes, title="Coverage Notes", border_style="yellow", padding=(0, 1)))
 
+    if summary.coverage_complete and summary.verdict == Verdict.CLEAR:
+        next_step = "Next step: proceed with the wrapper action or export the report for records."
+    elif summary.coverage_complete:
+        next_step = "Next step: review the findings and policy trace before trusting this target."
+    else:
+        next_step = "Next step: address the coverage notes, then rerun the scan before taking action."
+
+    console.print(Panel(next_step, title="Action Summary", border_style="blue", padding=(0, 1)))
+
 
 def _build_score_bar(score: int, width: int = 30) -> str:
     """Build a visual score bar."""

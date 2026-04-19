@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from suscheck.core.finding import Finding, ScanSummary, Severity, Verdict
+from suscheck.core.finding_normalizer import normalize_findings
 
 
 def derive_modules_skipped(
@@ -160,3 +161,57 @@ def build_scan_summary(
         trust_score=trust_score,
         pri_breakdown=pri_breakdown or [],
     )
+
+
+def build_explainability_trace(summary: ScanSummary) -> list[str]:
+    """Build a deterministic explanation of why the verdict was produced."""
+    trace: list[str] = []
+    trace.append(f"Verdict: {summary.verdict.value.upper()} at PRI {summary.pri_score}/100")
+
+    if summary.pri_score <= 15:
+        trace.append("PRI band: clear (0-15)")
+    elif summary.pri_score <= 40:
+        trace.append("PRI band: caution (16-40)")
+    elif summary.pri_score <= 70:
+        trace.append("PRI band: hold (41-70)")
+    else:
+        trace.append("PRI band: abort (71-100)")
+
+    normalized = normalize_findings(summary.findings)
+    scored = []
+    for finding in normalized.findings:
+        if finding.ai_false_positive:
+            continue
+        base_points = {
+            Severity.CRITICAL: 25,
+            Severity.HIGH: 15,
+            Severity.MEDIUM: 8,
+            Severity.LOW: 3,
+            Severity.INFO: 1,
+        }.get(finding.severity, 0)
+        scored.append((base_points * finding.confidence, finding))
+
+    scored.sort(key=lambda item: (-item[0], item[1].finding_id))
+    if scored:
+        trace.append("Top PRI drivers:")
+        for points, finding in scored[:3]:
+            trace.append(
+                f"- {finding.finding_id} ({finding.severity.value}, {finding.module}) contributes {points:.1f} pts"
+            )
+
+    if summary.policy_trace:
+        trace.append(f"Policy gate action: {summary.policy_action or 'allow'}")
+        trace.extend([f"- {step}" for step in summary.policy_trace])
+
+    if summary.suppression_trace:
+        trace.append("Suppression governance:")
+        trace.extend([f"- {step}" for step in summary.suppression_trace])
+
+    if summary.coverage_notes:
+        trace.append("Coverage / phase decisions:")
+        trace.extend([f"- {note}" for note in summary.coverage_notes])
+
+    if summary.modules_failed:
+        trace.append(f"Failed modules: {', '.join(summary.modules_failed)}")
+
+    return trace

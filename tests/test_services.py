@@ -5,10 +5,12 @@ from suscheck.core.risk_aggregator import PRIScore
 from suscheck.services.policy_service import (
     apply_partial_scan_safety_floor,
     evaluate_wrapper_policy,
+    evaluate_scan_policy,
     should_block_on_partial_coverage,
 )
 from suscheck.services.summary_service import (
     build_scan_summary,
+    build_explainability_trace,
     derive_coverage_contract,
     derive_modules_skipped,
 )
@@ -126,6 +128,38 @@ def test_derive_coverage_contract_includes_dependency_db_state_note() -> None:
     assert any("Dependency-Check DB state: stale" in note for note in notes)
 
 
+def test_build_explainability_trace_includes_verdict_and_policy_context() -> None:
+    summary = build_scan_summary(
+        target="requests",
+        artifact_type="package",
+        findings=[
+            Finding(
+                module="code",
+                finding_id="CODE-1",
+                title="Code issue",
+                description="test",
+                severity=Severity.HIGH,
+                finding_type=FindingType.SUSPICIOUS_BEHAVIOR,
+                confidence=1.0,
+            )
+        ],
+        pri_score=31,
+        modules_ran=["supply_chain"],
+        coverage_complete=False,
+        coverage_notes=["Modules skipped: code"],
+    )
+    summary.policy_action = "warn"
+    summary.policy_trace = ["coverage: block (scan coverage incomplete)"]
+    summary.suppression_trace = ["suppression: active scope for alice matched 1 finding(s)"]
+
+    trace = build_explainability_trace(summary)
+
+    assert any(step.startswith("Verdict:") for step in trace)
+    assert any(step.startswith("Top PRI drivers:") for step in trace)
+    assert any("Policy gate action" in step for step in trace)
+    assert any("Coverage / phase decisions:" in step for step in trace)
+
+
 def test_evaluate_wrapper_policy_blocks_on_pri_without_force() -> None:
     summary = build_scan_summary(
         target="https://example.com/repo",
@@ -158,3 +192,36 @@ def test_evaluate_wrapper_policy_warns_when_forced() -> None:
     assert decision.block_partial_coverage is False
     assert decision.block_on_pri_threshold is False
     assert decision.warn_forced_override is True
+
+
+def test_evaluate_scan_policy_blocks_on_partial_coverage() -> None:
+    summary = build_scan_summary(
+        target="requests",
+        artifact_type="package",
+        findings=[],
+        pri_score=8,
+        modules_ran=["supply_chain"],
+        coverage_complete=False,
+        coverage_notes=["Modules skipped: code"],
+    )
+
+    decision = evaluate_scan_policy(summary)
+
+    assert decision.action == "block"
+    assert any(step.startswith("coverage: block") for step in decision.trace)
+
+
+def test_evaluate_scan_policy_warns_on_medium_pri() -> None:
+    summary = build_scan_summary(
+        target="requests",
+        artifact_type="package",
+        findings=[],
+        pri_score=21,
+        modules_ran=["supply_chain"],
+        coverage_complete=True,
+    )
+
+    decision = evaluate_scan_policy(summary)
+
+    assert decision.action == "warn"
+    assert any(step.startswith("pri: warn") for step in decision.trace)
