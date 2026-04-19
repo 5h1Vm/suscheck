@@ -89,7 +89,7 @@ class ConfigScanner(ScannerModule):
                     if kics_res.errors:
                         errors.extend(kics_res.errors)
                 else:
-                    errors.append("KICS not installed. Use Docker fallback or set SUSCHECK_KICS_PATH.")
+                    errors.append("KICS not installed. Use Docker runtime mode or set SUSCHECK_KICS_PATH.")
 
         except Exception as e:
             errors.append(f"Config scanner failed completely: {str(e)}")

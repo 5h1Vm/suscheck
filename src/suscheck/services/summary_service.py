@@ -6,6 +6,7 @@ import os
 
 from suscheck.core.finding import Finding, ScanSummary, Severity, Verdict
 from suscheck.core.finding_normalizer import normalize_findings
+from suscheck.modules.optional.registry import OptionalScannerRegistry
 
 
 def derive_modules_skipped(
@@ -215,3 +216,15 @@ def build_explainability_trace(summary: ScanSummary) -> list[str]:
         trace.append(f"Failed modules: {', '.join(summary.modules_failed)}")
 
     return trace
+
+
+def build_optional_scanner_trace() -> list[str]:
+    """Build deterministic visibility trace for optional scanner adapters."""
+    registry = OptionalScannerRegistry()
+    adapters = registry.list_adapters()
+    enabled = [adapter.name for adapter in adapters if adapter.enabled]
+
+    if enabled:
+        return [f"optional-scanners: enabled={','.join(sorted(enabled))}"]
+
+    return ["optional-scanners: enabled=none (all disabled-by-default)"]

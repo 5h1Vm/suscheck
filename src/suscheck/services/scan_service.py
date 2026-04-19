@@ -87,6 +87,8 @@ def execute_tier0_phase(
         hash_table.add_row("SHA-1", tier0_result.hash_result.sha1)
         hash_table.add_row("Size", f"{tier0_result.hash_result.file_size:,} bytes")
         console.print(hash_table)
+        if tier0_result.cache_hit:
+            console.print("  [dim]Tier 0 fingerprint cache hit: reused hash result for unchanged file.[/dim]")
 
     render_vt_result(tier0_result.vt_dict)
     if tier0_result.findings:

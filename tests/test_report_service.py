@@ -60,6 +60,36 @@ def test_render_report_content_json_includes_explainability_fields() -> None:
     assert data["explainability_trace"] == summary.explainability_trace
 
 
+def test_render_report_content_json_includes_performance_fields() -> None:
+    summary = _summary()
+    summary.performance_trace = ["performance: within guardrail (4.00s <= 15.00s for fast)"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["performance_trace"] == summary.performance_trace
+
+
+def test_render_report_content_json_includes_trend_fields() -> None:
+    summary = _summary()
+    summary.trend_trace = ["trend: no previous scan snapshot for this target"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["trend_trace"] == summary.trend_trace
+
+
+def test_render_report_content_json_includes_optional_scanner_trace() -> None:
+    summary = _summary()
+    summary.optional_scanner_trace = ["optional-scanners: enabled=none (all disabled-by-default)"]
+
+    payload = render_report_content(summary, ReportFormat.JSON)
+    data = json.loads(payload)
+
+    assert data["optional_scanner_trace"] == summary.optional_scanner_trace
+
+
 def test_render_report_content_json_includes_schema_version() -> None:
     summary = _summary()
     summary.schema_version = "1.0"

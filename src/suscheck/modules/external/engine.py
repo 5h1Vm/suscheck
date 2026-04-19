@@ -24,6 +24,7 @@ from typing import Optional
 from suscheck.core.finding import Finding, FindingType, Severity
 from suscheck.modules.external.hash_engine import HashEngine, HashResult
 from suscheck.modules.external.virustotal import VirusTotalClient, VirusTotalResult
+from suscheck.services.fingerprint_service import FileFingerprint, Tier0FingerprintCache, build_file_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class Tier0Result:
     pri_adjustment: int = 0  # Points to add/subtract from PRI
     scan_duration: float = 0.0
     errors: list[str] = field(default_factory=list)
+    cache_hit: bool = False
 
     @property
     def vt_dict(self) -> Optional[dict]:
@@ -77,6 +79,7 @@ class Tier0Engine:
     ):
         self.hasher = HashEngine(max_file_size=max_file_size)
         self.vt_client = VirusTotalClient(api_key=vt_api_key)
+        self.fingerprint_cache = Tier0FingerprintCache()
 
     def check_file(self, file_path: str, upload_vt: bool = False) -> Tier0Result:
         """Run Tier 0 checks on a file.
@@ -101,10 +104,18 @@ class Tier0Engine:
 
         # ── Step 1: Compute hashes ────────────────────────────────
         try:
-            result.hash_result = self.hasher.hash_file(file_path)
-            logger.info(
-                f"Hashed {file_path}: SHA-256={result.hash_result.sha256[:16]}..."
-            )
+            fingerprint = build_file_fingerprint(file_path)
+            cached_hash = self.fingerprint_cache.get(fingerprint)
+            if cached_hash:
+                result.hash_result = cached_hash
+                result.cache_hit = True
+                logger.info(f"Tier 0 hash cache hit for {file_path}")
+            else:
+                result.hash_result = self.hasher.hash_file(file_path)
+                self.fingerprint_cache.put(fingerprint, result.hash_result)
+                logger.info(
+                    f"Hashed {file_path}: SHA-256={result.hash_result.sha256[:16]}..."
+                )
         except (FileNotFoundError, IsADirectoryError, ValueError, PermissionError) as e:
             result.errors.append(f"Hash computation failed: {e}")
             logger.error(f"Hash computation failed for {file_path}: {e}")

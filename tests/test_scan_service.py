@@ -15,6 +15,7 @@ from suscheck.services.scan_service import (
     execute_semgrep_phase,
     execute_tier0_phase,
 )
+from suscheck.modules.external.engine import Tier0Engine
 
 
 def test_execute_tier0_phase_skips_non_file_target() -> None:
@@ -273,6 +274,43 @@ def test_execute_dependency_check_phase_with_runner_errors(monkeypatch) -> None:
     assert any(f.finding_id == "DEPCHK-DB-STATE" for f in findings)
     assert any((f.evidence or {}).get("dependency_db_state") == "unknown" for f in findings)
     assert failed is True
+
+
+def test_tier0_engine_reuses_cached_hash_for_unchanged_file(monkeypatch, tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+
+    class _VT:
+        available = False
+
+    monkeypatch.setattr("suscheck.modules.external.engine.VirusTotalClient", lambda api_key=None: _VT())
+
+    call_count = {"hash_file": 0}
+
+    def _hash_file(self, file_path: str):
+        call_count["hash_file"] += 1
+        from suscheck.modules.external.hash_engine import HashResult
+
+        path = Path(file_path)
+        return HashResult(
+            sha256="a" * 64,
+            md5="b" * 32,
+            sha1="c" * 40,
+            file_size=path.stat().st_size,
+            file_path=str(path.resolve()),
+        )
+
+    monkeypatch.setattr("suscheck.modules.external.engine.HashEngine.hash_file", _hash_file)
+
+    engine = Tier0Engine(max_file_size=10_000_000)
+    engine.fingerprint_cache = engine.fingerprint_cache.__class__(tmp_path / "tier0-cache.json")
+
+    first = engine.check_file(str(sample))
+    second = engine.check_file(str(sample))
+
+    assert first.hash_result is not None
+    assert second.cache_hit is True
+    assert call_count["hash_file"] == 1
 
 
 def test_execute_remote_repository_tier1_phase_when_git_missing(monkeypatch) -> None:

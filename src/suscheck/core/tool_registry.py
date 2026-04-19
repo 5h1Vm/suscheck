@@ -113,7 +113,7 @@ class ToolRegistry:
             logger.debug(f"Tool {tool.value} found near interpreter: {sibling}")
             return status
 
-        # KICS supports Docker fallback when local binary is unavailable.
+        # KICS supports Docker runtime mode when local binary is unavailable.
         if tool is ToolType.KICS:
             docker_path = shutil.which("docker")
             if docker_path:
@@ -123,7 +123,7 @@ class ToolRegistry:
                     path="docker://checkmarx/kics:latest",
                 )
                 self._cached_status[tool] = status
-                logger.debug("Tool kics available via Docker fallback")
+                logger.debug("Tool kics available via Docker runtime mode")
                 return status
 
         # Not found - provide guidance

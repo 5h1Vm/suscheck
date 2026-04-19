@@ -1,0 +1,170 @@
+{
+  "DIRECTORY:/tmp/pytest-of-shivam/pytest-31/test_scan_directory_depcheck_f0": {
+    "artifact_type": "DIRECTORY",
+    "coverage_complete": false,
+    "pri_score": 2,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_directory_depcheck_f0",
+    "total_findings": 1,
+    "verdict": "clear"
+  },
+  "DIRECTORY:/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_di0": {
+    "artifact_type": "DIRECTORY",
+    "coverage_complete": false,
+    "pri_score": 2,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_di0",
+    "total_findings": 1,
+    "verdict": "clear"
+  },
+  "DIRECTORY:/tmp/pytest-of-shivam/pytest-32/test_scan_directory_depcheck_f0": {
+    "artifact_type": "DIRECTORY",
+    "coverage_complete": false,
+    "pri_score": 2,
+    "target": "/tmp/pytest-of-shivam/pytest-32/test_scan_directory_depcheck_f0",
+    "total_findings": 1,
+    "verdict": "clear"
+  },
+  "DIRECTORY:/tmp/pytest-of-shivam/pytest-33/test_scan_directory_depcheck_f0": {
+    "artifact_type": "DIRECTORY",
+    "coverage_complete": false,
+    "pri_score": 2,
+    "target": "/tmp/pytest-of-shivam/pytest-33/test_scan_directory_depcheck_f0",
+    "total_findings": 1,
+    "verdict": "clear"
+  },
+  "DIRECTORY:/tmp/pytest-of-shivam/pytest-34/test_scan_directory_depcheck_f0": {
+    "artifact_type": "DIRECTORY",
+    "coverage_complete": false,
+    "pri_score": 2,
+    "target": "/tmp/pytest-of-shivam/pytest-34/test_scan_directory_depcheck_f0",
+    "total_findings": 1,
+    "verdict": "clear"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": true,
+    "pri_score": 9,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py",
+    "total_findings": 5,
+    "verdict": "clear"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_lo0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_lo0/sample.py",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-31/test_scan_semgrep_failure_adds0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_semgrep_failure_adds0/sample.py",
+    "total_findings": 1,
+    "verdict": "caution"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-32/test_scan_local_file_fans_out_0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": true,
+    "pri_score": 9,
+    "target": "/tmp/pytest-of-shivam/pytest-32/test_scan_local_file_fans_out_0/sample.py",
+    "total_findings": 5,
+    "verdict": "clear"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-32/test_scan_semgrep_failure_adds0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-32/test_scan_semgrep_failure_adds0/sample.py",
+    "total_findings": 1,
+    "verdict": "caution"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-33/test_scan_local_file_fans_out_0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": true,
+    "pri_score": 9,
+    "target": "/tmp/pytest-of-shivam/pytest-33/test_scan_local_file_fans_out_0/sample.py",
+    "total_findings": 5,
+    "verdict": "clear"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-33/test_scan_semgrep_failure_adds0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-33/test_scan_semgrep_failure_adds0/sample.py",
+    "total_findings": 1,
+    "verdict": "caution"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-34/test_scan_local_file_fans_out_0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": true,
+    "pri_score": 9,
+    "target": "/tmp/pytest-of-shivam/pytest-34/test_scan_local_file_fans_out_0/sample.py",
+    "total_findings": 5,
+    "verdict": "clear"
+  },
+  "code:/tmp/pytest-of-shivam/pytest-34/test_scan_semgrep_failure_adds0/sample.py": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-34/test_scan_semgrep_failure_adds0/sample.py",
+    "total_findings": 1,
+    "verdict": "caution"
+  },
+  "mcp_server:/tmp/pytest-of-shivam/pytest-31/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "artifact_type": "mcp_server",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "mcp_server:/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_lo1/mcp.json": {
+    "artifact_type": "mcp_server",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-31/test_scan_regression_matrix_lo1/mcp.json",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "mcp_server:/tmp/pytest-of-shivam/pytest-32/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "artifact_type": "mcp_server",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-32/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "mcp_server:/tmp/pytest-of-shivam/pytest-33/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "artifact_type": "mcp_server",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-33/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "mcp_server:/tmp/pytest-of-shivam/pytest-34/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "artifact_type": "mcp_server",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "/tmp/pytest-of-shivam/pytest-34/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "total_findings": 2,
+    "verdict": "caution"
+  },
+  "package:requests": {
+    "artifact_type": "package",
+    "coverage_complete": false,
+    "pri_score": 16,
+    "target": "requests",
+    "total_findings": 1,
+    "verdict": "caution"
+  },
+  "repository:https://github.com/example/repo": {
+    "artifact_type": "repository",
+    "coverage_complete": true,
+    "pri_score": 0,
+    "target": "https://github.com/example/repo",
+    "total_findings": 0,
+    "verdict": "clear"
+  }
+}

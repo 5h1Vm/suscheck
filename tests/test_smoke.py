@@ -4,10 +4,12 @@ import asyncio
 from types import SimpleNamespace
 
 from rich.panel import Panel
+from rich.console import Console
 from typer.testing import CliRunner
 
 from suscheck.ai.triage_engine import check_provider_health
 from suscheck.cli import app
+from suscheck.modules.reporting.terminal import render_scan_footer
 
 
 runner = CliRunner()
@@ -25,6 +27,23 @@ class _DummySummary:
         self.verdict = SimpleNamespace(value=verdict_value)
         self.coverage_complete = coverage_complete
         self.coverage_notes = coverage_notes or []
+
+
+def test_render_scan_footer_includes_next_step_guidance(monkeypatch) -> None:
+    buf_console = Console(record=True)
+    monkeypatch.setattr("suscheck.modules.reporting.terminal.console", buf_console)
+
+    summary = _DummySummary(pri_score=12, verdict_value="CLEAR", coverage_complete=True)
+    summary.scan_duration = 1.23
+    summary.modules_ran = ["tier0"]
+    summary.modules_failed = []
+    summary.modules_skipped = []
+    summary.verdict = SimpleNamespace(value="CLEAR")
+
+    render_scan_footer(summary)
+
+    output = buf_console.export_text()
+    assert "Next step:" in output
 
 
 def test_version_command_runs() -> None:

@@ -13,6 +13,15 @@ from suscheck.core.finding import Finding, FindingType, Severity
 runner = CliRunner()
 
 
+def test_help_command_shows_tooling_map() -> None:
+    result = runner.invoke(app, ["help"])
+
+    assert result.exit_code == 0
+    assert "SusCheck Command Guide" in result.output
+    assert "KICS" in result.output
+    assert "Optional adapters" in result.output
+
+
 def test_scan_missing_target_exits_nonzero() -> None:
     # Use a non-existent path-like target so CLI does not treat it as package name.
     result = runner.invoke(app, ["scan", "./definitely_missing_target_12345/not_found.py"])

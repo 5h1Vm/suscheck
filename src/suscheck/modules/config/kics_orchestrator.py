@@ -53,7 +53,7 @@ class KicsOrchestrator:
     def scan_file(self, file_path: str) -> KicsResult:
         """Scan a generic IaC configuration file with KICS."""
         if not self.is_installed:
-            docker_hint = " Docker fallback unavailable (docker not found)." if not self.docker_path else ""
+            docker_hint = " Docker runtime mode unavailable (docker not found)." if not self.docker_path else ""
             return KicsResult(
                 findings=[],
                 errors=[f"KICS is not installed. {self.missing_tool_message}{docker_hint}"],
@@ -66,7 +66,7 @@ class KicsOrchestrator:
             temp_path = Path(temp_dir)
             report_path = temp_path / "kics_results.json"
             
-            # KICS command structure (native binary preferred, Docker fallback)
+            # KICS command structure (native binary preferred, Docker runtime mode)
             if self.kics_path:
                 cmd = [
                     self.kics_path,

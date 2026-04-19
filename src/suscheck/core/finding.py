@@ -132,3 +132,6 @@ class ScanSummary:
     suppression_trace: list[str] = field(default_factory=list)
     explainability_trace: list[str] = field(default_factory=list)
     schema_version: str = "1.0"
+    performance_trace: list[str] = field(default_factory=list)
+    trend_trace: list[str] = field(default_factory=list)
+    optional_scanner_trace: list[str] = field(default_factory=list)

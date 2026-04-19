@@ -8,6 +8,7 @@ import sys
 import time
 from enum import Enum
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 
 import typer
@@ -30,8 +31,10 @@ from suscheck.modules.reporting.terminal import (
 )
 from suscheck.services.analysis_service import execute_ai_triage_phase, execute_package_trust_phase
 from suscheck.services.policy_service import apply_partial_scan_safety_floor, evaluate_scan_policy
+from suscheck.services.performance_service import evaluate_performance_guardrails
 from suscheck.services.report_service import export_report
 from suscheck.services.suppression_service import evaluate_suppressions, load_suppressions
+from suscheck.services.trend_service import compare_and_record_trend
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
     execute_dependency_check_phase,
@@ -43,6 +46,7 @@ from suscheck.services.scan_service import (
 from suscheck.services.summary_service import (
     build_scan_summary,
     build_explainability_trace,
+    build_optional_scanner_trace,
     derive_coverage_contract,
     derive_modules_skipped,
 )
@@ -264,6 +268,14 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                     console.print(f"[dim]Suppression governance entries loaded: {suppression_result.loaded_entries}[/dim]")
             scan_duration = time.time() - scan_start
 
+            perf_result = evaluate_performance_guardrails(
+                profile=profile.value,
+                summary=SimpleNamespace(scan_duration=scan_duration),
+            )
+            if perf_result.findings:
+                all_findings.extend(perf_result.findings)
+            performance_trace = perf_result.trace
+
             aggregator = RiskAggregator("DIRECTORY")
             pri_result = aggregator.calculate(all_findings)
 
@@ -306,6 +318,10 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             summary.policy_action = policy_decision.action
             summary.policy_trace = policy_decision.trace
             summary.explainability_trace = build_explainability_trace(summary)
+            summary.performance_trace = performance_trace
+            trend_result = compare_and_record_trend(summary)
+            summary.trend_trace = trend_result.trace
+            summary.optional_scanner_trace = build_optional_scanner_trace()
 
             console.print(Panel("\n".join(pri_result.breakdown), title="Heuristic Risk Vector Analysis", border_style="dim"))
             render_findings(all_findings)
@@ -539,6 +555,14 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
 
         scan_duration = time.time() - scan_start
 
+        perf_result = evaluate_performance_guardrails(
+            profile=profile.value,
+            summary=SimpleNamespace(scan_duration=scan_duration),
+        )
+        if perf_result.findings:
+            all_findings.extend(perf_result.findings)
+        performance_trace = perf_result.trace
+
         suppressions = load_suppressions(os.environ.get("SUSCHECK_SUPPRESSIONS_FILE"))
         if suppressions:
             suppression_result = evaluate_suppressions(all_findings, suppressions)
@@ -614,6 +638,10 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         summary.policy_action = policy_decision.action
         summary.policy_trace = policy_decision.trace
         summary.explainability_trace = build_explainability_trace(summary)
+        summary.performance_trace = performance_trace
+        trend_result = compare_and_record_trend(summary)
+        summary.trend_trace = trend_result.trace
+        summary.optional_scanner_trace = build_optional_scanner_trace()
 
         console.print(
             Panel(

@@ -88,6 +88,45 @@ console = Console()
 detector = AutoDetector()
 scan = register_scan_command(app, console=console, version=__version__)
 
+
+@app.command(
+    name="help",
+    short_help="Show a simplified command guide and tooling map.",
+    rich_help_panel="Setup & Info",
+)
+def help_command() -> None:
+    """Show a concise, categorized CLI guide for day-to-day usage."""
+    console.print(
+        Panel(
+            "[bold]SusCheck Command Guide[/bold]\n\n"
+            "[bold cyan]Core Scan[/bold cyan]\n"
+            "  suscheck scan <target> [--profile default|deep|fast|mcp-hardening] [toggles]\n"
+            "  suscheck trust <package> --ecosystem pypi|npm\n\n"
+            "[bold cyan]Safe Execution Wrappers[/bold cyan]\n"
+            "  suscheck install <ecosystem> <package> [--force]\n"
+            "  suscheck clone <repo_url> [--dest <dir>] [--force]\n"
+            "  suscheck connect <mcp_server_or_manifest> [--force]\n\n"
+            "[bold cyan]Insights & Setup[/bold cyan]\n"
+            "  suscheck diagnostics\n"
+            "  suscheck explain <target>\n"
+            "  suscheck init [--config-path <path>]\n"
+            "  suscheck version\n\n"
+            "[bold cyan]Profile & Toggle Cheatsheet[/bold cyan]\n"
+            "  Profiles: default, deep, fast, mcp-hardening\n"
+            "  Toggles: --ai/--no-ai, --vt/--no-vt, --dependency-check/--no-dependency-check,\n"
+            "           --mcp-dynamic/--no-mcp-dynamic\n"
+            "  Profile reference: docs/scan_profiles.md\n\n"
+            "[bold cyan]Tooling Map[/bold cyan]\n"
+            "  Included in current orchestration: Semgrep, Bandit, Checkov, KICS, Gitleaks,\n"
+            "  Dependency-Check, MCP static/dynamic phases, policy/suppression/trend/perf traces.\n"
+            "  Optional adapters (disabled by default): OpenVAS/Greenbone, ZAP, Nuclei, Trivy, Grype.\n\n"
+            "[bold cyan]Why Optional Adapters Are Disabled[/bold cyan]\n"
+            "  Deterministic defaults, no forced heavy installs, no accidental network-active scans.\n"
+            "  Use diagnostics to verify tool availability before enabling adapters.\n\n"
+            "Use [bold]suscheck <command> --help[/bold] for command-specific details."
+        )
+    )
+
 @app.command(
     short_help="Analyze a package and install it only if it passes security checks.",
     rich_help_panel="Safe Execution",

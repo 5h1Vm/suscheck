@@ -35,6 +35,7 @@ class RiskAggregator:
     _NEUTRAL_FINDING_IDS = {
         "VT-CLEAN-001",
         "VT-NOTFOUND-001",
+        "PERF-REGRESSION",
     }
 
     def __init__(self, artifact_type: str = "CODE"):

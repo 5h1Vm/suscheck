@@ -40,6 +40,18 @@ suscheck scan ./my-project
 suscheck scan https://github.com/user/repo
 ```
 
+### Scan Profiles (Built-In)
+SusCheck currently provides four built-in profiles:
+1. `default`
+2. `deep`
+3. `fast`
+4. `mcp-hardening`
+
+See full profile defaults and toggle precedence in:
+`docs/scan_profiles.md`
+
+Custom user-defined profiles are planned, but not yet implemented.
+
 ### Proactive Installation (Wrapper Mode)
 Audit packages before they touch your system.
 ```bash

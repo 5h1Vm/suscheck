@@ -81,6 +81,24 @@ class ReportGenerator:
                 lines.append(f"- {step}")
             lines.append("")
 
+        if getattr(summary, "performance_trace", None):
+            lines.append("## Performance Guardrails")
+            for step in summary.performance_trace:
+                lines.append(f"- {step}")
+            lines.append("")
+
+        if getattr(summary, "trend_trace", None):
+            lines.append("## Historical Trend")
+            for step in summary.trend_trace:
+                lines.append(f"- {step}")
+            lines.append("")
+
+        if getattr(summary, "optional_scanner_trace", None):
+            lines.append("## Optional Scanner Adapters")
+            for step in summary.optional_scanner_trace:
+                lines.append(f"- {step}")
+            lines.append("")
+
         if summary.findings:
             lines.append("## Findings Detail")
             lines.append("| Severity | Finding | Module | Location |")
@@ -175,6 +193,36 @@ class ReportGenerator:
             <div class="card" style="margin-top: 2rem;">
                 <h2>Why This Verdict</h2>
                 <ul class="breakdown">{explainability_items}</ul>
+            </div>
+            '''
+
+        performance_html = ""
+        if getattr(summary, "performance_trace", None):
+            performance_items = "".join(f"<li>{step}</li>" for step in summary.performance_trace)
+            performance_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Performance Guardrails</h2>
+                <ul class="breakdown">{performance_items}</ul>
+            </div>
+            '''
+
+        trend_html = ""
+        if getattr(summary, "trend_trace", None):
+            trend_items = "".join(f"<li>{step}</li>" for step in summary.trend_trace)
+            trend_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Historical Trend</h2>
+                <ul class="breakdown">{trend_items}</ul>
+            </div>
+            '''
+
+        optional_scanner_html = ""
+        if getattr(summary, "optional_scanner_trace", None):
+            optional_scanner_items = "".join(f"<li>{step}</li>" for step in summary.optional_scanner_trace)
+            optional_scanner_html = f'''
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Optional Scanner Adapters</h2>
+                <ul class="breakdown">{optional_scanner_items}</ul>
             </div>
             '''
 
@@ -371,6 +419,12 @@ class ReportGenerator:
         {suppression_html}
 
         {explainability_html}
+
+        {performance_html}
+
+        {trend_html}
+
+        {optional_scanner_html}
 
         <div class="findings-list">
             <h2>Detailed Inventory</h2>
