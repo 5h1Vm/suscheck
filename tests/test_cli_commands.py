@@ -218,3 +218,163 @@ def test_scan_package_json_report_contains_coverage_contract(monkeypatch, tmp_pa
     assert payload["coverage_complete"] is False
     assert isinstance(payload["coverage_notes"], list)
     assert any("PIPELINE-PACKAGE-STATIC-SKIPPED" in note for note in payload["coverage_notes"])
+
+
+def test_scan_mcp_dynamic_failure_is_reported_as_partial(monkeypatch, tmp_path: Path) -> None:
+    class _Result:
+        def __init__(self, findings=None, error=None) -> None:
+            self.findings = findings or []
+            self.skipped_reason = None
+            self.error = error
+            self.errors = []
+            self.metadata = {}
+
+    class _Detector:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def detect(self, target: str) -> DetectionResult:
+            return DetectionResult(
+                artifact_type=ArtifactType.MCP_SERVER,
+                language=Language.JSON,
+                file_path=Path(target),
+                detection_method="test",
+                confidence=1.0,
+            )
+
+    class _DynResult:
+        def __init__(self) -> None:
+            self.findings = []
+            self.error = "docker unavailable"
+            self.metadata = {}
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.AutoDetector", _Detector)
+    monkeypatch.setattr("suscheck.services.scan_service.MCPScanner.can_handle", lambda self, *_: True)
+    monkeypatch.setattr(
+        "suscheck.services.scan_service.MCPScanner.scan",
+        lambda self, _path: _Result(
+            [
+                Finding(
+                    module="mcp",
+                    finding_id="MCP-1",
+                    title="mcp finding",
+                    description="test",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.SUSPICIOUS_BEHAVIOR,
+                    confidence=0.8,
+                    evidence={},
+                )
+            ]
+        ),
+    )
+    monkeypatch.setattr("suscheck.commands.scan_commands.MCPDynamicScanner.can_handle", lambda self, *_: True)
+    monkeypatch.setattr("suscheck.commands.scan_commands.MCPDynamicScanner.scan", lambda self, _path: _DynResult())
+
+    sample = tmp_path / "mcp.json"
+    sample.write_text('{"mcpServers": {"demo": {"command": "node", "args": ["server.js"]}}}', encoding="utf-8")
+
+    report_path = tmp_path / "mcp_scan.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(sample),
+            "--mcp-only",
+            "--mcp-dynamic",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "mcp_dynamic" in payload["modules_failed"]
+    assert any(f["finding_id"] == "PIPELINE-MCP-DYNAMIC-SKIPPED" for f in payload["findings"])
+    assert any("MCP-PHASE-D runtime-dynamic: failed" in note for note in payload["coverage_notes"])
+
+
+def test_scan_semgrep_failure_adds_partial_finding(monkeypatch, tmp_path: Path) -> None:
+    class _Result:
+        def __init__(self, findings=None) -> None:
+            self.findings = findings or []
+            self.skipped_reason = None
+            self.error = None
+            self.errors = []
+
+    class _Detector:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def detect(self, target: str) -> DetectionResult:
+            return DetectionResult(
+                artifact_type=ArtifactType.CODE,
+                language=Language.PYTHON,
+                file_path=Path(target),
+                detection_method="test",
+                confidence=1.0,
+            )
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.AutoDetector", _Detector)
+    monkeypatch.setattr("suscheck.services.scan_service.MCPScanner.can_handle", lambda self, *_: False)
+    monkeypatch.setattr("suscheck.services.scan_service.ConfigScanner.can_handle", lambda self, *_: False)
+    monkeypatch.setattr("suscheck.services.scan_service.CodeScanner.scan_file", lambda self, *_args, **_kwargs: _Result())
+    monkeypatch.setattr("suscheck.services.scan_service.RepoScanner.scan_file_secrets", lambda self, _path: [])
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_semgrep_phase", lambda **_kwargs: ([], True))
+
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+    report_path = tmp_path / "scan.json"
+
+    result = runner.invoke(
+        app,
+        ["scan", str(sample), "--no-ai", "--no-vt", "--format", "json", "--output", str(report_path)],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "semgrep" in payload["modules_failed"]
+    assert any(f["finding_id"] == "PIPELINE-SEMGREP-SCAN-SKIPPED" for f in payload["findings"])
+
+
+def test_scan_directory_depcheck_failure_adds_partial_finding(monkeypatch, tmp_path: Path) -> None:
+    class _DirResult:
+        findings = []
+        modules_ran = ["repo"]
+        modules_failed = []
+        coverage_complete = True
+        files_scanned = 1
+        files_total = 1
+        coverage_pct = 100
+
+    monkeypatch.setattr(
+        "suscheck.commands.scan_commands.ScanPipeline.scan_directory_with_status",
+        lambda self, _target: _DirResult(),
+    )
+    monkeypatch.setattr(
+        "suscheck.commands.scan_commands.execute_dependency_check_phase",
+        lambda **_kwargs: ([], True),
+    )
+
+    report_path = tmp_path / "dir_scan.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(tmp_path),
+            "--dependency-check",
+            "--no-ai",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "dependency_check" in payload["modules_failed"]
+    assert any(f["finding_id"] == "PIPELINE-DEPENDENCY-CHECK-SKIPPED" for f in payload["findings"])

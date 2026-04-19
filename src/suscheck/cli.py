@@ -43,6 +43,18 @@ app = typer.Typer(
     "  scan        Analyze any target (file, repo, package, URL)\n"
     "  trust       Quick supply-chain risk check\n\n"
 
+    "[bold cyan]SCAN PROFILES[/bold cyan]\n"
+    "  --profile default       Balanced default behavior\n"
+    "  --profile deep          Run broader/deeper checks\n"
+    "  --profile fast          Faster scan with expensive phases reduced\n"
+    "  --profile mcp-hardening Focus on MCP hardening flows\n\n"
+
+    "[bold cyan]SCAN TOGGLES[/bold cyan]\n"
+    "  AI:             --ai / --no-ai\n"
+    "  VirusTotal:     --vt / --no-vt\n"
+    "  Dependency CVE: --dependency-check / --no-dependency-check\n"
+    "  MCP Dynamic:    --mcp-dynamic / --no-mcp-dynamic\n\n"
+
     "[bold cyan]SAFE EXECUTION[/bold cyan]\n"
     "  install     Scan → then install safely\n"
     "  clone       Scan → then clone safely\n"
@@ -60,6 +72,11 @@ app = typer.Typer(
     "  suscheck scan requests\n"
     "  suscheck scan ./project/\n"
     "  suscheck scan https://github.com/user/repo\n\n"
+
+    "[bold cyan]PROFILE EXAMPLES[/bold cyan]\n"
+    "  suscheck scan ./project --profile deep\n"
+    "  suscheck scan ./target --profile fast --no-ai\n"
+    "  suscheck scan ./mcp.json --profile mcp-hardening\n\n"
 
     "Use 'suscheck <command> --help' for more details.\n"
 ),

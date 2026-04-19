@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +19,7 @@ from suscheck.core.auto_detector import AutoDetector, Language
 from suscheck.core.config_manager import ConfigManager
 from suscheck.core.finding import Finding, FindingType, ReportFormat, Severity
 from suscheck.core.pipeline import ScanPipeline
+from suscheck.core.routing import ScanRoute, resolve_scan_route
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.mcp.dynamic import MCPDynamicScanner
 from suscheck.modules.reporting.terminal import (
@@ -44,6 +46,41 @@ from suscheck.services.summary_service import (
 )
 
 
+class ScanProfile(str, Enum):
+    DEFAULT = "default"
+    DEEP = "deep"
+    FAST = "fast"
+    MCP_HARDENING = "mcp-hardening"
+
+
+PROFILE_DEFAULTS: dict[ScanProfile, dict[str, bool]] = {
+    ScanProfile.DEFAULT: {
+        "ai": True,
+        "vt": True,
+        "dependency_check": False,
+        "mcp_dynamic": False,
+    },
+    ScanProfile.DEEP: {
+        "ai": True,
+        "vt": True,
+        "dependency_check": True,
+        "mcp_dynamic": True,
+    },
+    ScanProfile.FAST: {
+        "ai": False,
+        "vt": False,
+        "dependency_check": False,
+        "mcp_dynamic": False,
+    },
+    ScanProfile.MCP_HARDENING: {
+        "ai": True,
+        "vt": True,
+        "dependency_check": False,
+        "mcp_dynamic": True,
+    },
+}
+
+
 def register_scan_command(app: typer.Typer, *, console: Console, version: str):
     """Register scan command and return callable for internal wrappers."""
 
@@ -54,6 +91,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
     )
     def scan(
         target: str = typer.Argument(help="File, directory, URL, or package name to scan"),
+        profile: ScanProfile = typer.Option(
+            ScanProfile.DEFAULT,
+            "--profile",
+            help="Scan profile: default, deep, fast, mcp-hardening",
+        ),
         report_format: ReportFormat = typer.Option(
             ReportFormat.TERMINAL,
             "--format",
@@ -61,7 +103,9 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             help="Output format: terminal, markdown, html, json",
         ),
         output: Optional[Path] = typer.Option(None, "--output", "-o", help="File to save the report to"),
+        ai: bool = typer.Option(False, "--ai", help="Force-enable AI triage for this scan."),
         no_ai: bool = typer.Option(False, "--no-ai", help="Skip AI triage, rules-only mode"),
+        vt: bool = typer.Option(False, "--vt", help="Force-enable VirusTotal lookups for this scan."),
         no_vt: bool = typer.Option(False, "--no-vt", help="Skip VirusTotal lookups for this scan execution"),
         upload_vt: bool = typer.Option(
             False,
@@ -69,6 +113,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             help="Upload file to VirusTotal if hash unknown. ⚠️  File becomes PUBLIC on VT.",
         ),
         verbose: bool = typer.Option(False, "--verbose", "-v", "-V", help="Verbose output"),
+        no_mcp_dynamic: bool = typer.Option(
+            False,
+            "--no-mcp-dynamic",
+            help="Force-disable MCP dynamic observation for this scan.",
+        ),
         mcp_dynamic: bool = typer.Option(
             False,
             "--mcp-dynamic",
@@ -78,6 +127,11 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             False,
             "--mcp-only",
             help="Run only MCP static scan logic for local file targets.",
+        ),
+        no_dependency_check: bool = typer.Option(
+            False,
+            "--no-dependency-check",
+            help="Force-disable OWASP Dependency-Check for this scan.",
         ),
         dependency_check: bool = typer.Option(
             False,
@@ -98,7 +152,39 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
 
         scan_start = time.time()
 
+        # Profile baseline + explicit override precedence:
+        # explicit enable > explicit disable > profile default.
+        defaults = PROFILE_DEFAULTS[profile]
+        ai_enabled = defaults["ai"]
+        if no_ai:
+            ai_enabled = False
+        if ai:
+            ai_enabled = True
+
+        vt_enabled = defaults["vt"]
         if no_vt:
+            vt_enabled = False
+        if vt:
+            vt_enabled = True
+
+        depcheck_enabled = defaults["dependency_check"]
+        if no_dependency_check:
+            depcheck_enabled = False
+        if dependency_check:
+            depcheck_enabled = True
+
+        mcp_dynamic_enabled = defaults["mcp_dynamic"]
+        if no_mcp_dynamic:
+            mcp_dynamic_enabled = False
+        if mcp_dynamic:
+            mcp_dynamic_enabled = True
+
+        console.print(
+            f"[dim]Profile={profile.value} | AI={'on' if ai_enabled else 'off'} | VT={'on' if vt_enabled else 'off'} | "
+            f"DepCheck={'on' if depcheck_enabled else 'off'} | MCP Dynamic={'on' if mcp_dynamic_enabled else 'off'}[/dim]"
+        )
+
+        if not vt_enabled:
             os.environ["SUSCHECK_NO_VT"] = "1"
             os.environ.pop("SUSCHECK_VT_KEY", None)
             if upload_vt:
@@ -138,7 +224,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             modules_failed = list(dir_result.modules_failed)
             modules_ran = list(dir_result.modules_ran or pipeline.get_modules_ran(all_findings))
 
-            if dependency_check:
+            if depcheck_enabled:
                 dep_findings, dep_failed = execute_dependency_check_phase(target_dir=target, console=console)
                 if dep_findings:
                     all_findings.extend(dep_findings)
@@ -146,6 +232,25 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                     modules_ran.append("dependency_check")
                 if dep_failed and "dependency_check" not in modules_failed:
                     modules_failed.append("dependency_check")
+                if dep_failed:
+                    all_findings.append(
+                        Finding(
+                            module="pipeline",
+                            finding_id="PIPELINE-DEPENDENCY-CHECK-SKIPPED",
+                            title="Dependency-Check phase did not fully execute",
+                            description=(
+                                "Dependency vulnerability analysis reported an execution/tooling issue. "
+                                "Treat dependency coverage as partial and verify dependency risk manually."
+                            ),
+                            severity=Severity.LOW,
+                            finding_type=FindingType.REVIEW_NEEDED,
+                            confidence=0.95,
+                            file_path=target,
+                            evidence={"phase": "dependency_check"},
+                            needs_human_review=True,
+                            review_reason="Dependency-Check phase failed",
+                        )
+                    )
             scan_duration = time.time() - scan_start
 
             aggregator = RiskAggregator("DIRECTORY")
@@ -155,9 +260,16 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                 artifact_type="DIRECTORY",
                 modules_ran=modules_ran,
                 file_path=None,
-                mcp_dynamic_enabled=False,
+                mcp_dynamic_enabled=mcp_dynamic_enabled,
             )
-            coverage_complete, coverage_notes = derive_coverage_contract(all_findings, modules_skipped)
+            coverage_complete, coverage_notes = derive_coverage_contract(
+                all_findings,
+                modules_skipped,
+                artifact_type="DIRECTORY",
+                modules_ran=modules_ran,
+                modules_failed=modules_failed,
+                mcp_dynamic_enabled=mcp_dynamic_enabled,
+            )
             if not dir_result.coverage_complete:
                 coverage_complete = False
                 coverage_notes.append(
@@ -278,7 +390,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         tier0_phase = execute_tier0_phase(
             target=target,
             detection=detection,
-            no_vt=no_vt,
+            no_vt=not vt_enabled,
             upload_vt=upload_vt,
             scan_start=scan_start,
             console=console,
@@ -291,12 +403,14 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         modules_ran = tier0_phase.modules_ran
         modules_failed.extend(tier0_phase.modules_failed)
 
-        if file_path and os.path.isfile(str(file_path)):
+        route = resolve_scan_route(target=target, target_path=target_path, detection=detection)
+
+        if route == ScanRoute.LOCAL_FILE and file_path and os.path.isfile(str(file_path)):
             tier1_findings, modules_ran, tier1_failed = execute_local_file_tier1_phase(
                 file_path=str(file_path),
                 detection=detection,
                 modules_ran=modules_ran,
-                no_vt=no_vt,
+                no_vt=not vt_enabled,
                 mcp_only=mcp_only,
                 console=console,
             )
@@ -304,15 +418,36 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             if tier1_findings:
                 all_findings.extend(tier1_findings)
 
-            if mcp_dynamic and file_path and os.path.isfile(str(file_path)) and "mcp" in modules_ran:
+            if mcp_dynamic_enabled and file_path and os.path.isfile(str(file_path)) and "mcp" in modules_ran:
                 try:
                     dyn = MCPDynamicScanner()
                     if dyn.can_handle(detection.artifact_type.value, str(file_path)):
                         console.print("\n[bold]MCP Dynamic (Docker)[/bold]")
                         dyn_res = dyn.scan(str(file_path))
-                        modules_ran.append("mcp_dynamic")
+                        if "mcp_dynamic" not in modules_ran:
+                            modules_ran.append("mcp_dynamic")
                         all_findings.extend(dyn_res.findings)
                         if dyn_res.error:
+                            if "mcp_dynamic" not in modules_failed:
+                                modules_failed.append("mcp_dynamic")
+                            all_findings.append(
+                                Finding(
+                                    module="pipeline",
+                                    finding_id="PIPELINE-MCP-DYNAMIC-SKIPPED",
+                                    title="MCP dynamic observation did not fully execute",
+                                    description=(
+                                        "MCP dynamic/runtime observation returned an error. "
+                                        "Treat scan coverage as partial and validate runtime behavior manually."
+                                    ),
+                                    severity=Severity.LOW,
+                                    finding_type=FindingType.REVIEW_NEEDED,
+                                    confidence=0.95,
+                                    file_path=str(file_path),
+                                    evidence={"error": str(dyn_res.error)[:240]},
+                                    needs_human_review=True,
+                                    review_reason="MCP dynamic phase failed",
+                                )
+                            )
                             console.print(f"  [dim]MCP dynamic: {dyn_res.error}[/dim]")
                         for note in dyn_res.metadata.get("observations") or []:
                             if note.get("error"):
@@ -324,15 +459,53 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
                         elif not dyn_res.error:
                             console.print("  [dim]MCP dynamic finished (no findings from observation).[/dim]")
                 except Exception as e:
+                    if "mcp_dynamic" not in modules_failed:
+                        modules_failed.append("mcp_dynamic")
+                    all_findings.append(
+                        Finding(
+                            module="pipeline",
+                            finding_id="PIPELINE-MCP-DYNAMIC-SKIPPED",
+                            title="MCP dynamic observation failed before completion",
+                            description=(
+                                "MCP dynamic/runtime observation crashed or could not be executed. "
+                                "Treat scan coverage as partial and review manually."
+                            ),
+                            severity=Severity.LOW,
+                            finding_type=FindingType.REVIEW_NEEDED,
+                            confidence=0.95,
+                            file_path=str(file_path),
+                            evidence={"error": str(e)[:240]},
+                            needs_human_review=True,
+                            review_reason="MCP dynamic phase failed",
+                        )
+                    )
                     console.print(f"  [yellow]MCP dynamic observation failed: {e}[/yellow]")
 
             semgrep_findings, semgrep_failed = execute_semgrep_phase(file_path=str(file_path), console=console)
             if semgrep_failed:
                 modules_failed.append("semgrep")
+                all_findings.append(
+                    Finding(
+                        module="pipeline",
+                        finding_id="PIPELINE-SEMGREP-SCAN-SKIPPED",
+                        title="Semgrep phase did not fully execute",
+                        description=(
+                            "Semgrep static analysis reported execution/tooling issues. "
+                            "Treat code security coverage as partial for this run."
+                        ),
+                        severity=Severity.LOW,
+                        finding_type=FindingType.REVIEW_NEEDED,
+                        confidence=0.95,
+                        file_path=str(file_path),
+                        evidence={"phase": "semgrep"},
+                        needs_human_review=True,
+                        review_reason="Semgrep phase failed",
+                    )
+                )
             if semgrep_findings:
                 all_findings.extend(semgrep_findings)
 
-        elif detection.artifact_type.value == "repository" and target.startswith(("http://", "https://", "git@")):
+        elif route == ScanRoute.REMOTE_REPOSITORY:
             repo_findings, modules_ran, repo_failed = execute_remote_repository_tier1_phase(
                 target=target,
                 pipeline=pipeline,
@@ -360,7 +533,7 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             all_findings.extend(trust_findings)
 
         ai_pri_delta, modules_ran = execute_ai_triage_phase(
-            no_ai=no_ai,
+            no_ai=not ai_enabled,
             findings=all_findings,
             target=target,
             artifact_type=detection.artifact_type.value,
@@ -382,9 +555,16 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             artifact_type=detection.artifact_type.value,
             modules_ran=modules_ran,
             file_path=str(file_path) if file_path else None,
-            mcp_dynamic_enabled=mcp_dynamic,
+            mcp_dynamic_enabled=mcp_dynamic_enabled,
         )
-        coverage_complete, coverage_notes = derive_coverage_contract(all_findings, modules_skipped)
+        coverage_complete, coverage_notes = derive_coverage_contract(
+            all_findings,
+            modules_skipped,
+            artifact_type=detection.artifact_type.value,
+            modules_ran=modules_ran,
+            modules_failed=modules_failed,
+            mcp_dynamic_enabled=mcp_dynamic_enabled,
+        )
 
         summary = build_scan_summary(
             target=target,

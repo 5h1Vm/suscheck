@@ -9,6 +9,7 @@ from rich.console import Console
 from suscheck.core.finding import Finding, FindingType, Severity
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
+    execute_dependency_check_phase,
     execute_local_file_tier1_phase,
     execute_remote_repository_tier1_phase,
     execute_semgrep_phase,
@@ -218,6 +219,11 @@ def test_build_static_tier1_skip_findings_for_package() -> None:
     assert findings[0].finding_id == "PIPELINE-PACKAGE-STATIC-SKIPPED"
 
 
+def test_build_static_tier1_skip_findings_non_package_is_empty() -> None:
+    findings = build_static_tier1_skip_findings(target="https://example.com/repo", artifact_type="repository")
+    assert findings == []
+
+
 def test_execute_semgrep_phase_when_not_installed(monkeypatch, tmp_path: Path) -> None:
     class _Runner:
         is_installed = False
@@ -229,3 +235,64 @@ def test_execute_semgrep_phase_when_not_installed(monkeypatch, tmp_path: Path) -
     )
     assert findings == []
     assert failed is False
+
+
+def test_execute_dependency_check_phase_when_tool_missing(monkeypatch) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "dependency-check missing"
+
+    monkeypatch.setattr("suscheck.services.scan_service.DependencyCheckRunner", _Runner)
+    findings, failed = execute_dependency_check_phase(
+        target_dir=".",
+        console=Console(record=True),
+    )
+
+    assert any(f.finding_id == "DEPCHK-DB-STATE" for f in findings)
+    assert failed is True
+
+
+def test_execute_dependency_check_phase_with_runner_errors(monkeypatch) -> None:
+    class _Result:
+        findings = []
+        errors = ["report parse warning"]
+
+    class _Runner:
+        is_installed = True
+        missing_tool_message = ""
+
+        def scan_directory(self, _target_dir: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.DependencyCheckRunner", _Runner)
+    findings, failed = execute_dependency_check_phase(
+        target_dir=".",
+        console=Console(record=True),
+    )
+
+    assert any(f.finding_id == "DEPCHK-DB-STATE" for f in findings)
+    assert any((f.evidence or {}).get("dependency_db_state") == "unknown" for f in findings)
+    assert failed is True
+
+
+def test_execute_remote_repository_tier1_phase_when_git_missing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "suscheck.services.scan_service.get_tool_registry",
+        lambda: SimpleNamespace(register_tool=lambda _tool: SimpleNamespace(available=False, suggestion="install git")),
+    )
+
+    findings, modules_ran, modules_failed = execute_remote_repository_tier1_phase(
+        target="https://github.com/example/repo",
+        pipeline=SimpleNamespace(
+            scan_directory_with_status=lambda _path: SimpleNamespace(findings=[], modules_ran=[], modules_failed=[]),
+            get_modules_ran=lambda _findings: [],
+        ),
+        modules_ran=["tier0"],
+        console=Console(record=True),
+    )
+
+    assert modules_ran == ["tier0"]
+    assert modules_failed == ["repo"]
+    assert len(findings) == 1
+    assert findings[0].finding_id == "PIPELINE-REPO-SCAN-SKIPPED"
+    assert findings[0].evidence["error_code"] == "TOOL_NOT_FOUND"

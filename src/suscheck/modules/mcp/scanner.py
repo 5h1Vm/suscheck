@@ -189,6 +189,7 @@ class MCPScanner(ScannerModule):
             )
 
         findings.extend(self._scan_server_configs(data, str(path)))
+        findings.extend(self._scan_authn_authz(data, str(path)))
         findings.extend(self._scan_tool_names(data, str(path)))
         findings.extend(self._scan_prompt_rules(raw, str(path)))
 
@@ -348,6 +349,222 @@ class MCPScanner(ScannerModule):
                     )
                 )
         return findings
+
+    def _scan_authn_authz(self, data: dict[str, Any], file_path: str) -> list[Finding]:
+        findings: list[Finding] = []
+        servers = data.get("mcpServers")
+        if servers is None and "servers" in data:
+            servers = data.get("servers")
+        if not isinstance(servers, dict):
+            return findings
+
+        for srv_name, cfg in servers.items():
+            if not isinstance(cfg, dict):
+                continue
+
+            url = cfg.get("url")
+            auth = cfg.get("auth")
+            headers = cfg.get("headers") if isinstance(cfg.get("headers"), dict) else {}
+            env = cfg.get("env") if isinstance(cfg.get("env"), dict) else {}
+            args = cfg.get("args") if isinstance(cfg.get("args"), list) else []
+
+            is_remote = isinstance(url, str) and url.strip().startswith(("http://", "https://"))
+
+            if isinstance(url, str) and url.strip().startswith("http://"):
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-INSECURE-TRANSPORT-{srv_name}"[:72],
+                        title=f"MCP server '{srv_name}' uses insecure HTTP transport",
+                        description=(
+                            "Remote MCP endpoints should use HTTPS. Plain HTTP enables man-in-the-middle "
+                            "interception of prompts, tool calls, and credentials."
+                        ),
+                        severity=Severity.HIGH,
+                        finding_type=FindingType.MCP_ATTACK,
+                        confidence=0.90,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1557"],
+                        evidence={"server": srv_name, "url": url[:200]},
+                    )
+                )
+
+            auth_mode = ""
+            if isinstance(auth, dict):
+                auth_mode = str(auth.get("type") or auth.get("mode") or "").strip().lower()
+
+            if auth_mode in {"none", "anonymous", "public"}:
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-ANONYMOUS-{srv_name}"[:72],
+                        title=f"MCP server '{srv_name}' allows anonymous authentication mode",
+                        description=(
+                            "Anonymous/public authentication increases exposure to unauthorized access. "
+                            "Require explicit authN/authZ for agent tool access."
+                        ),
+                        severity=Severity.HIGH,
+                        finding_type=FindingType.MCP_ATTACK,
+                        confidence=0.85,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1078"],
+                        evidence={"server": srv_name, "auth_mode": auth_mode},
+                    )
+                )
+
+            if isinstance(auth, dict) and auth.get("allowAnonymous") is True:
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-ALLOW-ANON-{srv_name}"[:72],
+                        title=f"MCP server '{srv_name}' explicitly allows anonymous access",
+                        description=(
+                            "allowAnonymous=true weakens endpoint authorization and can expose tools "
+                            "to unauthenticated callers."
+                        ),
+                        severity=Severity.HIGH,
+                        finding_type=FindingType.MCP_ATTACK,
+                        confidence=0.85,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1078"],
+                        evidence={"server": srv_name, "allow_anonymous": True},
+                    )
+                )
+
+            scopes: list[str] = []
+            if isinstance(auth, dict):
+                raw_scopes = auth.get("scopes")
+                if isinstance(raw_scopes, list):
+                    scopes = [str(s).strip().lower() for s in raw_scopes if str(s).strip()]
+                elif isinstance(raw_scopes, str):
+                    scopes = [s.strip().lower() for s in raw_scopes.split(",") if s.strip()]
+
+            if any(scope in {"*", "all", "*:*", "admin:*"} for scope in scopes):
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-WILDCARD-SCOPE-{srv_name}"[:72],
+                        title=f"MCP server '{srv_name}' uses wildcard/over-broad authorization scopes",
+                        description=(
+                            "Wildcard authorization scopes violate least privilege. Replace with granular "
+                            "server and tool-scoped permissions."
+                        ),
+                        severity=Severity.HIGH,
+                        finding_type=FindingType.MCP_OVERPRIVILEGE,
+                        confidence=0.88,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1068"],
+                        evidence={"server": srv_name, "scopes": scopes[:12]},
+                    )
+                )
+
+            if is_remote and not self._has_auth_indicators(auth=auth, headers=headers, env=env, args=args):
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-MISSING-{srv_name}"[:72],
+                        title=f"MCP server '{srv_name}' appears remotely reachable without auth settings",
+                        description=(
+                            "Remote transport is configured but no clear authentication controls were found "
+                            "in auth, headers, env, or args."
+                        ),
+                        severity=Severity.HIGH,
+                        finding_type=FindingType.MCP_ATTACK,
+                        confidence=0.75,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1078"],
+                        evidence={"server": srv_name, "url": str(url)[:200]},
+                    )
+                )
+
+            weak_tokens = self._find_weak_token_practices(auth=auth, headers=headers, env=env)
+            for weak in weak_tokens:
+                findings.append(
+                    Finding(
+                        module=self.name,
+                        finding_id=f"MCP-AUTH-WEAK-TOKEN-{srv_name}-{weak['source']}"[:72],
+                        title=f"MCP server '{srv_name}' uses weak token handling ({weak['source']})",
+                        description=(
+                            "Authentication token appears hardcoded in configuration. Move tokens to "
+                            "a secure secret store or environment reference."
+                        ),
+                        severity=Severity.MEDIUM,
+                        finding_type=FindingType.SECRET_EXPOSURE,
+                        confidence=0.72,
+                        file_path=file_path,
+                        context="config",
+                        mitre_ids=["T1552"],
+                        evidence={"server": srv_name, "source": weak["source"], "key": weak["key"]},
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def _has_auth_indicators(*, auth: Any, headers: dict[str, Any], env: dict[str, Any], args: list[Any]) -> bool:
+        if isinstance(auth, dict) and auth:
+            return True
+
+        sensitive_header_keys = {"authorization", "x-api-key", "api-key", "apikey", "proxy-authorization"}
+        for key in headers:
+            if str(key).strip().lower() in sensitive_header_keys:
+                return True
+
+        for key in env:
+            k = str(key).strip().lower()
+            if any(token in k for token in ("token", "secret", "api_key", "apikey", "auth")):
+                return True
+
+        joined_args = " ".join(str(a).lower() for a in args)
+        arg_indicators = ("--token", "--api-key", "--apikey", "--auth", "bearer ", "oauth")
+        return any(ind in joined_args for ind in arg_indicators)
+
+    @staticmethod
+    def _find_weak_token_practices(*, auth: Any, headers: dict[str, Any], env: dict[str, Any]) -> list[dict[str, str]]:
+        weak: list[dict[str, str]] = []
+
+        def _is_placeholder(value: str) -> bool:
+            lower = value.strip().lower()
+            if not lower:
+                return True
+            return (
+                lower.startswith("${")
+                or lower.startswith("env:")
+                or lower.startswith("vault:")
+                or lower.startswith("secret://")
+                or lower.startswith("<")
+                or lower in {"changeme", "replace-me", "your-token"}
+            )
+
+        def _looks_sensitive(key: str) -> bool:
+            k = key.strip().lower()
+            return any(token in k for token in ("token", "secret", "api_key", "apikey", "authorization"))
+
+        if isinstance(auth, dict):
+            for key, value in auth.items():
+                if not _looks_sensitive(str(key)):
+                    continue
+                if isinstance(value, str) and not _is_placeholder(value) and len(value.strip()) >= 8:
+                    weak.append({"source": "auth", "key": str(key)})
+
+        for key, value in headers.items():
+            if not _looks_sensitive(str(key)):
+                continue
+            if isinstance(value, str) and not _is_placeholder(value):
+                weak.append({"source": "headers", "key": str(key)})
+
+        for key, value in env.items():
+            if not _looks_sensitive(str(key)):
+                continue
+            if isinstance(value, str) and not _is_placeholder(value):
+                weak.append({"source": "env", "key": str(key)})
+
+        return weak
 
     def _scan_prompt_rules(self, raw_text: str, file_path: str) -> list[Finding]:
         findings: list[Finding] = []

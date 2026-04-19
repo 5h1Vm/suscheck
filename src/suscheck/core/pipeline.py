@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 from suscheck.core.auto_detector import AutoDetector, ArtifactType, Language
 from suscheck.core.errors import build_error_evidence
 from suscheck.core.finding import Finding, Severity, FindingType
+from suscheck.core.routing import infer_primary_static_module, should_run_code_scan
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
@@ -142,15 +143,9 @@ class ScanPipeline:
                 if t0_res.errors and "tier0" not in result.modules_failed:
                     result.modules_failed.append("tier0")
 
-                if det.artifact_type in [ArtifactType.CODE, ArtifactType.UNKNOWN] or det.type_mismatch:
-                    if "code" not in result.modules_ran:
-                        result.modules_ran.append("code")
-                elif det.artifact_type == ArtifactType.CONFIG:
-                    if "config" not in result.modules_ran:
-                        result.modules_ran.append("config")
-                elif det.artifact_type == ArtifactType.MCP_SERVER:
-                    if "mcp" not in result.modules_ran:
-                        result.modules_ran.append("mcp")
+                primary_module = infer_primary_static_module(det)
+                if primary_module and primary_module not in result.modules_ran:
+                    result.modules_ran.append(primary_module)
                 
                 # Direct dispatch based on Auto-Detector
                 file_findings = self.scan_single_file(p)
@@ -247,7 +242,7 @@ class ScanPipeline:
         if det.type_mismatch:
             findings.append(
                 Finding(
-                    module="auto-detector",
+                    module="auto_detector",
                     finding_id="FILE-TYPE-MISMATCH",
                     title="File Type Mismatch (Masquerading Detected T1036.008)",
                     description=det.mismatch_detail or "File type mismatch detected.",
@@ -259,7 +254,7 @@ class ScanPipeline:
                 )
             )
 
-        if det.artifact_type in [ArtifactType.CODE, ArtifactType.UNKNOWN] or det.type_mismatch:
+        if should_run_code_scan(det):
             res = self.code_scanner.scan_file(str(path), language=det.language.value)
             findings.extend(res.findings)
             

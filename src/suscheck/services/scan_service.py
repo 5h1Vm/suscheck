@@ -49,8 +49,8 @@ def execute_tier0_phase(
     *,
     target: str,
     detection,
-    no_vt: bool,
-    upload_vt: bool,
+    no_vt: bool = False,
+    upload_vt: bool = False,
     scan_start: float,
     console: Console,
 ) -> Tier0PhaseResult:
@@ -160,8 +160,8 @@ def execute_local_file_tier1_phase(
     file_path: str,
     detection,
     modules_ran: list[str],
-    no_vt: bool,
-    mcp_only: bool,
+    no_vt: bool = False,
+    mcp_only: bool = False,
     console: Console,
 ) -> tuple[list[Finding], list[str], list[str]]:
     """Execute local-file Tier 1 static fan-out orchestration."""
@@ -460,9 +460,31 @@ def execute_dependency_check_phase(*, target_dir: str, console: Console) -> tupl
     findings: list[Finding] = []
     failed = False
 
+    def _classify_db_state(errors: list[str]) -> str:
+        if not errors:
+            # We run with --noupdate, so this typically reflects cached DB usage.
+            return "stale"
+        text = " ".join(errors).lower()
+        if any(token in text for token in ("timed out", "network", "connection", "execution failed")):
+            return "offline"
+        return "unknown"
+
     runner = DependencyCheckRunner()
     if not runner.is_installed:
         console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="dependency_check",
+                finding_id="DEPCHK-DB-STATE",
+                title="Dependency intelligence DB state: unknown",
+                description="Dependency-Check tool is not installed, so DB freshness could not be evaluated.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target_dir,
+                evidence={"dependency_db_state": "unknown"},
+            )
+        )
         return findings, True
 
     console.print("  [dim]Running dependency-check scan...[/dim]")
@@ -477,5 +499,20 @@ def execute_dependency_check_phase(*, target_dir: str, console: Console) -> tupl
         failed = True
         for err in res.errors:
             console.print(f"  [yellow]⚠️ Dependency-Check Warning: {err}[/yellow]")
+
+    dep_db_state = _classify_db_state(res.errors)
+    findings.append(
+        Finding(
+            module="dependency_check",
+            finding_id="DEPCHK-DB-STATE",
+            title=f"Dependency intelligence DB state: {dep_db_state}",
+            description="Derived status of dependency vulnerability intelligence availability for this run.",
+            severity=Severity.INFO,
+            finding_type=FindingType.REVIEW_NEEDED,
+            confidence=0.9,
+            file_path=target_dir,
+            evidence={"dependency_db_state": dep_db_state},
+        )
+    )
 
     return findings, failed

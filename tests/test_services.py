@@ -89,6 +89,43 @@ def test_build_summary_and_partial_gate() -> None:
     assert should_block_on_partial_coverage(summary, force=True) is False
 
 
+def test_derive_coverage_contract_adds_mcp_phase_labels() -> None:
+    complete, notes = derive_coverage_contract(
+        findings=[],
+        modules_skipped=[],
+        artifact_type="mcp_server",
+        modules_ran=["tier0", "mcp"],
+        modules_failed=[],
+        mcp_dynamic_enabled=False,
+    )
+
+    assert complete is True
+    assert any(note.startswith("MCP-PHASE-A") for note in notes)
+    assert any(note.startswith("MCP-PHASE-B") for note in notes)
+    assert any(note.startswith("MCP-PHASE-C") for note in notes)
+    assert any(note.startswith("MCP-PHASE-D") for note in notes)
+
+
+def test_derive_coverage_contract_includes_dependency_db_state_note() -> None:
+    findings = [
+        Finding(
+            module="dependency_check",
+            finding_id="DEPCHK-DB-STATE",
+            title="Dependency intelligence DB state: stale",
+            description="status",
+            severity=Severity.INFO,
+            finding_type=FindingType.REVIEW_NEEDED,
+            confidence=1.0,
+            evidence={"dependency_db_state": "stale"},
+        )
+    ]
+
+    complete, notes = derive_coverage_contract(findings=findings, modules_skipped=[])
+
+    assert complete is True
+    assert any("Dependency-Check DB state: stale" in note for note in notes)
+
+
 def test_evaluate_wrapper_policy_blocks_on_pri_without_force() -> None:
     summary = build_scan_summary(
         target="https://example.com/repo",
