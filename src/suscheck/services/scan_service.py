@@ -22,6 +22,11 @@ from suscheck.core.errors import (
 from suscheck.core.finding import Finding, ScanSummary, Severity, FindingType
 from suscheck.core.risk_aggregator import RiskAggregator
 from suscheck.core.tool_registry import ToolType, get_tool_registry
+from suscheck.modules.optional.grype_runner import GrypeRunner
+from suscheck.modules.optional.nuclei_runner import NucleiRunner
+from suscheck.modules.optional.openvas_runner import OpenVASRunner
+from suscheck.modules.optional.trivy_runner import TrivyRunner
+from suscheck.modules.optional.zap_runner import ZapRunner
 from suscheck.modules.code.scanner import CodeScanner
 from suscheck.modules.config.scanner import ConfigScanner
 from suscheck.modules.mcp.scanner import MCPScanner
@@ -516,5 +521,243 @@ def execute_dependency_check_phase(*, target_dir: str, console: Console) -> tupl
             evidence={"dependency_db_state": dep_db_state},
         )
     )
+
+    return findings, failed
+
+
+def execute_nuclei_phase(*, target: str, enabled: bool, console: Console) -> tuple[list[Finding], bool]:
+    """Run Nuclei optional adapter for URL targets when explicitly enabled."""
+    if not enabled:
+        return [], False
+
+    if not target.startswith(("http://", "https://")):
+        console.print("  [dim]Nuclei skipped: target is not an HTTP(S) URL.[/dim]")
+        return [], False
+
+    console.print("\n[bold]Optional Adapter: Nuclei[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = NucleiRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="nuclei",
+                finding_id="NUCLEI-TOOL-MISSING",
+                title="Nuclei adapter enabled but binary not installed",
+                description="Optional Nuclei phase was requested but the Nuclei executable was not found.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target,
+                evidence={"phase": "nuclei", "status": "missing_tool"},
+            )
+        )
+        return findings, True
+
+    console.print("  [dim]Running Nuclei templates...[/dim]")
+    res = runner.scan_target(target)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No Nuclei findings for target.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ Nuclei Warning: {err}[/yellow]")
+
+    return findings, failed
+
+
+def execute_trivy_phase(*, target: str, enabled: bool, console: Console) -> tuple[list[Finding], bool]:
+    """Run Trivy optional adapter for local file/directory targets when enabled."""
+    if not enabled:
+        return [], False
+
+    if not os.path.exists(target):
+        console.print("  [dim]Trivy skipped: target must be a local file or directory.[/dim]")
+        return [], False
+
+    console.print("\n[bold]Optional Adapter: Trivy[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = TrivyRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="trivy",
+                finding_id="TRIVY-TOOL-MISSING",
+                title="Trivy adapter enabled but binary not installed",
+                description="Optional Trivy phase was requested but the Trivy executable was not found.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target,
+                evidence={"phase": "trivy", "status": "missing_tool"},
+            )
+        )
+        return findings, True
+
+    console.print("  [dim]Running Trivy filesystem scan...[/dim]")
+    res = runner.scan_target(target)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No Trivy findings for target.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ Trivy Warning: {err}[/yellow]")
+
+    return findings, failed
+
+
+def execute_grype_phase(*, target: str, enabled: bool, console: Console) -> tuple[list[Finding], bool]:
+    """Run Grype optional adapter for local file/directory targets when enabled."""
+    if not enabled:
+        return [], False
+
+    if not os.path.exists(target):
+        console.print("  [dim]Grype skipped: target must be a local file or directory.[/dim]")
+        return [], False
+
+    console.print("\n[bold]Optional Adapter: Grype[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = GrypeRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="grype",
+                finding_id="GRYPE-TOOL-MISSING",
+                title="Grype adapter enabled but binary not installed",
+                description="Optional Grype phase was requested but the Grype executable was not found.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target,
+                evidence={"phase": "grype", "status": "missing_tool"},
+            )
+        )
+        return findings, True
+
+    console.print("  [dim]Running Grype dependency scan...[/dim]")
+    res = runner.scan_target(target)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No Grype findings for target.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ Grype Warning: {err}[/yellow]")
+
+    return findings, failed
+
+
+def execute_zap_phase(*, target: str, enabled: bool, console: Console) -> tuple[list[Finding], bool]:
+    """Run ZAP optional adapter for HTTP(S) URL targets when enabled."""
+    if not enabled:
+        return [], False
+
+    if not target.startswith(("http://", "https://")):
+        console.print("  [dim]ZAP skipped: target is not an HTTP(S) URL.[/dim]")
+        return [], False
+
+    console.print("\n[bold]Optional Adapter: ZAP[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = ZapRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="zap",
+                finding_id="ZAP-TOOL-MISSING",
+                title="ZAP adapter enabled but binary not installed",
+                description="Optional ZAP phase was requested but the ZAP executable was not found.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target,
+                evidence={"phase": "zap", "status": "missing_tool"},
+            )
+        )
+        return findings, True
+
+    console.print("  [dim]Running ZAP quick web scan...[/dim]")
+    res = runner.scan_target(target)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No ZAP findings for target.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ ZAP Warning: {err}[/yellow]")
+
+    return findings, failed
+
+
+def execute_openvas_phase(*, target: str, enabled: bool, console: Console) -> tuple[list[Finding], bool]:
+    """Run OpenVAS optional adapter when explicitly enabled."""
+    if not enabled:
+        return [], False
+
+    # OpenVAS is generally for host/network targets; accept URL-like or host-like input.
+    is_url = target.startswith(("http://", "https://"))
+    is_host_like = "/" not in target and "\\" not in target and "." in target
+    if not (is_url or is_host_like):
+        console.print("  [dim]OpenVAS skipped: target must be a URL/host-like network target.[/dim]")
+        return [], False
+
+    console.print("\n[bold]Optional Adapter: OpenVAS[/bold]")
+    findings: list[Finding] = []
+    failed = False
+
+    runner = OpenVASRunner()
+    if not runner.is_installed:
+        console.print(f"  [yellow]⚠️ {runner.missing_tool_message}[/yellow]")
+        findings.append(
+            Finding(
+                module="openvas",
+                finding_id="OPENVAS-TOOL-MISSING",
+                title="OpenVAS adapter enabled but binary not installed",
+                description="Optional OpenVAS phase was requested but the OpenVAS executable was not found.",
+                severity=Severity.INFO,
+                finding_type=FindingType.REVIEW_NEEDED,
+                confidence=0.95,
+                file_path=target,
+                evidence={"phase": "openvas", "status": "missing_tool"},
+            )
+        )
+        return findings, True
+
+    console.print("  [dim]Running OpenVAS configured scan command...[/dim]")
+    res = runner.scan_target(target)
+    if res.findings:
+        findings.extend(res.findings)
+        render_findings(res.findings)
+    else:
+        console.print("  [dim]No OpenVAS findings for target.[/dim]")
+
+    if res.errors:
+        failed = True
+        for err in res.errors:
+            console.print(f"  [yellow]⚠️ OpenVAS Warning: {err}[/yellow]")
 
     return findings, failed

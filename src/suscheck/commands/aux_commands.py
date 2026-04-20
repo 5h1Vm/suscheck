@@ -23,12 +23,12 @@ def register_aux_commands(app: typer.Typer, *, console: Console, version: str) -
     """Register trust/version/init commands on the shared Typer app."""
 
     @app.command(
-        short_help="Check package trust signals before installation or upgrade.",
+        short_help="Quick supply-chain risk assessment for a package.",
         rich_help_panel="Core Workflow",
     )
     def trust(
-        package: str = typer.Argument(help="Package name to assess"),
-        ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Ecosystem: pypi, npm"),
+        package: str = typer.Argument(help="Package name to assess (e.g., requests, lodash)"),
+        ecosystem: str = typer.Option("pypi", "--ecosystem", "-e", help="Package manager: pypi, npm"),
     ):
         """Quick supply chain trust assessment for a package."""
         console.print("\n[bold blue]sus check trust[/bold blue]")

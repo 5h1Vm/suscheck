@@ -1,4 +1,292 @@
 {
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main.zip": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main.zip",
+      "file_size": 5051,
+      "md5": "14f61b4e9e5e457385be188e3ea6e7f7",
+      "sha1": "f614ebb61c2d6c856141bf56e86b4db2edccba24",
+      "sha256": "004ca2faf60c88c2e116378ad5ae145eeaacd21fd35eafa5d9e5b48c3504ad9a"
+    },
+    "mtime_ns": 1776238691094451800,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main.zip",
+    "size": 5051
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md",
+      "file_size": 3111,
+      "md5": "41c5309622c4dfd88cce90ae3581ac03",
+      "sha1": "50f81e4dc5c5be72e909c05adf394e7f2e07d9ad",
+      "sha256": "6e5b52426d7113969ce479545eecdce1829ce6ac64bf40a1385352ef1ea57f9b"
+    },
+    "mtime_ns": 1737576240000000000,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md",
+    "size": 3111
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md:Zone.Identifier": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md:Zone.Identifier",
+      "file_size": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mtime_ns": 1776238800905644334,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/README.md:Zone.Identifier",
+    "size": 0
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py",
+      "file_size": 7193,
+      "md5": "fb8a770a533aabc8f88ecb88a94372b9",
+      "sha1": "81163a40f808d96fa80ab5ccf11055271e0cda2c",
+      "sha256": "2f8405e7e3ad5f7622c187f54e27dfee1c8e1b916e8402e4528091c49da34ab4"
+    },
+    "mtime_ns": 1737576240000000000,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py",
+    "size": 7193
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py:Zone.Identifier": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py:Zone.Identifier",
+      "file_size": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mtime_ns": 1776238800933066486,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/apk_analyzer.py:Zone.Identifier",
+    "size": 0
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt",
+      "file_size": 20,
+      "md5": "7eb9e420b258dfdacf3a7674492829c3",
+      "sha1": "c389580f48dc516ecb6fbf656ba36aacb9311f2c",
+      "sha256": "6e9b2ee7c3a0f9722fe19e6c5fd022ec7e369c0526cad219fd39f0c5bad35aae"
+    },
+    "mtime_ns": 1737576240000000000,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt",
+    "size": 20
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt:Zone.Identifier": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt:Zone.Identifier",
+      "file_size": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mtime_ns": 1776238800948736287,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/requirements.txt:Zone.Identifier",
+    "size": 0
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh",
+      "file_size": 2591,
+      "md5": "d75b9ddb5ba9320d772e2f31139e56a9",
+      "sha1": "972b3a2160b6295a0d45775de0acde73d9df0a6a",
+      "sha256": "7c33094ff557c3ddd4f2ee9fb7cac7a6ab00bee06ba405593907419d6cd6fdcc"
+    },
+    "mtime_ns": 1737576240000000000,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh",
+    "size": 2591
+  },
+  "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh:Zone.Identifier": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh:Zone.Identifier",
+      "file_size": 0,
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "mtime_ns": 1776238800980075890,
+    "path": "/home/shivam/Minor02/manual_test/android-static-analysis-main/android-static-analysis-main/setup.sh:Zone.Identifier",
+    "size": 0
+  },
+  "/home/shivam/Minor02/manual_test/apk_analyzer.py": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/apk_analyzer.py",
+      "file_size": 7193,
+      "md5": "fb8a770a533aabc8f88ecb88a94372b9",
+      "sha1": "81163a40f808d96fa80ab5ccf11055271e0cda2c",
+      "sha256": "2f8405e7e3ad5f7622c187f54e27dfee1c8e1b916e8402e4528091c49da34ab4"
+    },
+    "mtime_ns": 1776238683635297700,
+    "path": "/home/shivam/Minor02/manual_test/apk_analyzer.py",
+    "size": 7193
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/connect.html": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/connect.html",
+      "file_size": 1152,
+      "md5": "158d22c380864c8da4e6ceb66da7d05c",
+      "sha1": "0691051dd5486017954f7afba4476dc7b132059e",
+      "sha256": "9e3b8ac8a4653aebd9d52bcd382836785be740dafbb645028df3bb18a9924db0"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/connect.html",
+    "size": 1152
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-128.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-128.png",
+      "file_size": 6352,
+      "md5": "3ef63e6fcf98ff911aea0d83b32d26a2",
+      "sha1": "8cbd23f46c8622442f4fc27de8eea6613b64eab7",
+      "sha256": "70493088afd321be48fd39da4f4a64d5f5affac28ae11ca754c982fac3290321"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-128.png",
+    "size": 6352
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-16.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-16.png",
+      "file_size": 571,
+      "md5": "1a5c9b62cf05d102a73df8335b81ffc4",
+      "sha1": "d9258054546fa52b15d2c87926884b55663a21e5",
+      "sha256": "f3a31a440593e0b0f9a1d0e9296e26afde62470096e56dcc39299d9efb435448"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-16.png",
+    "size": 571
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-32.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-32.png",
+      "file_size": 1258,
+      "md5": "9eeb5ab8bc914949daf03d27ad03cbbc",
+      "sha1": "4d68be3167abc7dc56603baa960a0f502752c81e",
+      "sha256": "159ce17f1917309523b1e188cd297f1c20dcedd895863ca031b2aca75566eeaf"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-32.png",
+    "size": 1258
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-48.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-48.png",
+      "file_size": 2043,
+      "md5": "6a54ad809e1c940f1531d4ed3e8820bb",
+      "sha1": "3093ad5d52fc05c7d19c47930438e5614840f26b",
+      "sha256": "652e5686ae6fb290ea1c8d1863349f9519479beb5d786e38ad93d0e3390d2159"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/icons/icon-48.png",
+    "size": 2043
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/background.mjs": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/background.mjs",
+      "file_size": 10229,
+      "md5": "7e71ba4001f8d144b3e83632110d411c",
+      "sha1": "ce184f2e2fc49cbd1cf937467935d7fd0ee8849e",
+      "sha256": "4c852ac9170eaead1b4bf4f5461cc67097e34b02b1ba274c94a088d0d9288adc"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/background.mjs",
+    "size": 10229
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.css": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.css",
+      "file_size": 49316,
+      "md5": "f1ac2447134a40c23b2dca92ba60ec50",
+      "sha1": "1e444167e9a3ee5daa0d341961a02ec022d3969c",
+      "sha256": "7dd15802c8a43fbc836cfa93292c63de92e096beba945f9846fee7f8a3bf4372"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.css",
+    "size": 49316
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.js": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.js",
+      "file_size": 236729,
+      "md5": "bc001eec8f152f97584bc53a03e8efbb",
+      "sha1": "ebeac4867cd2f6121301024d6c9d17903a92efe0",
+      "sha256": "bba22c21db48d522395278d24e4c1114aee957b2847008cc6b8528af8684775a"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/authToken.js",
+    "size": 236729
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/connect.js": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/connect.js",
+      "file_size": 7919,
+      "md5": "bd2cd7423ee83c5295f79436149aa0f4",
+      "sha1": "db65e177dc408611f0937770f1dc73f46808dbd9",
+      "sha256": "5460ecbe93ae7777d3cba83aefc375dfa9426a2f1dd95946ec6b0171f3fbfeb8"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/connect.js",
+    "size": 7919
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-16.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-16.png",
+      "file_size": 571,
+      "md5": "1a5c9b62cf05d102a73df8335b81ffc4",
+      "sha1": "d9258054546fa52b15d2c87926884b55663a21e5",
+      "sha256": "f3a31a440593e0b0f9a1d0e9296e26afde62470096e56dcc39299d9efb435448"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-16.png",
+    "size": 571
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-32.png": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-32.png",
+      "file_size": 1258,
+      "md5": "9eeb5ab8bc914949daf03d27ad03cbbc",
+      "sha1": "4d68be3167abc7dc56603baa960a0f502752c81e",
+      "sha256": "159ce17f1917309523b1e188cd297f1c20dcedd895863ca031b2aca75566eeaf"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/icon-32.png",
+    "size": 1258
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/status.js": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/status.js",
+      "file_size": 2427,
+      "md5": "e4451d6d9e3ef0ef9c34dcea3f6fd977",
+      "sha1": "1ed3eb538fc8b6b004ae547467d8bcdff3f54f3a",
+      "sha256": "1f3392039a696c489cae9080198a782da1fc351e22749566f1530c57a82330ad"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/lib/ui/status.js",
+    "size": 2427
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/manifest.json": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/manifest.json",
+      "file_size": 1127,
+      "md5": "648e4d650bb7a28eb218ac49a2b68fa5",
+      "sha1": "ef297cc032c2b81f495a9bbbd5713c2d0e42d65f",
+      "sha256": "c89104ed98a5a8afbf17913e455c07b45f3ee39ed54ab764d9b525938b593963"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/manifest.json",
+    "size": 1127
+  },
+  "/home/shivam/Minor02/manual_test/playwright extension/status.html": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/manual_test/playwright extension/status.html",
+      "file_size": 444,
+      "md5": "42c7fe93350b3b771018afc2e2553a6c",
+      "sha1": "8cbd595195fbeadb9f7c2b758e441ff951faa395",
+      "sha256": "f32497592ccd06b011379189f853a4ecfaaa9bc2790eb17f15a7d21747934d32"
+    },
+    "mtime_ns": 1775002662000000000,
+    "path": "/home/shivam/Minor02/manual_test/playwright extension/status.html",
+    "size": 444
+  },
   "/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py": {
     "hash_result": {
       "file_path": "/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py",
@@ -142,5 +430,1433 @@
     "mtime_ns": 1776640890772736341,
     "path": "/tmp/pytest-of-shivam/pytest-34/test_scan_semgrep_failure_adds0/sample.py",
     "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-35/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-35/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776641800030178124,
+    "path": "/tmp/pytest-of-shivam/pytest-35/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-35/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-35/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776641800852027176,
+    "path": "/tmp/pytest-of-shivam/pytest-35/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-35/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-35/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776641800981392306,
+    "path": "/tmp/pytest-of-shivam/pytest-35/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-36/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-36/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776643825863460218,
+    "path": "/tmp/pytest-of-shivam/pytest-36/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-36/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-36/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776643826830932415,
+    "path": "/tmp/pytest-of-shivam/pytest-36/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-36/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-36/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776643826921988621,
+    "path": "/tmp/pytest-of-shivam/pytest-36/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-37/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-37/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776643835308305445,
+    "path": "/tmp/pytest-of-shivam/pytest-37/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-37/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-37/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776643836846777093,
+    "path": "/tmp/pytest-of-shivam/pytest-37/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-37/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-37/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776643836952878585,
+    "path": "/tmp/pytest-of-shivam/pytest-37/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-38/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-38/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644039721012593,
+    "path": "/tmp/pytest-of-shivam/pytest-38/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-38/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-38/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776644040568722292,
+    "path": "/tmp/pytest-of-shivam/pytest-38/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-38/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-38/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644040659548331,
+    "path": "/tmp/pytest-of-shivam/pytest-38/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-39/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-39/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644142220475854,
+    "path": "/tmp/pytest-of-shivam/pytest-39/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-39/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-39/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776644143053332847,
+    "path": "/tmp/pytest-of-shivam/pytest-39/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-39/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-39/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644143163030768,
+    "path": "/tmp/pytest-of-shivam/pytest-39/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-40/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-40/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644211519579236,
+    "path": "/tmp/pytest-of-shivam/pytest-40/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-40/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-40/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776644212363221678,
+    "path": "/tmp/pytest-of-shivam/pytest-40/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-40/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-40/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644212462026649,
+    "path": "/tmp/pytest-of-shivam/pytest-40/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-41/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-41/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644299421682196,
+    "path": "/tmp/pytest-of-shivam/pytest-41/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-41/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-41/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776644300271895402,
+    "path": "/tmp/pytest-of-shivam/pytest-41/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-41/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-41/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776644300408536810,
+    "path": "/tmp/pytest-of-shivam/pytest-41/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-42/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-42/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776645703661040517,
+    "path": "/tmp/pytest-of-shivam/pytest-42/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-42/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-42/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776645704442152476,
+    "path": "/tmp/pytest-of-shivam/pytest-42/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-42/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-42/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776645704539791471,
+    "path": "/tmp/pytest-of-shivam/pytest-42/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-44/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-44/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776645764560364742,
+    "path": "/tmp/pytest-of-shivam/pytest-44/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-44/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-44/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776645765233587399,
+    "path": "/tmp/pytest-of-shivam/pytest-44/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-44/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-44/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776645765334765371,
+    "path": "/tmp/pytest-of-shivam/pytest-44/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-45/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646636925158923,
+    "path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646637953707874,
+    "path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646638124500135,
+    "path": "/tmp/pytest-of-shivam/pytest-45/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-45/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-45/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776646637790506380,
+    "path": "/tmp/pytest-of-shivam/pytest-45/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-45/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-45/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646637877800202,
+    "path": "/tmp/pytest-of-shivam/pytest-45/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646773020786080,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646774885586043,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646775133986038,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646775267186035,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646775011586040,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776646774737986045,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-46/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-46/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646774827986044,
+    "path": "/tmp/pytest-of-shivam/pytest-46/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646779165986053,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646780116386033,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646780343186028,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646780490786026,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646780235186031,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776646779968786035,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-47/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-47/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776646780055186034,
+    "path": "/tmp/pytest-of-shivam/pytest-47/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647120024537384,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647131434957451,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647131726957460,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647131866957463,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647131586957456,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776647131266957445,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-48/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-48/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647131366957448,
+    "path": "/tmp/pytest-of-shivam/pytest-48/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647353656689217,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647354692689475,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647355000689552,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647355148689589,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647354860689517,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776647354508689429,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-49/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-49/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647354628689460,
+    "path": "/tmp/pytest-of-shivam/pytest-49/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647374275654317,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647375275654274,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647375583654262,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647375731654256,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647375427654268,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776647375091654282,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-52/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-52/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647375211654277,
+    "path": "/tmp/pytest-of-shivam/pytest-52/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647414878615085,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647416209168254,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647416488882177,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647416632735051,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647416349025216,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776647416017364421,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-53/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-53/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776647416153225470,
+    "path": "/tmp/pytest-of-shivam/pytest-53/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648301377059716,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648302513059380,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648302826333842,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648302966331376,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648302674985157,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776648302305059442,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-54/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-54/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648302445059401,
+    "path": "/tmp/pytest-of-shivam/pytest-54/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648591093996164,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648592301272156,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648592598269764,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648592733268676,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648592463270852,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776648592123845013,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-55/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-55/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648592231844145,
+    "path": "/tmp/pytest-of-shivam/pytest-55/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648633671809446,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648634754015969,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648635049163202,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648635189168942,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648634905373524,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776648634564819025,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-56/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-56/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776648634682121131,
+    "path": "/tmp/pytest-of-shivam/pytest-56/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649676923315264,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649677876070010,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649678171377224,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649678292528901,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649678027509606,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776649677705700462,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-57/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-57/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776649677815494171,
+    "path": "/tmp/pytest-of-shivam/pytest-57/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650511084289007,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650512027391673,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650512286927677,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650512422178835,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650512158987393,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776650511855586148,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-58/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-58/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650511961593812,
+    "path": "/tmp/pytest-of-shivam/pytest-58/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_local_file_fans_out_0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_file_fans_out_0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650565449193716,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_file_fans_out_0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650568242802987,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no1/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no1/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650568551964132,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_does_no1/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_gr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_gr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650568693185888,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_gr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_tr0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_tr0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650568403108766,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_local_target_runs_tr0/sample.py",
+    "size": 15
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_mcp_dynamic_failure_0/mcp.json": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_mcp_dynamic_failure_0/mcp.json",
+      "file_size": 68,
+      "md5": "543d1ca975f890b0b1f791814c32a24c",
+      "sha1": "ea5f50868cd9a0a2a28d196a0cf789b129d4b36b",
+      "sha256": "4248e5a8c49f2663a56f5feeb1c228af8b4ab284381e337cd15b80213711bb39"
+    },
+    "mtime_ns": 1776650568055779578,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_mcp_dynamic_failure_0/mcp.json",
+    "size": 68
+  },
+  "/tmp/pytest-of-shivam/pytest-59/test_scan_semgrep_failure_adds0/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/pytest-of-shivam/pytest-59/test_scan_semgrep_failure_adds0/sample.py",
+      "file_size": 15,
+      "md5": "100e360cc768f15a35ed9ddf05e354ce",
+      "sha1": "8df0164c4e34402669262f277c81be417994085c",
+      "sha256": "03e693d9f2f687e0f40e36a8df7fcb4d1c22974012b7c2a55c000eb30f305824"
+    },
+    "mtime_ns": 1776650568181734119,
+    "path": "/tmp/pytest-of-shivam/pytest-59/test_scan_semgrep_failure_adds0/sample.py",
+    "size": 15
+  },
+  "/tmp/suscheck_manual_dir/sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/suscheck_manual_dir/sample.py",
+      "file_size": 28,
+      "md5": "9f9fd1f6204550ca695da3d94e2bf23d",
+      "sha1": "08025a423f6a9e1c3ab4b3dad7d9688c6806398c",
+      "sha256": "b9efff1cb19c24b7b92e1e61790f5e1ca9d3b39ea4a928a34b0693edf7d0db24"
+    },
+    "mtime_ns": 1776648408688765659,
+    "path": "/tmp/suscheck_manual_dir/sample.py",
+    "size": 28
+  },
+  "/tmp/suscheck_manual_sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/suscheck_manual_sample.py",
+      "file_size": 28,
+      "md5": "9f9fd1f6204550ca695da3d94e2bf23d",
+      "sha1": "08025a423f6a9e1c3ab4b3dad7d9688c6806398c",
+      "sha256": "b9efff1cb19c24b7b92e1e61790f5e1ca9d3b39ea4a928a34b0693edf7d0db24"
+    },
+    "mtime_ns": 1776648407096056978,
+    "path": "/tmp/suscheck_manual_sample.py",
+    "size": 28
+  },
+  "/tmp/suscheck_sample.py": {
+    "hash_result": {
+      "file_path": "/tmp/suscheck_sample.py",
+      "file_size": 12,
+      "md5": "0bd9d30fdff5a8f7609324caa7b1aa3d",
+      "sha1": "418ea782327ebb1c57b9e67d181680604bc14411",
+      "sha256": "ad64355106bb158b020ecf9702be48f7730fc091dd4bb6a2f092b40393495b3d"
+    },
+    "mtime_ns": 1776647722711343896,
+    "path": "/tmp/suscheck_sample.py",
+    "size": 12
   }
 }

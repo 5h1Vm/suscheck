@@ -10,10 +10,15 @@ from suscheck.core.finding import Finding, FindingType, Severity
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
     execute_dependency_check_phase,
+    execute_grype_phase,
     execute_local_file_tier1_phase,
+    execute_nuclei_phase,
+    execute_openvas_phase,
     execute_remote_repository_tier1_phase,
     execute_semgrep_phase,
     execute_tier0_phase,
+    execute_trivy_phase,
+    execute_zap_phase,
 )
 from suscheck.modules.external.engine import Tier0Engine
 
@@ -274,6 +279,331 @@ def test_execute_dependency_check_phase_with_runner_errors(monkeypatch) -> None:
     assert any(f.finding_id == "DEPCHK-DB-STATE" for f in findings)
     assert any((f.evidence or {}).get("dependency_db_state") == "unknown" for f in findings)
     assert failed is True
+
+
+def test_execute_nuclei_phase_disabled_returns_noop() -> None:
+    findings, failed = execute_nuclei_phase(
+        target="https://example.com",
+        enabled=False,
+        console=Console(record=True),
+    )
+
+    assert findings == []
+    assert failed is False
+
+
+def test_execute_nuclei_phase_missing_tool_marks_failed(monkeypatch) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "install nuclei"
+
+    monkeypatch.setattr("suscheck.services.scan_service.NucleiRunner", _Runner)
+
+    findings, failed = execute_nuclei_phase(
+        target="https://example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is True
+    assert any(f.finding_id == "NUCLEI-TOOL-MISSING" for f in findings)
+
+
+def test_execute_nuclei_phase_url_success(monkeypatch) -> None:
+    class _Result:
+        def __init__(self) -> None:
+            self.findings = [
+                Finding(
+                    module="nuclei",
+                    finding_id="NUCLEI-CVE-1",
+                    title="nuclei finding",
+                    description="test",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.VULNERABILITY,
+                    confidence=0.9,
+                    evidence={},
+                )
+            ]
+            self.errors = []
+
+    class _Runner:
+        is_installed = True
+
+        def scan_target(self, _target: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.NucleiRunner", _Runner)
+    monkeypatch.setattr("suscheck.services.scan_service.render_findings", lambda _findings: None)
+
+    findings, failed = execute_nuclei_phase(
+        target="https://example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is False
+    assert len(findings) == 1
+    assert findings[0].module == "nuclei"
+
+
+def test_execute_trivy_phase_disabled_returns_noop() -> None:
+    findings, failed = execute_trivy_phase(
+        target=".",
+        enabled=False,
+        console=Console(record=True),
+    )
+
+    assert findings == []
+    assert failed is False
+
+
+def test_execute_trivy_phase_missing_tool_marks_failed(monkeypatch, tmp_path: Path) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "install trivy"
+
+    monkeypatch.setattr("suscheck.services.scan_service.TrivyRunner", _Runner)
+
+    findings, failed = execute_trivy_phase(
+        target=str(tmp_path),
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is True
+    assert any(f.finding_id == "TRIVY-TOOL-MISSING" for f in findings)
+
+
+def test_execute_trivy_phase_success(monkeypatch, tmp_path: Path) -> None:
+    class _Result:
+        def __init__(self) -> None:
+            self.findings = [
+                Finding(
+                    module="trivy",
+                    finding_id="TRIVY-CVE-1",
+                    title="trivy finding",
+                    description="test",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.CVE,
+                    confidence=0.95,
+                    evidence={},
+                )
+            ]
+            self.errors = []
+
+    class _Runner:
+        is_installed = True
+
+        def scan_target(self, _target: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.TrivyRunner", _Runner)
+    monkeypatch.setattr("suscheck.services.scan_service.render_findings", lambda _findings: None)
+
+    findings, failed = execute_trivy_phase(
+        target=str(tmp_path),
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is False
+    assert len(findings) == 1
+    assert findings[0].module == "trivy"
+
+
+def test_execute_grype_phase_disabled_returns_noop() -> None:
+    findings, failed = execute_grype_phase(
+        target=".",
+        enabled=False,
+        console=Console(record=True),
+    )
+
+    assert findings == []
+    assert failed is False
+
+
+def test_execute_grype_phase_missing_tool_marks_failed(monkeypatch, tmp_path: Path) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "install grype"
+
+    monkeypatch.setattr("suscheck.services.scan_service.GrypeRunner", _Runner)
+
+    findings, failed = execute_grype_phase(
+        target=str(tmp_path),
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is True
+    assert any(f.finding_id == "GRYPE-TOOL-MISSING" for f in findings)
+
+
+def test_execute_grype_phase_success(monkeypatch, tmp_path: Path) -> None:
+    class _Result:
+        def __init__(self) -> None:
+            self.findings = [
+                Finding(
+                    module="grype",
+                    finding_id="GRYPE-CVE-1",
+                    title="grype finding",
+                    description="test",
+                    severity=Severity.LOW,
+                    finding_type=FindingType.CVE,
+                    confidence=0.95,
+                    evidence={},
+                )
+            ]
+            self.errors = []
+
+    class _Runner:
+        is_installed = True
+
+        def scan_target(self, _target: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.GrypeRunner", _Runner)
+    monkeypatch.setattr("suscheck.services.scan_service.render_findings", lambda _findings: None)
+
+    findings, failed = execute_grype_phase(
+        target=str(tmp_path),
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is False
+    assert len(findings) == 1
+    assert findings[0].module == "grype"
+
+
+def test_execute_zap_phase_disabled_returns_noop() -> None:
+    findings, failed = execute_zap_phase(
+        target="https://example.com",
+        enabled=False,
+        console=Console(record=True),
+    )
+
+    assert findings == []
+    assert failed is False
+
+
+def test_execute_zap_phase_missing_tool_marks_failed(monkeypatch) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "install zap"
+
+    monkeypatch.setattr("suscheck.services.scan_service.ZapRunner", _Runner)
+
+    findings, failed = execute_zap_phase(
+        target="https://example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is True
+    assert any(f.finding_id == "ZAP-TOOL-MISSING" for f in findings)
+
+
+def test_execute_zap_phase_success(monkeypatch) -> None:
+    class _Result:
+        def __init__(self) -> None:
+            self.findings = [
+                Finding(
+                    module="zap",
+                    finding_id="ZAP-TEST",
+                    title="zap finding",
+                    description="test",
+                    severity=Severity.MEDIUM,
+                    finding_type=FindingType.VULNERABILITY,
+                    confidence=0.8,
+                    evidence={},
+                )
+            ]
+            self.errors = []
+
+    class _Runner:
+        is_installed = True
+
+        def scan_target(self, _target: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.ZapRunner", _Runner)
+    monkeypatch.setattr("suscheck.services.scan_service.render_findings", lambda _findings: None)
+
+    findings, failed = execute_zap_phase(
+        target="https://example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is False
+    assert len(findings) == 1
+    assert findings[0].module == "zap"
+
+
+def test_execute_openvas_phase_disabled_returns_noop() -> None:
+    findings, failed = execute_openvas_phase(
+        target="example.com",
+        enabled=False,
+        console=Console(record=True),
+    )
+
+    assert findings == []
+    assert failed is False
+
+
+def test_execute_openvas_phase_missing_tool_marks_failed(monkeypatch) -> None:
+    class _Runner:
+        is_installed = False
+        missing_tool_message = "install openvas"
+
+    monkeypatch.setattr("suscheck.services.scan_service.OpenVASRunner", _Runner)
+
+    findings, failed = execute_openvas_phase(
+        target="example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is True
+    assert any(f.finding_id == "OPENVAS-TOOL-MISSING" for f in findings)
+
+
+def test_execute_openvas_phase_success(monkeypatch) -> None:
+    class _Result:
+        def __init__(self) -> None:
+            self.findings = [
+                Finding(
+                    module="openvas",
+                    finding_id="OPENVAS-TEST",
+                    title="openvas finding",
+                    description="test",
+                    severity=Severity.HIGH,
+                    finding_type=FindingType.VULNERABILITY,
+                    confidence=0.85,
+                    evidence={},
+                )
+            ]
+            self.errors = []
+
+    class _Runner:
+        is_installed = True
+
+        def scan_target(self, _target: str):
+            return _Result()
+
+    monkeypatch.setattr("suscheck.services.scan_service.OpenVASRunner", _Runner)
+    monkeypatch.setattr("suscheck.services.scan_service.render_findings", lambda _findings: None)
+
+    findings, failed = execute_openvas_phase(
+        target="example.com",
+        enabled=True,
+        console=Console(record=True),
+    )
+
+    assert failed is False
+    assert len(findings) == 1
+    assert findings[0].module == "openvas"
 
 
 def test_tier0_engine_reuses_cached_hash_for_unchanged_file(monkeypatch, tmp_path: Path) -> None:

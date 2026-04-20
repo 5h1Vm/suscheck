@@ -48,7 +48,7 @@ SusCheck currently provides four built-in profiles:
 4. `mcp-hardening`
 
 See full profile defaults and toggle precedence in:
-`docs/scan_profiles.md`
+`../Checkpoints/docs/scan_profiles.md`
 
 Custom user-defined profiles are planned, but not yet implemented.
 
@@ -138,7 +138,76 @@ suscheck scan ./mcp.json --mcp-only --no-ai --no-vt
 
 # MCP static + Docker dynamic observation
 suscheck scan ./mcp.json --mcp-only --mcp-dynamic --no-ai --no-vt
+
+# Optional web adapter (strict opt-in)
+suscheck scan https://example.com --nuclei --no-ai --no-vt
+
+# Optional dependency adapter (strict opt-in)
+suscheck scan ./my-project --trivy --no-ai --no-vt
+
+# Optional dependency adapter (strict opt-in)
+suscheck scan ./my-project --grype --no-ai --no-vt
+
+# Optional infrastructure adapter (strict opt-in)
+suscheck scan example.com --openvas --no-ai --no-vt
 ```
+
+### 2.2 Optional Adapter Activation (Disabled by Default)
+Optional adapters are extension points and are not executed unless explicitly enabled.
+
+Nuclei execution is now available behind strict opt-in:
+```bash
+# one-shot explicit enable
+suscheck scan https://example.com --nuclei
+
+# force disable even if profile defaults change later
+suscheck scan https://example.com --no-nuclei
+
+# one-shot Trivy enable for local paths
+suscheck scan ./my-project --trivy
+
+# force disable Trivy
+suscheck scan ./my-project --no-trivy
+
+# one-shot Grype enable for local paths
+suscheck scan ./my-project --grype
+
+# force disable Grype
+suscheck scan ./my-project --no-grype
+
+# one-shot OpenVAS enable for host/url targets
+suscheck scan example.com --openvas
+
+# force disable OpenVAS
+suscheck scan example.com --no-openvas
+```
+
+Environment toggle is also supported:
+```bash
+export SUSCHECK_ENABLE_NUCLEI=1
+suscheck scan https://example.com
+
+export SUSCHECK_ENABLE_TRIVY=1
+suscheck scan ./my-project
+
+export SUSCHECK_ENABLE_GRYPE=1
+suscheck scan ./my-project
+
+export SUSCHECK_ENABLE_OPENVAS=1
+export SUSCHECK_OPENVAS_SCAN_CMD='openvas-scan --target {target}'
+suscheck scan example.com
+```
+
+Notes:
+- `--nuclei` only runs on HTTP(S) URL targets.
+- `--trivy` only runs on local file or directory targets.
+- `--grype` only runs on local file or directory targets.
+- `--openvas` runs on URL/host-like network targets and requires OpenVAS scan command configuration.
+- When Nuclei is enabled but missing, scan continues with a partial-coverage warning and installation guidance.
+- When Trivy is enabled but missing, scan continues with a partial-coverage warning and installation guidance.
+- When Grype is enabled but missing, scan continues with a partial-coverage warning and installation guidance.
+- When OpenVAS is enabled but not configured, scan continues with a partial-coverage warning and setup guidance.
+- Default behavior remains unchanged when Nuclei is not explicitly enabled.
 
 ### 3. API Keys (optional but recommended)
 Add these to your `.env` for Tier 0 and Tier 2 capabilities:

@@ -10,7 +10,7 @@ from rich.panel import Panel
 from suscheck import __version__
 from suscheck.commands.analysis_commands import register_analysis_commands
 from suscheck.commands.aux_commands import register_aux_commands
-from suscheck.commands.scan_commands import register_scan_command
+from suscheck.commands.scan_commands import ScanProfile, register_scan_command
 from suscheck.core.auto_detector import AutoDetector
 from suscheck.core.finding import ReportFormat
 from suscheck.services.policy_service import evaluate_wrapper_policy
@@ -115,7 +115,7 @@ def help_command() -> None:
             "  Profiles: default, deep, fast, mcp-hardening\n"
             "  Toggles: --ai/--no-ai, --vt/--no-vt, --dependency-check/--no-dependency-check,\n"
             "           --mcp-dynamic/--no-mcp-dynamic\n"
-            "  Profile reference: docs/scan_profiles.md\n\n"
+            "  Profile reference: ../Checkpoints/docs/scan_profiles.md\n\n"
             "[bold cyan]Tooling Map[/bold cyan]\n"
             "  Included in current orchestration: Semgrep, Bandit, Checkov, KICS, Gitleaks,\n"
             "  Dependency-Check, MCP static/dynamic phases, policy/suppression/trend/perf traces.\n"
@@ -128,13 +128,13 @@ def help_command() -> None:
     )
 
 @app.command(
-    short_help="Analyze a package and install it only if it passes security checks.",
+    short_help="Scan a package before installing it safely.",
     rich_help_panel="Safe Execution",
 )
 def install(
-    ecosystem: str = typer.Argument(help="Package manager: pip, npm"),
-    package: str = typer.Argument(help="Package to scan and install"),
-    force: bool = typer.Option(False, "--force", help="Install even if scan finds issues"),
+    ecosystem: str = typer.Argument(help="Package manager (pip, npm, etc.)"),
+    package: str = typer.Argument(help="Package name to scan and install"),
+    force: bool = typer.Option(False, "--force", help="Override policy block and install anyway (not recommended)"),
 ):
     """Scan a package, then install it if safe."""
     console.print("\n[bold blue]sus check install[/bold blue]")
@@ -153,12 +153,30 @@ def install(
     console.print("\n[dim]Scanning package before install...[/dim]")
     summary = scan(
         target=scan_target,
+        profile=ScanProfile.DEFAULT,
         report_format=ReportFormat.TERMINAL,
         output=None,
+        ai=False,
         no_ai=False,
+        vt=False,
+        no_vt=False,
         upload_vt=False,
         verbose=False,
+        no_mcp_dynamic=False,
         mcp_dynamic=False,
+        mcp_only=False,
+        no_dependency_check=False,
+        dependency_check=False,
+        nuclei=False,
+        no_nuclei=False,
+        trivy=False,
+        no_trivy=False,
+        grype=False,
+        no_grype=False,
+        zap=False,
+        no_zap=False,
+        openvas=False,
+        no_openvas=False,
         report_dir=None,
     )
 
@@ -222,13 +240,13 @@ def install(
 
 
 @app.command(
-    short_help="Analyze a repository and clone it only if it passes security checks.",
+    short_help="Scan a repository before cloning it safely.",
     rich_help_panel="Safe Execution",
 )
 def clone(
     url: str = typer.Argument(help="Repository URL to scan and clone"),
-    dest: str = typer.Option(None, "--dest", "-d", help="Clone destination"),
-    force: bool = typer.Option(False, "--force", help="Clone even if scan finds issues"),
+    dest: str = typer.Option(None, "--dest", "-d", help="Destination folder (optional; defaults to repo name)"),
+    force: bool = typer.Option(False, "--force", help="Override policy block and clone anyway (not recommended)"),
 ):
     """Scan a repository, then clone it if safe."""
     console.print("\n[bold blue]sus check clone[/bold blue]")
@@ -237,12 +255,30 @@ def clone(
     console.print("\n[dim]Scanning repository URL before clone...[/dim]")
     summary = scan(
         target=url,
+        profile=ScanProfile.DEFAULT,
         report_format=ReportFormat.TERMINAL,
         output=None,
+        ai=False,
         no_ai=False,
+        vt=False,
+        no_vt=False,
         upload_vt=False,
         verbose=False,
+        no_mcp_dynamic=False,
         mcp_dynamic=False,
+        mcp_only=False,
+        no_dependency_check=False,
+        dependency_check=False,
+        nuclei=False,
+        no_nuclei=False,
+        trivy=False,
+        no_trivy=False,
+        grype=False,
+        no_grype=False,
+        zap=False,
+        no_zap=False,
+        openvas=False,
+        no_openvas=False,
         report_dir=None,
     )
 
@@ -306,12 +342,12 @@ def clone(
 
 
 @app.command(
-    short_help="Analyze an MCP endpoint and connect only if it passes security checks.",
+    short_help="Scan an MCP server before connecting to it safely.",
     rich_help_panel="Safe Execution",
 )
 def connect(
-    server: str = typer.Argument(help="MCP server URL or manifest path"),
-    force: bool = typer.Option(False, "--force", help="Connect even if scan finds issues"),
+    server: str = typer.Argument(help="MCP server URL or manifest path to scan and connect"),
+    force: bool = typer.Option(False, "--force", help="Override policy block and connect anyway (not recommended)"),
 ):
     """Scan an MCP server, then provide connection config if safe."""
     console.print("\n[bold blue]sus check connect[/bold blue]")
@@ -320,12 +356,30 @@ def connect(
     console.print("\n[dim]Scanning MCP server target before connection...[/dim]")
     summary = scan(
         target=server,
+        profile=ScanProfile.DEFAULT,
         report_format=ReportFormat.TERMINAL,
         output=None,
+        ai=False,
         no_ai=False,
+        vt=False,
+        no_vt=False,
         upload_vt=False,
         verbose=False,
+        no_mcp_dynamic=False,
         mcp_dynamic=False,
+        mcp_only=False,
+        no_dependency_check=False,
+        dependency_check=False,
+        nuclei=False,
+        no_nuclei=False,
+        trivy=False,
+        no_trivy=False,
+        grype=False,
+        no_grype=False,
+        zap=False,
+        no_zap=False,
+        openvas=False,
+        no_openvas=False,
         report_dir=None,
     )
 

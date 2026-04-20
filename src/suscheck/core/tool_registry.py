@@ -27,6 +27,12 @@ class ToolType(str, Enum):
     KICS = "kics"
     GIT = "git"
     DEPENDENCY_CHECK = "dependency-check"
+    # Optional adapters (disabled by default)
+    NUCLEI = "nuclei"
+    TRIVY = "trivy"
+    GRYPE = "grype"
+    ZAP = "zaproxy"
+    OPENVAS = "openvas"
 
 
 TOOL_INSTALLATION_URLS: Dict[ToolType, str] = {
@@ -37,6 +43,12 @@ TOOL_INSTALLATION_URLS: Dict[ToolType, str] = {
     ToolType.KICS: "https://docs.kicsinfra.com/gitbook/getting-started/installation",
     ToolType.GIT: "https://git-scm.com/download",
     ToolType.DEPENDENCY_CHECK: "https://owasp.org/www-project-dependency-check/",
+    # Optional adapters
+    ToolType.NUCLEI: "https://docs.projectdiscovery.io/tools/nuclei/installation",
+    ToolType.TRIVY: "https://aquasecurity.github.io/trivy/",
+    ToolType.GRYPE: "https://github.com/anchore/grype#installation",
+    ToolType.ZAP: "https://www.zaproxy.org/download/",
+    ToolType.OPENVAS: "https://greenbone.github.io/docs/latest/22.4/source-build/",
 }
 
 

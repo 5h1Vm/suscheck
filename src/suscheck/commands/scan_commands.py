@@ -38,10 +38,15 @@ from suscheck.services.trend_service import compare_and_record_trend
 from suscheck.services.scan_service import (
     build_static_tier1_skip_findings,
     execute_dependency_check_phase,
+    execute_grype_phase,
     execute_local_file_tier1_phase,
+    execute_nuclei_phase,
+    execute_openvas_phase,
     execute_remote_repository_tier1_phase,
     execute_semgrep_phase,
     execute_tier0_phase,
+    execute_trivy_phase,
+    execute_zap_phase,
 )
 from suscheck.services.summary_service import (
     build_scan_summary,
@@ -65,24 +70,44 @@ PROFILE_DEFAULTS: dict[ScanProfile, dict[str, bool]] = {
         "vt": True,
         "dependency_check": False,
         "mcp_dynamic": False,
+        "nuclei": False,
+        "trivy": False,
+        "grype": False,
+        "zap": False,
+        "openvas": False,
     },
     ScanProfile.DEEP: {
         "ai": True,
         "vt": True,
         "dependency_check": True,
         "mcp_dynamic": True,
+        "nuclei": False,
+        "trivy": False,
+        "grype": False,
+        "zap": False,
+        "openvas": False,
     },
     ScanProfile.FAST: {
         "ai": False,
         "vt": False,
         "dependency_check": False,
         "mcp_dynamic": False,
+        "nuclei": False,
+        "trivy": False,
+        "grype": False,
+        "zap": False,
+        "openvas": False,
     },
     ScanProfile.MCP_HARDENING: {
         "ai": True,
         "vt": True,
         "dependency_check": False,
         "mcp_dynamic": True,
+        "nuclei": False,
+        "trivy": False,
+        "grype": False,
+        "zap": False,
+        "openvas": False,
     },
 }
 
@@ -100,54 +125,104 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         profile: ScanProfile = typer.Option(
             ScanProfile.DEFAULT,
             "--profile",
-            help="Scan profile: default, deep, fast, mcp-hardening",
+            help="Scan preset: 'default' (balanced), 'deep' (all checks + dynamic), 'fast' (minimal), 'mcp-hardening' (MCP-focused)",
         ),
         report_format: ReportFormat = typer.Option(
             ReportFormat.TERMINAL,
             "--format",
             "-f",
-            help="Output format: terminal, markdown, html, json",
+            help="Report format: 'terminal' (rich output), 'json', 'markdown', 'html'",
         ),
-        output: Optional[Path] = typer.Option(None, "--output", "-o", help="File to save the report to"),
-        ai: bool = typer.Option(False, "--ai", help="Force-enable AI triage for this scan."),
-        no_ai: bool = typer.Option(False, "--no-ai", help="Skip AI triage, rules-only mode"),
-        vt: bool = typer.Option(False, "--vt", help="Force-enable VirusTotal lookups for this scan."),
-        no_vt: bool = typer.Option(False, "--no-vt", help="Skip VirusTotal lookups for this scan execution"),
+        output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save report to file (optional; default prints to terminal)"),
+        ai: bool = typer.Option(False, "--ai", help="Override profile: enable AI-powered triage"),
+        no_ai: bool = typer.Option(False, "--no-ai", help="Override profile: skip AI triage (rules-only mode)"),
+        vt: bool = typer.Option(False, "--vt", help="Override profile: enable VirusTotal reputation checks"),
+        no_vt: bool = typer.Option(False, "--no-vt", help="Override profile: skip VirusTotal lookups"),
         upload_vt: bool = typer.Option(
             False,
             "--upload-vt",
-            help="Upload file to VirusTotal if hash unknown. ⚠️  File becomes PUBLIC on VT.",
+            help="With --vt: upload unknown files to VirusTotal for scanning. ⚠️  Files become PUBLIC.",
         ),
-        verbose: bool = typer.Option(False, "--verbose", "-v", "-V", help="Verbose output"),
+        verbose: bool = typer.Option(False, "--verbose", "-v", "-V", help="Show debug logs and tool output"),
         no_mcp_dynamic: bool = typer.Option(
             False,
             "--no-mcp-dynamic",
-            help="Force-disable MCP dynamic observation for this scan.",
+            help="Override profile: skip dynamic MCP observation (Docker-based testing)",
         ),
         mcp_dynamic: bool = typer.Option(
             False,
             "--mcp-dynamic",
-            help="After static MCP scan, run optional Docker observation (requires docker package + daemon).",
+            help="Override profile: enable MCP dynamic observation (requires Docker daemon)",
         ),
         mcp_only: bool = typer.Option(
             False,
             "--mcp-only",
-            help="Run only MCP static scan logic for local file targets.",
+            help="Run only MCP checks (skip other scanners) for local files",
         ),
         no_dependency_check: bool = typer.Option(
             False,
             "--no-dependency-check",
-            help="Force-disable OWASP Dependency-Check for this scan.",
+            help="Override profile: skip dependency vulnerability scans",
         ),
         dependency_check: bool = typer.Option(
             False,
             "--dependency-check",
-            help="Run OWASP Dependency-Check for third-party dependency CVEs (directory targets).",
+            help="Override profile: enable OWASP Dependency-Check for CVEs (directories only)",
+        ),
+        nuclei: bool = typer.Option(
+            False,
+            "--nuclei",
+            help="Override profile: enable Nuclei optional adapter (HTTP(S) URL targets only)",
+        ),
+        no_nuclei: bool = typer.Option(
+            False,
+            "--no-nuclei",
+            help="Override profile: disable Nuclei optional adapter",
+        ),
+        trivy: bool = typer.Option(
+            False,
+            "--trivy",
+            help="Override profile: enable Trivy optional adapter (local file/directory targets)",
+        ),
+        no_trivy: bool = typer.Option(
+            False,
+            "--no-trivy",
+            help="Override profile: disable Trivy optional adapter",
+        ),
+        grype: bool = typer.Option(
+            False,
+            "--grype",
+            help="Override profile: enable Grype optional adapter (local file/directory targets)",
+        ),
+        no_grype: bool = typer.Option(
+            False,
+            "--no-grype",
+            help="Override profile: disable Grype optional adapter",
+        ),
+        zap: bool = typer.Option(
+            False,
+            "--zap",
+            help="Override profile: enable ZAP optional adapter (HTTP(S) URL targets only)",
+        ),
+        no_zap: bool = typer.Option(
+            False,
+            "--no-zap",
+            help="Override profile: disable ZAP optional adapter",
+        ),
+        openvas: bool = typer.Option(
+            False,
+            "--openvas",
+            help="Override profile: enable OpenVAS optional adapter (URL/host targets)",
+        ),
+        no_openvas: bool = typer.Option(
+            False,
+            "--no-openvas",
+            help="Override profile: disable OpenVAS optional adapter",
         ),
         report_dir: Optional[Path] = typer.Option(
             None,
             "--report-dir",
-            help="Directory to save reports to (defaults to ./reports/)",
+            help="Directory for multi-format reports (defaults to ./reports/)",
         ),
     ):
         """Scan any artifact for security issues."""
@@ -179,6 +254,36 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         if dependency_check:
             depcheck_enabled = True
 
+        nuclei_enabled = defaults["nuclei"]
+        if no_nuclei:
+            nuclei_enabled = False
+        if nuclei:
+            nuclei_enabled = True
+
+        trivy_enabled = defaults["trivy"]
+        if no_trivy:
+            trivy_enabled = False
+        if trivy:
+            trivy_enabled = True
+
+        grype_enabled = defaults["grype"]
+        if no_grype:
+            grype_enabled = False
+        if grype:
+            grype_enabled = True
+
+        zap_enabled = defaults["zap"]
+        if no_zap:
+            zap_enabled = False
+        if zap:
+            zap_enabled = True
+
+        openvas_enabled = defaults["openvas"]
+        if no_openvas:
+            openvas_enabled = False
+        if openvas:
+            openvas_enabled = True
+
         mcp_dynamic_enabled = defaults["mcp_dynamic"]
         if no_mcp_dynamic:
             mcp_dynamic_enabled = False
@@ -187,7 +292,10 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
 
         console.print(
             f"[dim]Profile={profile.value} | AI={'on' if ai_enabled else 'off'} | VT={'on' if vt_enabled else 'off'} | "
-            f"DepCheck={'on' if depcheck_enabled else 'off'} | MCP Dynamic={'on' if mcp_dynamic_enabled else 'off'}[/dim]"
+            f"DepCheck={'on' if depcheck_enabled else 'off'} | Nuclei={'on' if nuclei_enabled else 'off'} | "
+            f"Trivy={'on' if trivy_enabled else 'off'} | Grype={'on' if grype_enabled else 'off'} | "
+            f"ZAP={'on' if zap_enabled else 'off'} | OpenVAS={'on' if openvas_enabled else 'off'} | "
+            f"MCP Dynamic={'on' if mcp_dynamic_enabled else 'off'}[/dim]"
         )
 
         if not vt_enabled:
@@ -199,12 +307,38 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
         else:
             os.environ.pop("SUSCHECK_NO_VT", None)
 
+        if nuclei_enabled:
+            os.environ["SUSCHECK_ENABLE_NUCLEI"] = "1"
+        else:
+            os.environ.pop("SUSCHECK_ENABLE_NUCLEI", None)
+
+        if trivy_enabled:
+            os.environ["SUSCHECK_ENABLE_TRIVY"] = "1"
+        else:
+            os.environ.pop("SUSCHECK_ENABLE_TRIVY", None)
+
+        if grype_enabled:
+            os.environ["SUSCHECK_ENABLE_GRYPE"] = "1"
+        else:
+            os.environ.pop("SUSCHECK_ENABLE_GRYPE", None)
+
+        if zap_enabled:
+            os.environ["SUSCHECK_ENABLE_ZAP"] = "1"
+        else:
+            os.environ.pop("SUSCHECK_ENABLE_ZAP", None)
+
+        if openvas_enabled:
+            os.environ["SUSCHECK_ENABLE_OPENVAS"] = "1"
+        else:
+            os.environ.pop("SUSCHECK_ENABLE_OPENVAS", None)
+
         target_path = Path(target).resolve()
         config_mgr = ConfigManager()
 
         if not target_path.exists() and not any(target.startswith(p) for p in ["http://", "https://"]):
             is_likely_package = "/" not in target and "\\" not in target and "." not in target
-            if not is_likely_package:
+            is_likely_openvas_network_target = openvas_enabled and "/" not in target and "\\" not in target and "." in target
+            if not is_likely_package and not is_likely_openvas_network_target:
                 console.print(f"\n[bold red]FATAL: Artifact not found at source:[/bold red] {target}")
                 console.print("[dim]Ensure the path is correct or specify a valid package name.[/dim]")
                 sys.exit(1)
@@ -552,6 +686,66 @@ def register_scan_command(app: typer.Typer, *, console: Console, version: str):
             all_findings.extend(
                 build_static_tier1_skip_findings(target=target, artifact_type=detection.artifact_type.value)
             )
+
+        nuclei_findings, nuclei_failed = execute_nuclei_phase(
+            target=target,
+            enabled=nuclei_enabled,
+            console=console,
+        )
+        if nuclei_enabled and "nuclei" not in modules_ran:
+            modules_ran.append("nuclei")
+        if nuclei_failed and "nuclei" not in modules_failed:
+            modules_failed.append("nuclei")
+        if nuclei_findings:
+            all_findings.extend(nuclei_findings)
+
+        trivy_findings, trivy_failed = execute_trivy_phase(
+            target=target,
+            enabled=trivy_enabled,
+            console=console,
+        )
+        if trivy_enabled and "trivy" not in modules_ran:
+            modules_ran.append("trivy")
+        if trivy_failed and "trivy" not in modules_failed:
+            modules_failed.append("trivy")
+        if trivy_findings:
+            all_findings.extend(trivy_findings)
+
+        grype_findings, grype_failed = execute_grype_phase(
+            target=target,
+            enabled=grype_enabled,
+            console=console,
+        )
+        if grype_enabled and "grype" not in modules_ran:
+            modules_ran.append("grype")
+        if grype_failed and "grype" not in modules_failed:
+            modules_failed.append("grype")
+        if grype_findings:
+            all_findings.extend(grype_findings)
+
+        zap_findings, zap_failed = execute_zap_phase(
+            target=target,
+            enabled=zap_enabled,
+            console=console,
+        )
+        if zap_enabled and "zap" not in modules_ran:
+            modules_ran.append("zap")
+        if zap_failed and "zap" not in modules_failed:
+            modules_failed.append("zap")
+        if zap_findings:
+            all_findings.extend(zap_findings)
+
+        openvas_findings, openvas_failed = execute_openvas_phase(
+            target=target,
+            enabled=openvas_enabled,
+            console=console,
+        )
+        if openvas_enabled and "openvas" not in modules_ran:
+            modules_ran.append("openvas")
+        if openvas_failed and "openvas" not in modules_failed:
+            modules_failed.append("openvas")
+        if openvas_findings:
+            all_findings.extend(openvas_findings)
 
         scan_duration = time.time() - scan_start
 

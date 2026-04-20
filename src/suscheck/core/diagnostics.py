@@ -2,11 +2,13 @@
 
 import requests
 import logging
+import shutil
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 from suscheck.core.config_manager import ConfigManager
 from suscheck.core.errors import DiagnosticCheckError
+from suscheck.core.tool_registry import ToolType, TOOL_INSTALLATION_URLS
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,9 @@ class DiagnosticSuite:
         
         # 5. AI Providers
         self._check_ai_providers()
+        
+        # 6. Optional Adapters
+        self._check_optional_adapters()
         
         return self.results
 
@@ -193,3 +198,44 @@ class DiagnosticSuite:
             self.results.append(
                 DiagnosticResult(f"AI ({provider})", "FAILED", str(err), details={"error_code": err.code})
             )
+
+    def _check_optional_adapters(self):
+        """Check availability of optional scanning adapters (disabled by default)."""
+        optional_adapters = [
+            ToolType.NUCLEI,
+            ToolType.TRIVY,
+            ToolType.GRYPE,
+            ToolType.ZAP,
+            ToolType.OPENVAS,
+        ]
+        
+        for adapter in optional_adapters:
+            adapter_name = adapter.value.upper()
+            binary_name = adapter.value if adapter.value != "zaproxy" else "zaproxy"
+            
+            # Check if binary exists in PATH
+            path = shutil.which(binary_name)
+            if path:
+                # Try to get version info
+                try:
+                    import subprocess
+                    result = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5)
+                    version_info = result.stdout.strip() or result.stderr.strip()
+                    message = f"Found at {path}"
+                    if version_info:
+                        message += f" | {version_info[:50]}"
+                    self.results.append(DiagnosticResult(f"Optional: {adapter_name}", "OK", message))
+                except Exception as e:
+                    self.results.append(DiagnosticResult(f"Optional: {adapter_name}", "OK", f"Found at {path}"))
+            else:
+                # Adapter not found - provide installation guidance
+                install_url = TOOL_INSTALLATION_URLS.get(adapter, "")
+                suggestion = f"Install from: {install_url}" if install_url else "Not installed"
+                self.results.append(
+                    DiagnosticResult(
+                        f"Optional: {adapter_name}",
+                        "SKIPPED",
+                        "Not installed (disabled by default)",
+                        details={"installation_url": install_url} if install_url else None,
+                    )
+                )

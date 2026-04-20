@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
@@ -387,3 +388,440 @@ def test_scan_directory_depcheck_failure_adds_partial_finding(monkeypatch, tmp_p
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     assert "dependency_check" in payload["modules_failed"]
     assert any(f["finding_id"] == "PIPELINE-DEPENDENCY-CHECK-SKIPPED" for f in payload["findings"])
+
+
+def test_scan_url_does_not_run_nuclei_by_default(monkeypatch, tmp_path: Path) -> None:
+    called = {"nuclei": False}
+
+    def _fake_nuclei_phase(**_kwargs):
+        called["nuclei"] = True
+        return [], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_nuclei_phase", _fake_nuclei_phase)
+
+    report_path = tmp_path / "url_default.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "https://example.com",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "nuclei" not in payload["modules_ran"]
+    assert called["nuclei"] is True
+
+
+def test_scan_url_runs_nuclei_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_nuclei_phase(**_kwargs):
+        return [
+            Finding(
+                module="nuclei",
+                finding_id="NUCLEI-TEST",
+                title="Nuclei test finding",
+                description="test",
+                severity=Severity.LOW,
+                finding_type=FindingType.VULNERABILITY,
+                confidence=0.9,
+                evidence={},
+            )
+        ], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_nuclei_phase", _fake_nuclei_phase)
+
+    report_path = tmp_path / "url_nuclei.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "https://example.com",
+            "--nuclei",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "nuclei" in payload["modules_ran"]
+    assert any(f["finding_id"] == "NUCLEI-TEST" for f in payload["findings"])
+
+
+def test_scan_local_target_does_not_run_trivy_by_default(monkeypatch, tmp_path: Path) -> None:
+    called = {"trivy": False}
+
+    def _fake_trivy_phase(**_kwargs):
+        called["trivy"] = True
+        return [], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_trivy_phase", _fake_trivy_phase)
+
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+    report_path = tmp_path / "local_default.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(sample),
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "trivy" not in payload["modules_ran"]
+    assert called["trivy"] is True
+
+
+def test_scan_local_target_runs_trivy_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_trivy_phase(**_kwargs):
+        return [
+            Finding(
+                module="trivy",
+                finding_id="TRIVY-TEST",
+                title="Trivy test finding",
+                description="test",
+                severity=Severity.LOW,
+                finding_type=FindingType.CVE,
+                confidence=0.95,
+                evidence={},
+            )
+        ], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_trivy_phase", _fake_trivy_phase)
+
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+    report_path = tmp_path / "local_trivy.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(sample),
+            "--trivy",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "trivy" in payload["modules_ran"]
+    assert any(f["finding_id"] == "TRIVY-TEST" for f in payload["findings"])
+
+
+def test_scan_local_target_does_not_run_grype_by_default(monkeypatch, tmp_path: Path) -> None:
+    called = {"grype": False}
+
+    def _fake_grype_phase(**_kwargs):
+        called["grype"] = True
+        return [], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_grype_phase", _fake_grype_phase)
+
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+    report_path = tmp_path / "local_default_grype.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(sample),
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "grype" not in payload["modules_ran"]
+    assert called["grype"] is True
+
+
+def test_scan_local_target_runs_grype_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_grype_phase(**_kwargs):
+        return [
+            Finding(
+                module="grype",
+                finding_id="GRYPE-TEST",
+                title="Grype test finding",
+                description="test",
+                severity=Severity.LOW,
+                finding_type=FindingType.CVE,
+                confidence=0.95,
+                evidence={},
+            )
+        ], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_grype_phase", _fake_grype_phase)
+
+    sample = tmp_path / "sample.py"
+    sample.write_text("print('hello')\n", encoding="utf-8")
+    report_path = tmp_path / "local_grype.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            str(sample),
+            "--grype",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "grype" in payload["modules_ran"]
+    assert any(f["finding_id"] == "GRYPE-TEST" for f in payload["findings"])
+
+
+def test_scan_url_does_not_run_zap_by_default(monkeypatch, tmp_path: Path) -> None:
+    called = {"zap": False}
+
+    def _fake_zap_phase(**_kwargs):
+        called["zap"] = True
+        return [], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_zap_phase", _fake_zap_phase)
+
+    report_path = tmp_path / "url_default_zap.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "https://example.com",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "zap" not in payload["modules_ran"]
+    assert called["zap"] is True
+
+
+def test_scan_url_runs_zap_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_zap_phase(**_kwargs):
+        return [
+            Finding(
+                module="zap",
+                finding_id="ZAP-TEST",
+                title="ZAP test finding",
+                description="test",
+                severity=Severity.MEDIUM,
+                finding_type=FindingType.VULNERABILITY,
+                confidence=0.8,
+                evidence={},
+            )
+        ], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_zap_phase", _fake_zap_phase)
+
+    report_path = tmp_path / "url_zap.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "https://example.com",
+            "--zap",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "zap" in payload["modules_ran"]
+    assert any(f["finding_id"] == "ZAP-TEST" for f in payload["findings"])
+
+
+def test_scan_target_does_not_run_openvas_by_default(monkeypatch, tmp_path: Path) -> None:
+    called = {"openvas": False}
+
+    def _fake_openvas_phase(**_kwargs):
+        called["openvas"] = True
+        return [], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_openvas_phase", _fake_openvas_phase)
+
+    report_path = tmp_path / "target_default_openvas.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "https://example.com",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "openvas" not in payload["modules_ran"]
+    assert called["openvas"] is True
+
+
+def test_scan_target_runs_openvas_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_openvas_phase(**_kwargs):
+        return [
+            Finding(
+                module="openvas",
+                finding_id="OPENVAS-TEST",
+                title="OpenVAS test finding",
+                description="test",
+                severity=Severity.HIGH,
+                finding_type=FindingType.VULNERABILITY,
+                confidence=0.85,
+                evidence={},
+            )
+        ], False
+
+    monkeypatch.setattr("suscheck.commands.scan_commands.execute_openvas_phase", _fake_openvas_phase)
+
+    report_path = tmp_path / "target_openvas.json"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "example.com",
+            "--openvas",
+            "--no-ai",
+            "--no-vt",
+            "--format",
+            "json",
+            "--output",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "openvas" in payload["modules_ran"]
+    assert any(f["finding_id"] == "OPENVAS-TEST" for f in payload["findings"])
+
+
+def test_install_wrapper_uses_safe_scan_invocation(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_scan(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            pri_score=0,
+            verdict=SimpleNamespace(value="clear"),
+            coverage_notes=[],
+        )
+
+    monkeypatch.setattr("suscheck.cli.scan", _fake_scan)
+    monkeypatch.setattr(
+        "suscheck.cli.evaluate_wrapper_policy",
+        lambda summary, force, allow_pri_max: SimpleNamespace(
+            block_partial_coverage=False,
+            block_on_pri_threshold=False,
+            warn_forced_override=False,
+        ),
+    )
+    monkeypatch.setattr("suscheck.cli.execute_install_wrapper", lambda **_kwargs: 0)
+
+    result = runner.invoke(app, ["install", "pip", "requests"])
+    assert result.exit_code == 0
+    assert captured.get("profile") is not None
+
+
+def test_clone_wrapper_uses_safe_scan_invocation(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_scan(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            pri_score=0,
+            verdict=SimpleNamespace(value="clear"),
+            coverage_notes=[],
+        )
+
+    monkeypatch.setattr("suscheck.cli.scan", _fake_scan)
+    monkeypatch.setattr(
+        "suscheck.cli.evaluate_wrapper_policy",
+        lambda summary, force, allow_pri_max: SimpleNamespace(
+            block_partial_coverage=False,
+            block_on_pri_threshold=False,
+            warn_forced_override=False,
+        ),
+    )
+    monkeypatch.setattr("suscheck.cli.execute_clone_wrapper", lambda **_kwargs: 0)
+
+    result = runner.invoke(app, ["clone", "https://github.com/example/repo", "--dest", "/tmp/repo"])
+    assert result.exit_code == 0
+    assert captured.get("profile") is not None
+
+
+def test_connect_wrapper_uses_safe_scan_invocation(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_scan(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            pri_score=0,
+            verdict=SimpleNamespace(value="clear"),
+            coverage_notes=[],
+        )
+
+    monkeypatch.setattr("suscheck.cli.scan", _fake_scan)
+    monkeypatch.setattr(
+        "suscheck.cli.evaluate_wrapper_policy",
+        lambda summary, force, allow_pri_max: SimpleNamespace(
+            block_partial_coverage=False,
+            block_on_pri_threshold=False,
+            warn_forced_override=False,
+        ),
+    )
+
+    result = runner.invoke(app, ["connect", "https://example.com/mcp"])
+    assert result.exit_code == 0
+    assert captured.get("profile") is not None
