@@ -10,11 +10,11 @@
   <main class="shell">
     <section class="hero">
       <article class="brand">
-        <div class="pill">Dashboard skeleton</div>
+        <div class="pill">Modular dashboard</div>
         <h1>SusCheck Dashboard</h1>
         <p>
-          Standalone preview for SusCheck JSON reports. This page stays outside the main
-          package tree so dashboard work can evolve independently.
+          Dynamic dashboard for SusCheck JSON reports with plugin visibility controls,
+          module toggles, and interactive finding filters.
         </p>
       </article>
       <article class="scorecard">
@@ -23,42 +23,79 @@
       </article>
     </section>
 
+    <section class="panel panel-wide controls-panel">
+      <h2>Dashboard Controls</h2>
+      <div class="controls-grid">
+        <article class="control-card">
+          <h3>Report Source</h3>
+          <div class="control-actions">
+            <button id="reload-report-btn" class="btn" type="button">Reload Server Report</button>
+            <label class="file-btn" for="report-file-input">
+              Load JSON File
+              <input id="report-file-input" type="file" accept="application/json,.json">
+            </label>
+          </div>
+          <div class="status-inline" id="report-source-label">Source: server /report.json</div>
+        </article>
+
+        <article class="control-card">
+          <h3>Refresh</h3>
+          <label class="toggle-row">
+            <input id="auto-refresh-toggle" type="checkbox">
+            Auto-refresh server report
+          </label>
+          <label class="field-label" for="refresh-interval">Interval (seconds)</label>
+          <select id="refresh-interval" class="input-select">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="60">60</option>
+          </select>
+        </article>
+
+        <article class="control-card">
+          <h3>Finding Filters</h3>
+          <label class="field-label" for="search-input">Search</label>
+          <input id="search-input" class="input-text" type="text" placeholder="Search title, ID, description">
+
+          <label class="field-label" for="severity-filter">Severity</label>
+          <select id="severity-filter" class="input-select">
+            <option value="all" selected>All severities</option>
+            <option value="critical">critical</option>
+            <option value="high">high</option>
+            <option value="medium">medium</option>
+            <option value="low">low</option>
+            <option value="info">info</option>
+          </select>
+
+          <label class="field-label" for="module-filter">Module</label>
+          <select id="module-filter" class="input-select">
+            <option value="all" selected>All modules</option>
+          </select>
+        </article>
+
+        <article class="control-card">
+          <h3>Plugin Visibility</h3>
+          <div id="plugin-toggle-list" class="toggle-list"></div>
+        </article>
+
+        <article class="control-card">
+          <h3>Module On/Off</h3>
+          <div id="module-toggle-list" class="toggle-list"></div>
+        </article>
+      </div>
+    </section>
+
     <section class="panel panel-wide status-panel">
       <h2>Report Status</h2>
-      <div id="report-status">Waiting for a real report from the local dashboard server.</div>
+      <div id="report-status" class="status-inline">Waiting for report data.</div>
     </section>
 
-    <section class="grid">
-      <article class="panel">
-        <h2>Module Coverage</h2>
-        <div id="module-list"></div>
-      </article>
-
-      <article class="panel">
-        <h2>Severity Mix</h2>
-        <div id="severity-list"></div>
-      </article>
-
-      <article class="panel">
-        <h2>Coverage Notes</h2>
-        <div class="notes" id="coverage-notes"></div>
-      </article>
-    </section>
-
-    <section class="grid">
-      <article class="panel panel-wide">
-        <h2>Top Findings</h2>
-        <table class="table">
-          <thead>
-            <tr><th>Module</th><th>Finding ID</th><th>Severity</th><th>Title</th></tr>
-          </thead>
-          <tbody id="findings-table"></tbody>
-        </table>
-      </article>
-    </section>
+    <section id="plugin-grid" class="grid"></section>
 
     <div class="footer">
-      Standalone dashboard folder. It loads the same JSON contract used by the CLI report export.
+      Standalone dashboard app. Report source can be server-backed or file-backed, and plugin cards are fully toggleable.
     </div>
   </main>
 
