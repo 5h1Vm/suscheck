@@ -287,6 +287,18 @@
     "path": "/home/shivam/Minor02/manual_test/playwright extension/status.html",
     "size": 444
   },
+  "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat": {
+    "hash_result": {
+      "file_path": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+      "file_size": 3443,
+      "md5": "b687879d6d3d160dea04fa534e421ded",
+      "sha1": "3051fd96bcabfb35ce99185dbe5abb18002dd8a8",
+      "sha256": "8d2097545bee7069ad3a0dd66f5009b316859d0ae51ea22dbb4df7b2348cc1d8"
+    },
+    "mtime_ns": 1776750993556378077,
+    "path": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+    "size": 3443
+  },
   "/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py": {
     "hash_result": {
       "file_path": "/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py",

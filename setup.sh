@@ -8,6 +8,50 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_BIN="$ROOT_DIR/.venv/bin"
 VENV_TOOLS_DIR="$ROOT_DIR/.venv/tools"
 LOG_FILE="$ROOT_DIR/setup.log"
+PROVISION_MODE="${SUSCHECK_PROVISION_MODE:-core}"
+
+usage() {
+    cat <<'EOF'
+Usage: bash setup.sh [options]
+
+Options:
+  --mode minimal|core|full   Provisioning mode for external binaries
+                             minimal: python deps only
+                             core:    KICS + Dependency-Check (default)
+                             full:    core + optional adapter install checks
+  -h, --help                 Show this help
+
+Environment:
+  SUSCHECK_PROVISION_MODE=minimal|core|full
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode)
+            if [[ $# -lt 2 ]]; then
+                echo "ERROR: --mode requires a value (minimal|core|full)."
+                exit 1
+            fi
+            PROVISION_MODE="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ "$PROVISION_MODE" != "minimal" && "$PROVISION_MODE" != "core" && "$PROVISION_MODE" != "full" ]]; then
+    echo "ERROR: Invalid mode '$PROVISION_MODE'. Expected minimal, core, or full."
+    exit 1
+fi
 
 # Stream everything to terminal and log file for auditability.
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -15,6 +59,62 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 if [[ "${SUSCHECK_SETUP_TRACE:-0}" == "1" ]]; then
     set -x
 fi
+
+try_install_optional_binary_linux() {
+    local tool="$1"
+
+    if command -v "$tool" >/dev/null 2>&1; then
+        echo "      ✓ $tool already available: $(command -v "$tool")"
+        return 0
+    fi
+
+    if command -v apt-get >/dev/null 2>&1; then
+        case "$tool" in
+            nuclei)
+                echo "      • Attempting apt install for nuclei"
+                sudo apt-get update && sudo apt-get install -y nuclei && return 0
+                ;;
+            trivy)
+                echo "      • Attempting apt install for trivy"
+                sudo apt-get update && sudo apt-get install -y trivy && return 0
+                ;;
+            grype)
+                echo "      • grype is usually installed via script or package manager plugin."
+                ;;
+            *)
+                ;;
+        esac
+    fi
+
+    return 1
+}
+
+provision_optional_adapters_full() {
+    echo "      • Full mode: checking optional adapter binaries"
+
+    local missing_tools=()
+    local tools=(nuclei trivy grype)
+    for tool in "${tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_tools+=("$tool")
+        fi
+    done
+
+    if [[ ${#missing_tools[@]} -eq 0 ]]; then
+        echo "      ✓ Optional adapter binaries already present (nuclei, trivy, grype)."
+    else
+        echo "      • Missing optional binaries: ${missing_tools[*]}"
+        for tool in "${missing_tools[@]}"; do
+            if try_install_optional_binary_linux "$tool"; then
+                echo "      ✓ Installed $tool"
+            else
+                echo "      ⚠️  Could not auto-install $tool"
+            fi
+        done
+    fi
+
+    echo "      • For ZAP and OpenVAS, configure external service endpoints per your environment."
+}
 
 persist_kics_env() {
     local kics_bin="$VENV_BIN/kics"
@@ -383,6 +483,7 @@ echo "   SusCheck: Forensic Pre-execution Orchestrator   "
 echo "   Single entrypoint: setup.sh                     "
 echo "--------------------------------------------------"
 echo "Log file: $LOG_FILE"
+echo "Provision mode: $PROVISION_MODE"
 
 # 1. Environment Check
 echo "[1/5] Checking environment dependencies..."
@@ -417,18 +518,26 @@ if ! .venv/bin/pip install -e .; then
     exit 1
 fi
 
-# 4. Tool Provisioning (KICS + Dependency-Check)
+# 4. Tool Provisioning (mode-aware)
 echo "[4/5] Provisioning external security engines..."
-# Optional local archive path can be provided through env
-# e.g. SUSCHECK_KICS_ARCHIVE=/path/to/kics-binary.zip bash setup.sh
-if ! provision_kics "${SUSCHECK_KICS_ARCHIVE:-}"; then
-    echo "      ⚠️  KICS provisioning failed. You can still run scans without KICS."
-fi
+if [[ "$PROVISION_MODE" == "minimal" ]]; then
+    echo "      • Minimal mode selected: skipping external engine provisioning."
+else
+    # Optional local archive path can be provided through env
+    # e.g. SUSCHECK_KICS_ARCHIVE=/path/to/kics-binary.zip bash setup.sh
+    if ! provision_kics "${SUSCHECK_KICS_ARCHIVE:-}"; then
+        echo "      ⚠️  KICS provisioning failed. You can still run scans without KICS."
+    fi
 
-# Optional local archive path can be provided through env
-# e.g. SUSCHECK_DEPCHECK_ARCHIVE=/path/to/dependency-check-release.zip bash setup.sh
-if ! provision_dependency_check "${SUSCHECK_DEPCHECK_ARCHIVE:-}"; then
-    echo "      ⚠️  Dependency-Check provisioning failed. CVE dependency scanning will be unavailable."
+    # Optional local archive path can be provided through env
+    # e.g. SUSCHECK_DEPCHECK_ARCHIVE=/path/to/dependency-check-release.zip bash setup.sh
+    if ! provision_dependency_check "${SUSCHECK_DEPCHECK_ARCHIVE:-}"; then
+        echo "      ⚠️  Dependency-Check provisioning failed. CVE dependency scanning will be unavailable."
+    fi
+
+    if [[ "$PROVISION_MODE" == "full" ]]; then
+        provision_optional_adapters_full
+    fi
 fi
 
 # 5. Final Diagnostic
@@ -446,4 +555,5 @@ echo "  1. Activate: source .venv/bin/activate"
 echo "  2. Configure: Add API keys and optional paths to your .env file"
 echo "  3. Check: suscheck version"
 echo "  4. Scan: suscheck scan ./your_project"
+echo "  5. Setup modes: bash setup.sh --mode minimal|core|full"
 echo "--------------------------------------------------"

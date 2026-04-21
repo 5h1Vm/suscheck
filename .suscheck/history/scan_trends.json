@@ -399,6 +399,14 @@
     "total_findings": 7,
     "verdict": "hold"
   },
+  "code:/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat": {
+    "artifact_type": "code",
+    "coverage_complete": false,
+    "pri_score": 0,
+    "target": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+    "total_findings": 3,
+    "verdict": "clear"
+  },
   "code:/tmp/pytest-of-shivam/pytest-31/test_scan_local_file_fans_out_0/sample.py": {
     "artifact_type": "code",
     "coverage_complete": true,

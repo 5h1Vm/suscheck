@@ -1,19 +1,20 @@
 # SusCheck Dashboards
 
-This folder contains a standalone dashboard skeleton for SusCheck scan reports.
+This folder contains a standalone dashboard workbench for SusCheck scans and reports.
 
 ## Purpose
 
 - Keep dashboard work separate from the main `suscheck/` package.
-- Provide a simple static preview that can load a SusCheck JSON report.
+- Run scans directly from the UI with explicit adapter/module toggles.
+- Load and inspect existing SusCheck JSON reports.
 - Use the existing JSON contract documented in `Checkpoints/docs/dashboard_json_contract.md`.
 
 ## Files
 
-- `index.html` - dashboard shell
-- `styles.css` - dashboard styling
-- `app.js` - report loader and renderer
-- `serve_dashboard.py` - dedicated local server for the dashboard
+- `index.html` - workbench shell and controls
+- `styles.css` - workbench styling
+- `app.js` - scan execution client, report loader, plugin renderer
+- `serve_dashboard.py` - dedicated local server and scan API (`/scan`)
 
 ## Quick Start
 
@@ -24,8 +25,9 @@ This folder contains a standalone dashboard skeleton for SusCheck scan reports.
    python dashboards/serve_dashboard.py --report /path/to/report.json
    ```
 2. Open the printed local URL in a browser.
-3. Use a real `suscheck scan --format json` report.
-4. If you do not pass `--report`, the dashboard will load without data until a report endpoint is provided.
+3. Enter a target (path, URL, repo URL, package) and click `Run Scan`, or upload a local file/archive and click `Scan Uploaded Artifact`.
+4. Use adapter toggles to enable/disable Nuclei, Trivy, Grype, ZAP, and OpenVAS.
+5. If you do not pass `--report`, the dashboard loads without data until a scan is run or a JSON report is loaded manually.
 
 ## Default Port
 
@@ -35,6 +37,7 @@ This folder contains a standalone dashboard skeleton for SusCheck scan reports.
 
 ## Notes
 
-- This folder is intentionally separate from the CLI implementation.
+- The dashboard server executes `python -m suscheck scan ...` from the project root.
+- Uploaded scan artifacts are stored temporarily under `dashboards/.runtime/uploads/`.
 - Unknown JSON fields are ignored.
 - Required fields follow the dashboard contract in the `Checkpoints/docs/` folder.

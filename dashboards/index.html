@@ -3,19 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SusCheck Dashboard</title>
+  <title>SusCheck Workbench</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <article class="brand">
-        <div class="pill">Modular dashboard</div>
-        <h1>SusCheck Dashboard</h1>
+        <div class="eyebrow">Security Workbench</div>
+        <h1>SusCheck Operator Console</h1>
         <p>
-          Dynamic dashboard for SusCheck JSON reports with plugin visibility controls,
-          module toggles, and interactive finding filters.
+          Run scans directly from this dashboard, control adapters explicitly,
+          and inspect results with focused plugins.
         </p>
+        <div class="hero-actions">
+          <button id="run-scan-btn" class="btn btn-strong" type="button">Run Scan</button>
+          <button id="reload-report-btn" class="btn" type="button">Reload Latest Report</button>
+        </div>
       </article>
       <article class="scorecard">
         <div class="score" id="pri-score">--/100</div>
@@ -24,18 +28,90 @@
     </section>
 
     <section class="panel panel-wide controls-panel">
-      <h2>Dashboard Controls</h2>
+      <div class="panel-header">
+        <h2>Scan Studio</h2>
+        <div id="report-source-label" class="status-inline">Source: server /report.json</div>
+      </div>
+      <div class="controls-grid controls-grid-studio">
+        <article class="control-card control-card-large">
+          <h3>Target</h3>
+          <label class="field-label" for="scan-target-input">Path, repo URL, package, or web target</label>
+          <input id="scan-target-input" class="input-text" type="text" placeholder="Examples: ./src  |  https://github.com/org/repo  |  requests  |  https://example.com">
+
+          <div class="target-row">
+            <div>
+              <label class="field-label" for="scan-profile">Profile</label>
+              <select id="scan-profile" class="input-select">
+                <option value="default" selected>default</option>
+                <option value="deep">deep</option>
+                <option value="fast">fast</option>
+                <option value="mcp-hardening">mcp-hardening</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="scan-timeout">Timeout (seconds)</label>
+              <select id="scan-timeout" class="input-select">
+                <option value="120">120</option>
+                <option value="300" selected>300</option>
+                <option value="600">600</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="field-label" for="scan-upload-input">Or upload a local file/archive to scan</label>
+          <input id="scan-upload-input" class="input-file" type="file">
+          <div class="control-actions">
+            <button id="scan-upload-btn" class="btn" type="button">Scan Uploaded Artifact</button>
+          </div>
+          <div class="small-note">Upload is optional. If both upload and target are set, upload is used.</div>
+        </article>
+
+        <article class="control-card">
+          <h3>Execution Toggles</h3>
+          <div class="toggle-list compact">
+            <label class="toggle-item"><input id="toggle-ai" type="checkbox" checked><span>AI triage</span></label>
+            <label class="toggle-item"><input id="toggle-vt" type="checkbox" checked><span>VirusTotal</span></label>
+            <label class="toggle-item"><input id="toggle-upload-vt" type="checkbox"><span>Upload unknowns to VT</span></label>
+            <label class="toggle-item"><input id="toggle-mcp-dynamic" type="checkbox"><span>MCP dynamic</span></label>
+            <label class="toggle-item"><input id="toggle-mcp-only" type="checkbox"><span>MCP only</span></label>
+            <label class="toggle-item"><input id="toggle-dependency-check" type="checkbox"><span>Dependency check</span></label>
+            <label class="toggle-item"><input id="toggle-verbose" type="checkbox"><span>Verbose mode</span></label>
+          </div>
+        </article>
+
+        <article class="control-card">
+          <div class="card-title-row">
+            <h3>Optional Adapters</h3>
+            <button id="enable-all-adapters" class="btn btn-small" type="button">Enable All</button>
+          </div>
+          <div class="toggle-list compact">
+            <label class="toggle-item"><input id="toggle-nuclei" type="checkbox"><span>Nuclei</span></label>
+            <label class="toggle-item"><input id="toggle-trivy" type="checkbox"><span>Trivy</span></label>
+            <label class="toggle-item"><input id="toggle-grype" type="checkbox"><span>Grype</span></label>
+            <label class="toggle-item"><input id="toggle-zap" type="checkbox"><span>ZAP</span></label>
+            <label class="toggle-item"><input id="toggle-openvas" type="checkbox"><span>OpenVAS</span></label>
+          </div>
+          <div class="control-actions">
+            <button id="disable-all-adapters" class="btn btn-small" type="button">Disable All</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel panel-wide controls-panel">
+      <div class="panel-header">
+        <h2>Dashboard Controls</h2>
+      </div>
       <div class="controls-grid">
         <article class="control-card">
           <h3>Report Source</h3>
           <div class="control-actions">
-            <button id="reload-report-btn" class="btn" type="button">Reload Server Report</button>
             <label class="file-btn" for="report-file-input">
-              Load JSON File
+              Load JSON Report
               <input id="report-file-input" type="file" accept="application/json,.json">
             </label>
           </div>
-          <div class="status-inline" id="report-source-label">Source: server /report.json</div>
+          <div class="status-inline">Manual report load is for viewing only.</div>
         </article>
 
         <article class="control-card">
@@ -76,26 +152,39 @@
         </article>
 
         <article class="control-card">
-          <h3>Plugin Visibility</h3>
+          <div class="card-title-row">
+            <h3>Plugin Visibility</h3>
+            <button id="enable-all-plugins" class="btn btn-small" type="button">Enable All</button>
+          </div>
           <div id="plugin-toggle-list" class="toggle-list"></div>
+          <div class="control-actions">
+            <button id="disable-all-plugins" class="btn btn-small" type="button">Disable All</button>
+          </div>
         </article>
 
         <article class="control-card">
-          <h3>Module On/Off</h3>
+          <div class="card-title-row">
+            <h3>Module Visibility</h3>
+            <button id="enable-all-modules" class="btn btn-small" type="button">Enable All</button>
+          </div>
           <div id="module-toggle-list" class="toggle-list"></div>
+          <div class="control-actions">
+            <button id="disable-all-modules" class="btn btn-small" type="button">Disable All</button>
+          </div>
         </article>
       </div>
     </section>
 
     <section class="panel panel-wide status-panel">
-      <h2>Report Status</h2>
+      <h2>Run Status</h2>
       <div id="report-status" class="status-inline">Waiting for report data.</div>
+      <pre id="scan-stdout" class="stdout-box">No scan output yet.</pre>
     </section>
 
     <section id="plugin-grid" class="grid"></section>
 
     <div class="footer">
-      Standalone dashboard app. Report source can be server-backed or file-backed, and plugin cards are fully toggleable.
+      SusCheck Operator Console: scan-first workflow, explicit adapter controls, and plugin-driven result analysis.
     </div>
   </main>
 

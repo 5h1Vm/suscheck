@@ -1,0 +1,175 @@
+{
+  "target": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+  "artifact_type": "code",
+  "pri_score": 0,
+  "verdict": "clear",
+  "findings": [
+    {
+      "module": "tier0",
+      "finding_id": "VT-LOW-001",
+      "title": "VirusTotal: Low detections (1/76)",
+      "description": "1/76 security engines flagged this file. This is a low detection count and may be a false positive. Suggested threat: unknown",
+      "severity": "medium",
+      "finding_type": "review_needed",
+      "confidence": 0.5,
+      "file_path": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+      "line_number": null,
+      "code_snippet": null,
+      "context": "main",
+      "mitre_ids": [
+        "T1027"
+      ],
+      "evidence": {
+        "vt_link": "https://www.virustotal.com/gui/file/8d2097545bee7069ad3a0dd66f5009b316859d0ae51ea22dbb4df7b2348cc1d8",
+        "detection_count": 1,
+        "total_engines": 76,
+        "detection_names": [
+          "Skyhigh: BehavesLike.Backdoor.zq"
+        ],
+        "threat_label": "unknown"
+      },
+      "needs_human_review": true,
+      "review_reason": "Low VT detection count (1/76) \u2014 could be false positive or emerging threat",
+      "ai_explanation": "This finding indicates that 1 out of 76 security engines flagged the file, which may be a false positive. The suggested threat is unknown, so it requires further review.",
+      "ai_false_positive": true,
+      "ai_confidence": 0.4
+    },
+    {
+      "module": "trivy",
+      "finding_id": "TRIVY-TOOL-MISSING",
+      "title": "Trivy adapter enabled but binary not installed",
+      "description": "Optional Trivy phase was requested but the Trivy executable was not found.",
+      "severity": "info",
+      "finding_type": "review_needed",
+      "confidence": 0.95,
+      "file_path": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+      "line_number": null,
+      "code_snippet": null,
+      "context": "main",
+      "mitre_ids": [],
+      "evidence": {
+        "phase": "trivy",
+        "status": "missing_tool"
+      },
+      "needs_human_review": false,
+      "review_reason": null,
+      "ai_explanation": "The Trivy adapter is enabled but the binary is not installed. Similar to the Grype finding, this is an informational finding and does not directly impact the security of the file.",
+      "ai_false_positive": true,
+      "ai_confidence": 0.95
+    },
+    {
+      "module": "grype",
+      "finding_id": "GRYPE-TOOL-MISSING",
+      "title": "Grype adapter enabled but binary not installed",
+      "description": "Optional Grype phase was requested but the Grype executable was not found.",
+      "severity": "info",
+      "finding_type": "review_needed",
+      "confidence": 0.95,
+      "file_path": "/home/shivam/Minor02/suscheck/dashboards/.runtime/uploads/1776750993_cleaner.bat",
+      "line_number": null,
+      "code_snippet": null,
+      "context": "main",
+      "mitre_ids": [],
+      "evidence": {
+        "phase": "grype",
+        "status": "missing_tool"
+      },
+      "needs_human_review": false,
+      "review_reason": null,
+      "ai_explanation": "The Grype adapter is enabled but the binary is not installed. This is an informational finding and does not directly impact the security of the file.",
+      "ai_false_positive": true,
+      "ai_confidence": 0.95
+    }
+  ],
+  "total_findings": 3,
+  "critical_count": 0,
+  "high_count": 0,
+  "medium_count": 1,
+  "low_count": 0,
+  "info_count": 2,
+  "review_count": 1,
+  "scan_duration": 1.061079740524292,
+  "modules_ran": [
+    "tier0",
+    "nuclei",
+    "trivy",
+    "grype",
+    "zap",
+    "openvas",
+    "ai_triage"
+  ],
+  "modules_failed": [
+    "grype",
+    "trivy"
+  ],
+  "modules_skipped": [
+    "mcp"
+  ],
+  "coverage_complete": false,
+  "coverage_notes": [
+    "Modules skipped: mcp",
+    "MCP-PHASE-A manifest-static: skipped",
+    "MCP-PHASE-B auth-authz-static: skipped",
+    "MCP-PHASE-C source-static: optional-not-enabled",
+    "MCP-PHASE-D runtime-dynamic: optional-not-applicable"
+  ],
+  "vt_result": {
+    "hash_sha256": "8d2097545bee7069ad3a0dd66f5009b316859d0ae51ea22dbb4df7b2348cc1d8",
+    "detection_count": 1,
+    "total_engines": 76,
+    "detection_names": [
+      "Skyhigh: BehavesLike.Backdoor.zq"
+    ],
+    "malicious": true,
+    "vt_link": "https://www.virustotal.com/gui/file/8d2097545bee7069ad3a0dd66f5009b316859d0ae51ea22dbb4df7b2348cc1d8",
+    "found": true,
+    "scan_date": 1756119489,
+    "tags": [
+      "bat"
+    ],
+    "suggested_threat_label": null
+  },
+  "trust_score": null,
+  "pri_breakdown": [
+    "[bold]Score Breakdown:[/bold]",
+    "  [dim]\u2022[/dim] No risk-contributing base findings.",
+    "  [magenta]\ud83e\udd16 AI Triage Adjustment[/magenta] \u2192 [bold]-2.0[/bold] pts",
+    "  [bold]Total Score: 0/100 (raw: -2)[/bold]",
+    "",
+    "[dim]Informational (not scored):[/dim]",
+    "  [dim]\u2022 Trivy adapter enabled but binary not installed[/dim]",
+    "  [dim]\u2022 Grype adapter enabled but binary not installed[/dim]"
+  ],
+  "policy_action": "block",
+  "policy_trace": [
+    "coverage: block (scan coverage incomplete)",
+    "severity: warn (1 medium finding(s))",
+    "pri: allow (0/100)"
+  ],
+  "suppression_trace": [],
+  "explainability_trace": [
+    "Verdict: CLEAR at PRI 0/100",
+    "PRI band: clear (0-15)",
+    "Policy gate action: block",
+    "- coverage: block (scan coverage incomplete)",
+    "- severity: warn (1 medium finding(s))",
+    "- pri: allow (0/100)",
+    "Coverage / phase decisions:",
+    "- Modules skipped: mcp",
+    "- MCP-PHASE-A manifest-static: skipped",
+    "- MCP-PHASE-B auth-authz-static: skipped",
+    "- MCP-PHASE-C source-static: optional-not-enabled",
+    "- MCP-PHASE-D runtime-dynamic: optional-not-applicable",
+    "Failed modules: grype, trivy"
+  ],
+  "schema_version": "1.0",
+  "performance_trace": [
+    "performance: within guardrail (1.06s <= 30.00s for default)"
+  ],
+  "trend_trace": [
+    "trend: no previous scan snapshot for this target"
+  ],
+  "optional_scanner_trace": [
+    "optional-scanners: enabled=grype,nuclei,openvas,trivy,zap"
+  ]
+}
