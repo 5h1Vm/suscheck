@@ -19,3 +19,4 @@ build/
 .pytest_cache/
 .coverage
 .venv/
+.DS_Store

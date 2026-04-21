@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SusCheck Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <article class="brand">
+        <div class="pill">Dashboard skeleton</div>
+        <h1>SusCheck Dashboard</h1>
+        <p>
+          Standalone preview for SusCheck JSON reports. This page stays outside the main
+          package tree so dashboard work can evolve independently.
+        </p>
+      </article>
+      <article class="scorecard">
+        <div class="score" id="pri-score">--/100</div>
+        <div class="meta" id="summary-meta"></div>
+      </article>
+    </section>
+
+    <section class="panel panel-wide status-panel">
+      <h2>Report Status</h2>
+      <div id="report-status">Waiting for a real report from the local dashboard server.</div>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Module Coverage</h2>
+        <div id="module-list"></div>
+      </article>
+
+      <article class="panel">
+        <h2>Severity Mix</h2>
+        <div id="severity-list"></div>
+      </article>
+
+      <article class="panel">
+        <h2>Coverage Notes</h2>
+        <div class="notes" id="coverage-notes"></div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel panel-wide">
+        <h2>Top Findings</h2>
+        <table class="table">
+          <thead>
+            <tr><th>Module</th><th>Finding ID</th><th>Severity</th><th>Title</th></tr>
+          </thead>
+          <tbody id="findings-table"></tbody>
+        </table>
+      </article>
+    </section>
+
+    <div class="footer">
+      Standalone dashboard folder. It loads the same JSON contract used by the CLI report export.
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
